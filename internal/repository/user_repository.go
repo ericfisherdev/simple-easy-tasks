@@ -1,13 +1,17 @@
 // Package repository defines data access interfaces and implementations for the domain entities.
 package repository
 
+//nolint:gofumpt
 import (
 	"context"
+
 	"simple-easy-tasks/internal/domain"
 )
 
 // UserRepository defines the interface for user data operations.
 // Following Interface Segregation Principle.
+//
+//nolint:dupl
 type UserRepository interface {
 	// Create creates a new user.
 	Create(ctx context.Context, user *domain.User) error

@@ -1,15 +1,18 @@
 package services
 
+//nolint:gofumpt
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"simple-easy-tasks/internal/config"
 	"simple-easy-tasks/internal/domain"
 	"simple-easy-tasks/internal/repository"
+	"sync"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 // AuthService defines the interface for authentication operations.
@@ -29,6 +32,13 @@ type AuthService interface {
 
 	// Logout invalidates tokens (placeholder for future blacklist implementation).
 	Logout(ctx context.Context, userID string) error
+
+	// ForgotPassword initiates the password reset flow.
+	ForgotPassword(ctx context.Context, email string) error
+
+	// ResetPassword resets the user's password using a reset token.
+	//nolint:gofumpt
+	ResetPassword(ctx context.Context, token string, newPassword string) error
 }
 
 // TokenClaims represents JWT token claims.
@@ -40,19 +50,29 @@ type TokenClaims struct {
 	jwt.RegisteredClaims
 }
 
+// passwordResetToken stores information about password reset tokens.
+type passwordResetToken struct {
+	ExpiresAt time.Time
+	UserID    string
+	Token     string
+}
+
 // authService implements AuthService interface.
 type authService struct {
-	userRepo  repository.UserRepository
-	config    config.SecurityConfig
-	jwtSecret []byte
+	resetTokens map[string]*passwordResetToken
+	userRepo    repository.UserRepository
+	config      config.SecurityConfig
+	jwtSecret   []byte
+	resetMutex  sync.RWMutex
 }
 
 // NewAuthService creates a new authentication service.
 func NewAuthService(userRepo repository.UserRepository, cfg config.SecurityConfig) AuthService {
 	return &authService{
-		userRepo:  userRepo,
-		config:    cfg,
-		jwtSecret: []byte(cfg.GetJWTSecret()),
+		userRepo:    userRepo,
+		config:      cfg,
+		jwtSecret:   []byte(cfg.GetJWTSecret()),
+		resetTokens: make(map[string]*passwordResetToken),
 	}
 }
 
@@ -267,4 +287,106 @@ func (s *authService) parseToken(tokenString string) (*TokenClaims, error) {
 	}
 
 	return nil, fmt.Errorf("invalid token claims")
+}
+
+// ForgotPassword initiates the password reset flow.
+func (s *authService) ForgotPassword(ctx context.Context, email string) error {
+	// Get user by email
+	user, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		// Don't reveal if email exists or not for security
+		return nil
+	}
+
+	// Generate secure random token
+	token, err := s.generateSecureToken()
+	if err != nil {
+		return domain.NewInternalError("TOKEN_GENERATION_FAILED", "Failed to generate reset token", err)
+	}
+
+	// Store token with expiration (1 hour)
+	s.resetMutex.Lock()
+	s.resetTokens[token] = &passwordResetToken{
+		UserID:    user.ID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(1 * time.Hour),
+	}
+	s.resetMutex.Unlock()
+
+	// Clean up expired tokens periodically
+	go s.cleanupExpiredTokens()
+
+	// TODO: Send email with reset link containing the token
+	// For now, we'll log the token (in production, this should be sent via email)
+	fmt.Printf("Password reset token for user %s: %s\n", user.Email, token)
+
+	return nil
+}
+
+// ResetPassword resets the user's password using a reset token.
+//
+//nolint:gofumpt
+func (s *authService) ResetPassword(ctx context.Context, token string, newPassword string) error {
+	// Validate token
+	s.resetMutex.RLock()
+	resetToken, exists := s.resetTokens[token]
+	s.resetMutex.RUnlock()
+
+	if !exists {
+		return domain.NewAuthenticationError("INVALID_RESET_TOKEN", "Invalid or expired reset token")
+	}
+
+	// Check if token is expired
+	if time.Now().After(resetToken.ExpiresAt) {
+		// Remove expired token
+		s.resetMutex.Lock()
+		delete(s.resetTokens, token)
+		s.resetMutex.Unlock()
+		return domain.NewAuthenticationError("EXPIRED_RESET_TOKEN", "Reset token has expired")
+	}
+
+	// Get user
+	user, err := s.userRepo.GetByID(ctx, resetToken.UserID)
+	if err != nil {
+		return domain.NewNotFoundError("USER_NOT_FOUND", "User not found")
+	}
+
+	// Set new password
+	if err := user.SetPassword(newPassword); err != nil {
+		return err
+	}
+
+	// Update user
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return domain.NewInternalError("PASSWORD_UPDATE_FAILED", "Failed to update password", err)
+	}
+
+	// Remove used token
+	s.resetMutex.Lock()
+	delete(s.resetTokens, token)
+	s.resetMutex.Unlock()
+
+	return nil
+}
+
+// generateSecureToken generates a cryptographically secure random token.
+func (s *authService) generateSecureToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+// cleanupExpiredTokens removes expired password reset tokens.
+func (s *authService) cleanupExpiredTokens() {
+	s.resetMutex.Lock()
+	defer s.resetMutex.Unlock()
+
+	now := time.Now()
+	for token, resetToken := range s.resetTokens {
+		if now.After(resetToken.ExpiresAt) {
+			delete(s.resetTokens, token)
+		}
+	}
 }

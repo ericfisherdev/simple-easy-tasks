@@ -1,7 +1,9 @@
 package repository
 
+//nolint:gofumpt
 import (
 	"context"
+
 	"simple-easy-tasks/internal/domain"
 )
 

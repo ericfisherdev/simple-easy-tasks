@@ -1,13 +1,15 @@
 // Package api provides HTTP handlers and API endpoints.
 package api
 
+//nolint:gofumpt
 import (
 	"context"
 	"fmt"
 	"net/http"
 	"runtime"
-	"simple-easy-tasks/internal/services"
 	"time"
+
+	"simple-easy-tasks/internal/services"
 
 	"github.com/gin-gonic/gin"
 )

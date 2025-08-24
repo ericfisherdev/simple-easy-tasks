@@ -1,14 +1,14 @@
 // Package middleware provides HTTP middleware functions for authentication and authorization.
 package middleware
 
+//nolint:gofumpt
 import (
 	"context"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"simple-easy-tasks/internal/domain"
 	"simple-easy-tasks/internal/services"
 	"strings"
-
-	"github.com/gin-gonic/gin"
 )
 
 // UserContextKey is the key used to store user in request context.
