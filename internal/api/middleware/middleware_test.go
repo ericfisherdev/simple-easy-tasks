@@ -1,6 +1,7 @@
 package middleware_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -114,7 +115,7 @@ func TestCORSMiddleware(t *testing.T) {
 			helper := testutil.NewHTTPTestHelper(t, router)
 
 			if tt.method == "OPTIONS" {
-				req, _ := http.NewRequest("OPTIONS", "/test", nil)
+				req, _ := http.NewRequestWithContext(context.Background(), "OPTIONS", "/test", nil)
 				req.Header.Set("Origin", tt.origin)
 				recorder = httptest.NewRecorder()
 				router.ServeHTTP(recorder, req)
@@ -215,7 +216,7 @@ func TestRecoveryMiddleware(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			router := testutil.NewTestRouter()
 			router.Use(middleware.DefaultRecoveryMiddleware())
-			router.GET("/panic", func(c *gin.Context) {
+			router.GET("/panic", func(_ *gin.Context) {
 				panic(tt.panicValue)
 			})
 

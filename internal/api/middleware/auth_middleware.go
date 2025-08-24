@@ -4,11 +4,13 @@ package middleware
 //nolint:gofumpt
 import (
 	"context"
-	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+
 	"simple-easy-tasks/internal/domain"
 	"simple-easy-tasks/internal/services"
-	"strings"
 )
 
 // UserContextKey is the key used to store user in request context.

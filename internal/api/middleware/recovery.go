@@ -50,8 +50,10 @@ func RecoveryMiddleware(config RecoveryConfig) gin.HandlerFunc {
 
 		// Include stack trace in development
 		if config.IncludeStackInResponse {
-			errorResponse["error"].(map[string]interface{})["stack"] = string(stack)
-			errorResponse["error"].(map[string]interface{})["panic"] = fmt.Sprintf("%v", recovered)
+			if errorMap, ok := errorResponse["error"].(map[string]interface{}); ok {
+				errorMap["stack"] = string(stack)
+				errorMap["panic"] = fmt.Sprintf("%v", recovered)
+			}
 		}
 
 		c.JSON(http.StatusInternalServerError, errorResponse)

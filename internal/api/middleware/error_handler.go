@@ -1,6 +1,7 @@
 // Package middleware provides HTTP middleware functions.
 package middleware
 
+//nolint:gofumpt
 import (
 	"encoding/json"
 	"fmt"
@@ -94,7 +95,7 @@ func handleError(c *gin.Context, err error, config ErrorHandlerConfig) {
 }
 
 // handleDomainError handles domain-specific errors.
-func handleDomainError(c *gin.Context, domainErr *domain.Error, config ErrorHandlerConfig) {
+func handleDomainError(c *gin.Context, domainErr *domain.Error, _ ErrorHandlerConfig) {
 	statusCode := mapDomainErrorToHTTPStatus(domainErr.Type)
 	requestID := GetRequestID(c)
 
@@ -109,7 +110,9 @@ func handleDomainError(c *gin.Context, domainErr *domain.Error, config ErrorHand
 	}
 
 	if domainErr.Details != nil {
-		errorResponse["error"].(gin.H)["details"] = domainErr.Details
+		if errorMap, ok := errorResponse["error"].(gin.H); ok {
+			errorMap["details"] = domainErr.Details
+		}
 	}
 
 	// Stack trace handling removed - not available in current domain.Error implementation
@@ -161,8 +164,10 @@ func handleGenericError(c *gin.Context, err error, requestID string, config Erro
 	}
 
 	if config.IncludeStackTrace {
-		errorResponse["error"].(gin.H)["details"] = err.Error()
-		errorResponse["error"].(gin.H)["stack_trace"] = string(debug.Stack())
+		if errorMap, ok := errorResponse["error"].(gin.H); ok {
+			errorMap["details"] = err.Error()
+			errorMap["stack_trace"] = string(debug.Stack())
+		}
 	}
 
 	c.JSON(http.StatusInternalServerError, errorResponse)
@@ -198,7 +203,7 @@ func logError(err error, requestID, method, path string) {
 
 // AbortWithError aborts the request with a domain error.
 func AbortWithError(c *gin.Context, err *domain.Error) {
-	c.Error(err)
+	_ = c.Error(err) // Error is logged by the error handler middleware
 	c.Abort()
 }
 

@@ -1,6 +1,7 @@
 // Package validation provides comprehensive validation utilities.
 package validation
 
+//nolint:gofumpt
 import (
 	"fmt"
 	"reflect"
@@ -11,49 +12,49 @@ import (
 	"simple-easy-tasks/internal/domain"
 )
 
-// ValidationError represents a validation error with field-specific details.
-type ValidationError struct {
+// Error represents a validation error with field-specific details.
+type Error struct {
 	Field   string      `json:"field"`
 	Value   interface{} `json:"value"`
 	Tag     string      `json:"tag"`
 	Message string      `json:"message"`
 }
 
-// ValidationResult represents the result of validation.
-type ValidationResult struct {
-	Valid  bool               `json:"valid"`
-	Errors []*ValidationError `json:"errors,omitempty"`
+// Result represents the result of validation.
+type Result struct {
+	Valid  bool     `json:"valid"`
+	Errors []*Error `json:"errors,omitempty"`
 }
 
 // Validator provides validation functionality.
 type Validator struct {
-	rules map[string][]ValidationRule
+	rules map[string][]Rule
 }
 
-// ValidationRule represents a validation rule for a field.
-type ValidationRule struct {
+// Rule represents a validation rule for a field.
+type Rule struct {
 	Tag     string
 	Message string
-	Func    ValidationFunc
+	Func    Func
 }
 
-// ValidationFunc is a function that validates a field value.
-type ValidationFunc func(value interface{}, param string) bool
+// Func is a function that validates a field value.
+type Func func(value interface{}, param string) bool
 
 // NewValidator creates a new validator instance.
 func NewValidator() *Validator {
 	v := &Validator{
-		rules: make(map[string][]ValidationRule),
+		rules: make(map[string][]Rule),
 	}
 	v.registerBuiltinRules()
 	return v
 }
 
 // Validate validates a struct using reflection and validation tags.
-func (v *Validator) Validate(s interface{}) *ValidationResult {
-	result := &ValidationResult{
+func (v *Validator) Validate(s interface{}) *Result {
+	result := &Result{
 		Valid:  true,
-		Errors: make([]*ValidationError, 0),
+		Errors: make([]*Error, 0),
 	}
 
 	val := reflect.ValueOf(s)
@@ -101,13 +102,13 @@ func (v *Validator) Validate(s interface{}) *ValidationResult {
 }
 
 // validateField validates a single field value against validation rules.
-func (v *Validator) validateField(fieldName string, value interface{}, tag string) []*ValidationError {
-	errors := make([]*ValidationError, 0)
+func (v *Validator) validateField(fieldName string, value interface{}, tag string) []*Error {
+	errors := make([]*Error, 0)
 
 	rules := parseValidationTag(tag)
 	for _, rule := range rules {
 		if !v.validateRule(value, rule) {
-			errors = append(errors, &ValidationError{
+			errors = append(errors, &Error{
 				Field:   fieldName,
 				Value:   value,
 				Tag:     rule.Tag,
@@ -119,15 +120,15 @@ func (v *Validator) validateField(fieldName string, value interface{}, tag strin
 	return errors
 }
 
-// ValidationTag represents a parsed validation tag.
-type ValidationTag struct {
+// Tag represents a parsed validation tag.
+type Tag struct {
 	Tag   string
 	Param string
 }
 
 // parseValidationTag parses a validation tag into individual rules.
-func parseValidationTag(tag string) []ValidationTag {
-	rules := make([]ValidationTag, 0)
+func parseValidationTag(tag string) []Tag {
+	rules := make([]Tag, 0)
 	parts := strings.Split(tag, ",")
 
 	for _, part := range parts {
@@ -138,12 +139,12 @@ func parseValidationTag(tag string) []ValidationTag {
 
 		if strings.Contains(part, "=") {
 			kv := strings.SplitN(part, "=", 2)
-			rules = append(rules, ValidationTag{
+			rules = append(rules, Tag{
 				Tag:   kv[0],
 				Param: kv[1],
 			})
 		} else {
-			rules = append(rules, ValidationTag{
+			rules = append(rules, Tag{
 				Tag:   part,
 				Param: "",
 			})
@@ -154,7 +155,7 @@ func parseValidationTag(tag string) []ValidationTag {
 }
 
 // validateRule validates a value against a single rule.
-func (v *Validator) validateRule(value interface{}, rule ValidationTag) bool {
+func (v *Validator) validateRule(value interface{}, rule Tag) bool {
 	switch rule.Tag {
 	case "required":
 		return v.validateRequired(value)
@@ -216,66 +217,46 @@ func (v *Validator) validateRequired(value interface{}) bool {
 	}
 }
 
-func (v *Validator) validateMin(value interface{}, param string) bool {
-	minVal, err := strconv.Atoi(param)
+// validateMinMax validates minimum and maximum constraints
+type compareFunc func(int, int) bool
+
+func (v *Validator) validateMinMax(value interface{}, param string, compare compareFunc) bool {
+	targetVal, err := strconv.Atoi(param)
 	if err != nil {
 		return true
 	}
 
 	switch v := value.(type) {
 	case string:
-		return len(v) >= minVal
+		return compare(len(v), targetVal)
 	case *string:
 		if v == nil {
 			return true
 		}
-		return len(*v) >= minVal
+		return compare(len(*v), targetVal)
 	case int:
-		return v >= minVal
+		return compare(v, targetVal)
 	case int64:
-		return v >= int64(minVal)
+		return compare(int(v), targetVal)
 	case float64:
-		return v >= float64(minVal)
+		return compare(int(v), targetVal)
 	default:
 		val := reflect.ValueOf(value)
 		switch val.Kind() {
 		case reflect.Slice, reflect.Array, reflect.Map:
-			return val.Len() >= minVal
+			return compare(val.Len(), targetVal)
 		default:
 			return true
 		}
 	}
 }
 
-func (v *Validator) validateMax(value interface{}, param string) bool {
-	maxVal, err := strconv.Atoi(param)
-	if err != nil {
-		return true
-	}
+func (v *Validator) validateMin(value interface{}, param string) bool {
+	return v.validateMinMax(value, param, func(a, b int) bool { return a >= b })
+}
 
-	switch v := value.(type) {
-	case string:
-		return len(v) <= maxVal
-	case *string:
-		if v == nil {
-			return true
-		}
-		return len(*v) <= maxVal
-	case int:
-		return v <= maxVal
-	case int64:
-		return v <= int64(maxVal)
-	case float64:
-		return v <= float64(maxVal)
-	default:
-		val := reflect.ValueOf(value)
-		switch val.Kind() {
-		case reflect.Slice, reflect.Array, reflect.Map:
-			return val.Len() <= maxVal
-		default:
-			return true
-		}
-	}
+func (v *Validator) validateMax(value interface{}, param string) bool {
+	return v.validateMinMax(value, param, func(a, b int) bool { return a <= b })
 }
 
 func (v *Validator) validateEmail(value interface{}) bool {

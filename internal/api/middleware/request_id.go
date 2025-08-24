@@ -8,8 +8,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// RequestIDKeyType is the type used for request ID context key.
+type RequestIDKeyType string
+
 // RequestIDKey is the key used to store request ID in context.
-const RequestIDKey = "request_id"
+const RequestIDKey RequestIDKeyType = "request_id"
 
 // RequestIDMiddleware adds a unique request ID to each request.
 func RequestIDMiddleware() gin.HandlerFunc {
@@ -22,7 +25,7 @@ func RequestIDMiddleware() gin.HandlerFunc {
 		}
 
 		// Set request ID in context and response header
-		c.Set(RequestIDKey, requestID)
+		c.Set(string(RequestIDKey), requestID)
 		c.Header("X-Request-ID", requestID)
 
 		// Add to request context for downstream use
@@ -35,7 +38,7 @@ func RequestIDMiddleware() gin.HandlerFunc {
 
 // GetRequestID extracts request ID from Gin context.
 func GetRequestID(c *gin.Context) string {
-	if requestID, exists := c.Get(RequestIDKey); exists {
+	if requestID, exists := c.Get(string(RequestIDKey)); exists {
 		if id, ok := requestID.(string); ok {
 			return id
 		}

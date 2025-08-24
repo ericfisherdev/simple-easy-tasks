@@ -9,6 +9,8 @@ import (
 )
 
 // CORSMiddleware returns a CORS middleware with configurable options.
+//
+//nolint:gofumpt
 func CORSMiddleware(allowedOrigins []string, allowedMethods []string, allowedHeaders []string, allowCredentials bool) gin.HandlerFunc {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")

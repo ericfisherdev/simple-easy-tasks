@@ -1,6 +1,7 @@
 // Package testutil provides testing utilities and mock implementations.
 package testutil
 
+//nolint:gofumpt
 import (
 	"context"
 	"sync"
@@ -23,7 +24,7 @@ func NewMockUserRepository() *MockUserRepository {
 }
 
 // Create creates a new user.
-func (m *MockUserRepository) Create(ctx context.Context, user *domain.User) error {
+func (m *MockUserRepository) Create(_ context.Context, user *domain.User) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -42,7 +43,7 @@ func (m *MockUserRepository) Create(ctx context.Context, user *domain.User) erro
 }
 
 // GetByID retrieves a user by ID.
-func (m *MockUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
+func (m *MockUserRepository) GetByID(_ context.Context, id string) (*domain.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -54,7 +55,7 @@ func (m *MockUserRepository) GetByID(ctx context.Context, id string) (*domain.Us
 }
 
 // GetByEmail retrieves a user by email.
-func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (m *MockUserRepository) GetByEmail(_ context.Context, email string) (*domain.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -67,7 +68,7 @@ func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*dom
 }
 
 // GetByUsername retrieves a user by username.
-func (m *MockUserRepository) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
+func (m *MockUserRepository) GetByUsername(_ context.Context, username string) (*domain.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -80,7 +81,7 @@ func (m *MockUserRepository) GetByUsername(ctx context.Context, username string)
 }
 
 // Update updates an existing user.
-func (m *MockUserRepository) Update(ctx context.Context, user *domain.User) error {
+func (m *MockUserRepository) Update(_ context.Context, user *domain.User) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -93,7 +94,7 @@ func (m *MockUserRepository) Update(ctx context.Context, user *domain.User) erro
 }
 
 // Delete deletes a user by ID.
-func (m *MockUserRepository) Delete(ctx context.Context, id string) error {
+func (m *MockUserRepository) Delete(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -106,7 +107,7 @@ func (m *MockUserRepository) Delete(ctx context.Context, id string) error {
 }
 
 // List retrieves users with pagination.
-func (m *MockUserRepository) List(ctx context.Context, offset, limit int) ([]*domain.User, error) {
+func (m *MockUserRepository) List(_ context.Context, offset, limit int) ([]*domain.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -122,7 +123,7 @@ func (m *MockUserRepository) List(ctx context.Context, offset, limit int) ([]*do
 }
 
 // Count returns the total number of users.
-func (m *MockUserRepository) Count(ctx context.Context) (int, error) {
+func (m *MockUserRepository) Count(_ context.Context) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -130,8 +131,8 @@ func (m *MockUserRepository) Count(ctx context.Context) (int, error) {
 }
 
 // ExistsByEmail checks if a user exists with the given email.
-func (m *MockUserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
-	_, err := m.GetByEmail(ctx, email)
+func (m *MockUserRepository) ExistsByEmail(_ context.Context, email string) (bool, error) {
+	_, err := m.GetByEmail(context.Background(), email)
 	if err != nil {
 		if domainErr, ok := err.(*domain.Error); ok && domainErr.Type == domain.NotFoundError {
 			return false, nil
@@ -142,8 +143,8 @@ func (m *MockUserRepository) ExistsByEmail(ctx context.Context, email string) (b
 }
 
 // ExistsByUsername checks if a user exists with the given username.
-func (m *MockUserRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
-	_, err := m.GetByUsername(ctx, username)
+func (m *MockUserRepository) ExistsByUsername(_ context.Context, username string) (bool, error) {
+	_, err := m.GetByUsername(context.Background(), username)
 	if err != nil {
 		if domainErr, ok := err.(*domain.Error); ok && domainErr.Type == domain.NotFoundError {
 			return false, nil
@@ -167,7 +168,7 @@ func NewMockProjectRepository() *MockProjectRepository {
 }
 
 // Create creates a new project.
-func (m *MockProjectRepository) Create(ctx context.Context, project *domain.Project) error {
+func (m *MockProjectRepository) Create(_ context.Context, project *domain.Project) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -183,7 +184,7 @@ func (m *MockProjectRepository) Create(ctx context.Context, project *domain.Proj
 }
 
 // GetByID retrieves a project by ID.
-func (m *MockProjectRepository) GetByID(ctx context.Context, id string) (*domain.Project, error) {
+func (m *MockProjectRepository) GetByID(_ context.Context, id string) (*domain.Project, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -195,7 +196,7 @@ func (m *MockProjectRepository) GetByID(ctx context.Context, id string) (*domain
 }
 
 // GetBySlug retrieves a project by slug.
-func (m *MockProjectRepository) GetBySlug(ctx context.Context, slug string) (*domain.Project, error) {
+func (m *MockProjectRepository) GetBySlug(_ context.Context, slug string) (*domain.Project, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -208,7 +209,7 @@ func (m *MockProjectRepository) GetBySlug(ctx context.Context, slug string) (*do
 }
 
 // Update updates an existing project.
-func (m *MockProjectRepository) Update(ctx context.Context, project *domain.Project) error {
+func (m *MockProjectRepository) Update(_ context.Context, project *domain.Project) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -221,7 +222,7 @@ func (m *MockProjectRepository) Update(ctx context.Context, project *domain.Proj
 }
 
 // Delete deletes a project by ID.
-func (m *MockProjectRepository) Delete(ctx context.Context, id string) error {
+func (m *MockProjectRepository) Delete(_ context.Context, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -234,7 +235,12 @@ func (m *MockProjectRepository) Delete(ctx context.Context, id string) error {
 }
 
 // ListByOwner retrieves projects owned by a specific user.
-func (m *MockProjectRepository) ListByOwner(ctx context.Context, ownerID string, offset, limit int) ([]*domain.Project, error) {
+func (m *MockProjectRepository) ListByOwner(
+	_ context.Context,
+	ownerID string,
+	offset,
+	limit int,
+) ([]*domain.Project, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -252,7 +258,12 @@ func (m *MockProjectRepository) ListByOwner(ctx context.Context, ownerID string,
 }
 
 // ListByMember retrieves projects where a user is a member.
-func (m *MockProjectRepository) ListByMember(ctx context.Context, memberID string, offset, limit int) ([]*domain.Project, error) {
+func (m *MockProjectRepository) ListByMember(
+	_ context.Context,
+	memberID string,
+	offset,
+	limit int,
+) ([]*domain.Project, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -270,7 +281,7 @@ func (m *MockProjectRepository) ListByMember(ctx context.Context, memberID strin
 }
 
 // List retrieves projects with pagination.
-func (m *MockProjectRepository) List(ctx context.Context, offset, limit int) ([]*domain.Project, error) {
+func (m *MockProjectRepository) List(_ context.Context, offset, limit int) ([]*domain.Project, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -286,7 +297,7 @@ func (m *MockProjectRepository) List(ctx context.Context, offset, limit int) ([]
 }
 
 // Count returns the total number of projects.
-func (m *MockProjectRepository) Count(ctx context.Context) (int, error) {
+func (m *MockProjectRepository) Count(_ context.Context) (int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -294,8 +305,8 @@ func (m *MockProjectRepository) Count(ctx context.Context) (int, error) {
 }
 
 // ExistsBySlug checks if a project exists with the given slug.
-func (m *MockProjectRepository) ExistsBySlug(ctx context.Context, slug string) (bool, error) {
-	_, err := m.GetBySlug(ctx, slug)
+func (m *MockProjectRepository) ExistsBySlug(_ context.Context, slug string) (bool, error) {
+	_, err := m.GetBySlug(context.Background(), slug)
 	if err != nil {
 		if domainErr, ok := err.(*domain.Error); ok && domainErr.Type == domain.NotFoundError {
 			return false, nil
@@ -306,7 +317,12 @@ func (m *MockProjectRepository) ExistsBySlug(ctx context.Context, slug string) (
 }
 
 // GetMemberProjects retrieves all projects where user has access.
-func (m *MockProjectRepository) GetMemberProjects(ctx context.Context, userID string, offset, limit int) ([]*domain.Project, error) {
+func (m *MockProjectRepository) GetMemberProjects(
+	_ context.Context,
+	userID string,
+	offset,
+	limit int,
+) ([]*domain.Project, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -323,14 +339,14 @@ func (m *MockProjectRepository) GetMemberProjects(ctx context.Context, userID st
 	return projects, nil
 }
 
-// Helper method to add a user to mock repository for testing
+// AddUser adds a user to mock repository for testing.
 func (m *MockUserRepository) AddUser(user *domain.User) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.users[user.ID] = user
 }
 
-// Helper method to add a project to mock repository for testing
+// AddProject adds a project to mock repository for testing.
 func (m *MockProjectRepository) AddProject(project *domain.Project) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -338,5 +354,7 @@ func (m *MockProjectRepository) AddProject(project *domain.Project) {
 }
 
 // Ensure interfaces are implemented
-var _ repository.UserRepository = (*MockUserRepository)(nil)
-var _ repository.ProjectRepository = (*MockProjectRepository)(nil)
+var (
+	_ repository.UserRepository    = (*MockUserRepository)(nil)
+	_ repository.ProjectRepository = (*MockProjectRepository)(nil)
+)

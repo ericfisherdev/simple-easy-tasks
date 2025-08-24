@@ -38,7 +38,7 @@ func (rl *RateLimiter) Allow() bool {
 	// Refill tokens based on elapsed time
 	if now.Sub(rl.lastRefill) >= rl.refill {
 		tokensToAdd := int(now.Sub(rl.lastRefill) / rl.refill)
-		rl.tokens = min(rl.capacity, rl.tokens+tokensToAdd)
+		rl.tokens = minInt(rl.capacity, rl.tokens+tokensToAdd)
 		rl.lastRefill = now
 	}
 
@@ -143,8 +143,8 @@ func UserBasedRateLimitMiddleware(requestsPerMinute int) gin.HandlerFunc {
 	})
 }
 
-// min returns the minimum of two integers.
-func min(a, b int) int {
+// minInt returns the minimum of two integers.
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

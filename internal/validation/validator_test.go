@@ -327,6 +327,7 @@ func TestValidateStruct_ConvenienceFunction(t *testing.T) {
 	err = validation.ValidateStruct(invalidData)
 	if err == nil {
 		t.Error("Expected validation error for invalid data")
+		return
 	}
 
 	// Check if it's a domain validation error

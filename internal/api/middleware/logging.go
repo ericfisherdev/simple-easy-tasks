@@ -41,7 +41,7 @@ func LoggingMiddleware(config LoggingConfig) gin.HandlerFunc {
 			// Get request ID if available
 			requestID := ""
 			if param.Keys != nil {
-				if id, exists := param.Keys[RequestIDKey]; exists {
+				if id, exists := param.Keys[string(RequestIDKey)]; exists {
 					if idStr, ok := id.(string); ok {
 						requestID = fmt.Sprintf(" | ReqID: %s", idStr)
 					}
@@ -84,7 +84,7 @@ func StructuredLoggingMiddleware() gin.HandlerFunc {
 		// Get request ID if available
 		requestID := ""
 		if param.Keys != nil {
-			if id, exists := param.Keys[RequestIDKey]; exists {
+			if id, exists := param.Keys[string(RequestIDKey)]; exists {
 				if idStr, ok := id.(string); ok {
 					requestID = idStr
 				}
@@ -92,7 +92,9 @@ func StructuredLoggingMiddleware() gin.HandlerFunc {
 		}
 
 		// JSON structured log
-		return fmt.Sprintf(`{"timestamp":"%s","status":%d,"latency":"%s","client_ip":"%s","method":"%s","path":"%s","request_id":"%s","error":"%s"}`+"\n",
+		return fmt.Sprintf(
+			`{"timestamp":"%s","status":%d,"latency":"%s","client_ip":"%s",`+
+				`"method":"%s","path":"%s","request_id":"%s","error":"%s"}`+"\n",
 			param.TimeStamp.Format("2006-01-02T15:04:05Z07:00"),
 			param.StatusCode,
 			param.Latency,

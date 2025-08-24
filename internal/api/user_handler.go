@@ -1,5 +1,6 @@
 package api
 
+//nolint:gofumpt
 import (
 	"net/http"
 
@@ -456,43 +457,5 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 
 // handleError handles domain errors with appropriate HTTP status codes.
 func (h *UserHandler) handleError(c *gin.Context, err error) {
-	if domainErr, ok := err.(*domain.Error); ok {
-		statusCode := http.StatusInternalServerError
-
-		switch domainErr.Type {
-		case domain.ValidationError:
-			statusCode = http.StatusBadRequest
-		case domain.NotFoundError:
-			statusCode = http.StatusNotFound
-		case domain.ConflictError:
-			statusCode = http.StatusConflict
-		case domain.AuthenticationError:
-			statusCode = http.StatusUnauthorized
-		case domain.AuthorizationError:
-			statusCode = http.StatusForbidden
-		case domain.InternalError:
-			statusCode = http.StatusInternalServerError
-		case domain.ExternalServiceError:
-			statusCode = http.StatusBadGateway
-		}
-
-		c.JSON(statusCode, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    domainErr.Type,
-				"code":    domainErr.Code,
-				"message": domainErr.Message,
-				"details": domainErr.Details,
-			},
-		})
-	} else {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "INTERNAL_ERROR",
-				"code":    "UNKNOWN_ERROR",
-				"message": "An unexpected error occurred",
-			},
-		})
-	}
+	ErrorResponse(c, err)
 }

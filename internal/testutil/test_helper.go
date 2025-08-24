@@ -1,6 +1,7 @@
 // Package testutil provides testing utilities and helpers.
 package testutil
 
+//nolint:gofumpt
 import (
 	"bytes"
 	"context"
@@ -55,7 +56,12 @@ func NewHTTPTestHelper(t *testing.T, router *gin.Engine) *HTTPTestHelper {
 }
 
 // Request performs an HTTP request and returns the response.
-func (h *HTTPTestHelper) Request(method, url string, body interface{}, headers map[string]string) *httptest.ResponseRecorder {
+func (h *HTTPTestHelper) Request(
+	method,
+	url string,
+	body interface{},
+	headers map[string]string,
+) *httptest.ResponseRecorder {
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
@@ -65,7 +71,7 @@ func (h *HTTPTestHelper) Request(method, url string, body interface{}, headers m
 		bodyReader = bytes.NewBuffer(jsonBody)
 	}
 
-	req, err := http.NewRequest(method, url, bodyReader)
+	req, err := http.NewRequestWithContext(context.Background(), method, url, bodyReader)
 	if err != nil {
 		h.t.Fatalf("Failed to create request: %v", err)
 	}
@@ -220,7 +226,13 @@ func TestContextWithValue(key, value interface{}) context.Context {
 	return context.WithValue(context.Background(), key, value)
 }
 
+// TestUserKeyType is the type used for user context key.
+type TestUserKeyType string
+
+// TestUserKey is the key used to store user in test context.
+const TestUserKey TestUserKeyType = "user"
+
 // TestContextWithUser creates a test context with a user.
 func TestContextWithUser(user *domain.User) context.Context {
-	return context.WithValue(context.Background(), "user", user)
+	return context.WithValue(context.Background(), TestUserKey, user)
 }

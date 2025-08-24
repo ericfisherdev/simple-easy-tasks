@@ -76,7 +76,7 @@ func TestProjectHandler_CreateProject(t *testing.T) {
 	helper := testutil.NewHTTPTestHelper(t, router)
 
 	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
+		t.Run(tc.Name, func(_ *testing.T) {
 			// Add auth header for authenticated requests
 			headers := map[string]string{
 				"Authorization": "Bearer mock-token",
@@ -129,7 +129,7 @@ func TestProjectHandler_GetProject(t *testing.T) {
 	helper := testutil.NewHTTPTestHelper(t, router)
 
 	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
+		t.Run(tc.Name, func(_ *testing.T) {
 			headers := map[string]string{
 				"Authorization": "Bearer mock-token",
 			}
@@ -172,7 +172,7 @@ func TestProjectHandler_ListProjects(t *testing.T) {
 	helper := testutil.NewHTTPTestHelper(t, router)
 
 	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
+		t.Run(tc.Name, func(_ *testing.T) {
 			headers := map[string]string{
 				"Authorization": "Bearer mock-token",
 			}
@@ -230,7 +230,7 @@ func TestProjectHandler_UpdateProject(t *testing.T) {
 	helper := testutil.NewHTTPTestHelper(t, router)
 
 	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
+		t.Run(tc.Name, func(_ *testing.T) {
 			headers := map[string]string{
 				"Authorization": "Bearer mock-token",
 			}
@@ -267,7 +267,7 @@ func TestProjectHandler_DeleteProject(t *testing.T) {
 	helper := testutil.NewHTTPTestHelper(t, router)
 
 	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
+		t.Run(tc.Name, func(_ *testing.T) {
 			headers := map[string]string{
 				"Authorization": "Bearer mock-token",
 			}
@@ -279,7 +279,7 @@ func TestProjectHandler_DeleteProject(t *testing.T) {
 }
 
 // setupProjectTestRouter creates a test router with project endpoints and mock dependencies.
-func setupProjectTestRouter(t *testing.T) *gin.Engine {
+func setupProjectTestRouter(_ *testing.T) *gin.Engine {
 	router := testutil.NewTestRouter()
 
 	// Create mock repositories
@@ -315,34 +315,34 @@ type MockAuthService struct {
 	user *domain.User
 }
 
-func (m *MockAuthService) ValidateToken(ctx context.Context, token string) (*domain.User, error) {
+func (m *MockAuthService) ValidateToken(_ context.Context, token string) (*domain.User, error) {
 	if token == "mock-token" {
 		return m.user, nil
 	}
 	return nil, domain.NewAuthenticationError("INVALID_TOKEN", "Invalid token")
 }
 
-func (m *MockAuthService) Login(ctx context.Context, req domain.LoginRequest) (*domain.TokenPair, error) {
+func (m *MockAuthService) Login(_ context.Context, _ domain.LoginRequest) (*domain.TokenPair, error) {
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 
-func (m *MockAuthService) Register(ctx context.Context, req domain.CreateUserRequest) (*domain.User, error) {
+func (m *MockAuthService) Register(_ context.Context, _ domain.CreateUserRequest) (*domain.User, error) {
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 
-func (m *MockAuthService) RefreshToken(ctx context.Context, refreshToken string) (*domain.TokenPair, error) {
+func (m *MockAuthService) RefreshToken(_ context.Context, _ string) (*domain.TokenPair, error) {
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 
-func (m *MockAuthService) Logout(ctx context.Context, userID string) error {
+func (m *MockAuthService) Logout(_ context.Context, _ string) error {
 	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 
-func (m *MockAuthService) ForgotPassword(ctx context.Context, email string) error {
+func (m *MockAuthService) ForgotPassword(_ context.Context, _ string) error {
 	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 
-func (m *MockAuthService) ResetPassword(ctx context.Context, token, newPassword string) error {
+func (m *MockAuthService) ResetPassword(_ context.Context, _, _ string) error {
 	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 

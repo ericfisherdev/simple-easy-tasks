@@ -6,13 +6,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"simple-easy-tasks/internal/config"
 	"simple-easy-tasks/internal/domain"
 	"simple-easy-tasks/internal/repository"
-	"sync"
-	"time"
 )
 
 // AuthService defines the interface for authentication operations.
