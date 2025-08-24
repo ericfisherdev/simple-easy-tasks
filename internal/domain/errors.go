@@ -110,3 +110,26 @@ func NewExternalServiceError(code, message string, cause error) *Error {
 		Cause:   cause,
 	}
 }
+
+// ValidateRequired validates that a required field is not empty
+func ValidateRequired(field, value, errorCode, errorMessage string) *Error {
+	if value == "" {
+		return NewValidationError(errorCode, errorMessage, map[string]interface{}{
+			"field": field,
+		})
+	}
+	return nil
+}
+
+// ValidateEnum validates that a value is one of the allowed options
+func ValidateEnum(field, value, errorCode, errorMessage string, allowedValues ...string) *Error {
+	for _, allowed := range allowedValues {
+		if value == allowed {
+			return nil
+		}
+	}
+	return NewValidationError(errorCode, errorMessage, map[string]interface{}{
+		"field": field,
+		"value": value,
+	})
+}
