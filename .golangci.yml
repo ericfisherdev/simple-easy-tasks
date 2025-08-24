@@ -1,0 +1,83 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  skip-dirs-use-default: true
+  modules-download-mode: readonly
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+  govet:
+    check-shadowing: true
+    enable-all: true
+  gofmt:
+    simplify: true
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  misspell:
+    locale: US
+  lll:
+    line-length: 120
+  gofumpt:
+    extra-rules: true
+  revive:
+    min-confidence: 0
+  staticcheck:
+    checks: ["all"]
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify Go code
+    - govet         # Reports suspicious constructs
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Static analysis
+    - typecheck     # Type checking
+    - unused        # Check for unused constants, variables, functions
+    - gofmt         # Check if code is gofmt-ed
+    - gofumpt       # Stricter gofmt
+    - gocyclo       # Cyclomatic complexity
+    - dupl          # Code clone detection
+    - goconst       # Find repeated strings that could be constants
+    - misspell      # Find misspelled English words
+    - revive        # Replacement for golint
+    - unconvert     # Remove unnecessary type conversions
+    - lll           # Line length checker
+    - gocritic      # Various static analysis checks
+    - gosec         # Security checker
+    - bodyclose     # Check if HTTP response body is closed
+    - noctx         # Find sending http request without context.Context
+    - gci           # Control golang package import order
+    - godot         # Check if comments end in a period
+
+issues:
+  exclude-use-default: false
+  exclude:
+    # Allow complexity in main functions
+    - "cyclomatic complexity .* of func `main` is high"
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - goconst
+    # Exclude line length check for long lines with URLs or file paths
+    - linters:
+        - lll
+      source: "https?://|/[^ ]+"

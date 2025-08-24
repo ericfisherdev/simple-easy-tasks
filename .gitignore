@@ -28,5 +28,44 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Local environment files
+.env.local
+.env.*.local
+
+# Log files
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+
+# Temporary files
+tmp/
+temp/
+
+# PocketBase data
+pb_data/
+*.db
+
+# Docker volumes
+docker_volumes/
+
+# Configuration files with secrets
+configs/local.yaml
+configs/production.yaml
