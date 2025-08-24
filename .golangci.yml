@@ -72,12 +72,5 @@ linters:
         source: "https?://|/[^ ]+"
 
 issues:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
-  uniq-by-line: true
-
   max-issues-per-linter: 0
   max-same-issues: 0
-
-  new: false
