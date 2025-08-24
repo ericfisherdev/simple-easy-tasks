@@ -13,12 +13,9 @@ import (
 //
 //nolint:govet // fieldalignment: micro-optimization not critical for this config struct
 type LoggingConfig struct {
-	// SkipPaths is a slice of paths that should not be logged.
-	SkipPaths []string
-	// TimeFormat specifies the time format for logging.
+	Output     io.Writer
 	TimeFormat string
-	// Output specifies the output destination. If nil, os.Stdout is used.
-	Output io.Writer
+	SkipPaths  []string
 }
 
 // LoggingMiddleware returns a logging middleware with custom configuration.

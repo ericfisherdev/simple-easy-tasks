@@ -4,18 +4,25 @@ import (
 	"time"
 )
 
+// Comment represents a user comment on a task
 type Comment struct {
-	ID              string    `json:"id" db:"id"`
-	Content         string    `json:"content" db:"content"`
-	TaskID          string    `json:"task_id" db:"task"`
-	AuthorID        string    `json:"author_id" db:"author"`
+	// 8-byte aligned fields first
 	ParentCommentID *string   `json:"parent_comment_id" db:"parent_comment"`
-	Attachments     []string  `json:"attachments" db:"-"`
-	IsEdited        bool      `json:"is_edited" db:"is_edited"`
 	CreatedAt       time.Time `json:"created_at" db:"created"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated"`
+
+	// String and slice fields
+	ID          string   `json:"id" db:"id"`
+	Content     string   `json:"content" db:"content"`
+	TaskID      string   `json:"task_id" db:"task"`
+	AuthorID    string   `json:"author_id" db:"author"`
+	Attachments []string `json:"attachments" db:"-"`
+
+	// 1-byte aligned fields
+	IsEdited bool `json:"is_edited" db:"is_edited"`
 }
 
+// NewComment creates a new comment with default values
 func NewComment(content, taskID, authorID string) *Comment {
 	now := time.Now()
 	return &Comment{
@@ -28,6 +35,7 @@ func NewComment(content, taskID, authorID string) *Comment {
 	}
 }
 
+// Validate performs comprehensive validation of the comment
 func (c *Comment) Validate() error {
 	if c.Content == "" {
 		return NewValidationError("content", "Comment content is required", nil)
@@ -51,6 +59,7 @@ func (c *Comment) Validate() error {
 	return nil
 }
 
+// SetParentComment establishes a parent-child relationship for threading
 func (c *Comment) SetParentComment(parentID string) error {
 	if parentID == c.ID {
 		return NewConflictError("circular_reference",
@@ -61,6 +70,7 @@ func (c *Comment) SetParentComment(parentID string) error {
 	return nil
 }
 
+// UpdateContent modifies the comment content and marks it as edited
 func (c *Comment) UpdateContent(content string) error {
 	if content == "" {
 		return NewValidationError("content", "Comment content is required", nil)
@@ -74,6 +84,7 @@ func (c *Comment) UpdateContent(content string) error {
 	return nil
 }
 
+// AddAttachment adds a file attachment to the comment
 func (c *Comment) AddAttachment(attachmentID string) error {
 	if len(c.Attachments) >= 10 {
 		return NewValidationError("attachments", "Maximum 10 attachments allowed per comment", nil)
@@ -89,6 +100,7 @@ func (c *Comment) AddAttachment(attachmentID string) error {
 	return nil
 }
 
+// RemoveAttachment removes a file attachment from the comment
 func (c *Comment) RemoveAttachment(attachmentID string) error {
 	newAttachments := make([]string, 0, len(c.Attachments))
 	found := false
@@ -107,6 +119,7 @@ func (c *Comment) RemoveAttachment(attachmentID string) error {
 	return nil
 }
 
+// IsReply checks if this comment is a reply to another comment
 func (c *Comment) IsReply() bool {
 	return c.ParentCommentID != nil
 }

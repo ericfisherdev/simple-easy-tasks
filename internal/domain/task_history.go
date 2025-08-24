@@ -6,17 +6,20 @@ import (
 	"time"
 )
 
+// TaskHistoryAction represents the type of action performed on a task
 type TaskHistoryAction string
 
+// Task history action constants define the possible audit actions
 const (
-	ActionCreated   TaskHistoryAction = "created"
-	ActionUpdated   TaskHistoryAction = "updated"
-	ActionMoved     TaskHistoryAction = "moved"
-	ActionAssigned  TaskHistoryAction = "assigned"
-	ActionCommented TaskHistoryAction = "commented"
-	ActionDeleted   TaskHistoryAction = "deleted"
+	ActionCreated   TaskHistoryAction = "created"   // ActionCreated indicates task creation
+	ActionUpdated   TaskHistoryAction = "updated"   // ActionUpdated indicates task modification
+	ActionMoved     TaskHistoryAction = "moved"     // ActionMoved indicates status change
+	ActionAssigned  TaskHistoryAction = "assigned"  // ActionAssigned indicates assignee change
+	ActionCommented TaskHistoryAction = "commented" // ActionCommented indicates comment added
+	ActionDeleted   TaskHistoryAction = "deleted"   // ActionDeleted indicates task deletion
 )
 
+// IsValid checks if the TaskHistoryAction is one of the allowed values
 func (a TaskHistoryAction) IsValid() bool {
 	switch a {
 	case ActionCreated, ActionUpdated, ActionMoved, ActionAssigned, ActionCommented, ActionDeleted:
@@ -26,18 +29,23 @@ func (a TaskHistoryAction) IsValid() bool {
 	}
 }
 
+// TaskHistoryEntry represents an audit log entry for task changes
 type TaskHistoryEntry struct {
-	ID        string            `json:"id" db:"id"`
-	TaskID    string            `json:"task_id" db:"task"`
-	UserID    string            `json:"user_id" db:"user"`
-	Action    TaskHistoryAction `json:"action" db:"action"`
-	FieldName *string           `json:"field_name" db:"field_name"`
-	OldValue  json.RawMessage   `json:"old_value" db:"old_value"`
-	NewValue  json.RawMessage   `json:"new_value" db:"new_value"`
-	Metadata  json.RawMessage   `json:"metadata" db:"metadata"`
-	CreatedAt time.Time         `json:"created_at" db:"created"`
+	// 8-byte aligned fields first
+	FieldName *string   `json:"field_name" db:"field_name"`
+	CreatedAt time.Time `json:"created_at" db:"created"`
+
+	// String and slice fields
+	ID       string            `json:"id" db:"id"`
+	TaskID   string            `json:"task_id" db:"task"`
+	UserID   string            `json:"user_id" db:"user"`
+	Action   TaskHistoryAction `json:"action" db:"action"`
+	OldValue json.RawMessage   `json:"old_value" db:"old_value"`
+	NewValue json.RawMessage   `json:"new_value" db:"new_value"`
+	Metadata json.RawMessage   `json:"metadata" db:"metadata"`
 }
 
+// NewTaskHistoryEntry creates a new audit log entry
 func NewTaskHistoryEntry(taskID, userID string, action TaskHistoryAction) *TaskHistoryEntry {
 	return &TaskHistoryEntry{
 		TaskID:    taskID,
@@ -47,6 +55,7 @@ func NewTaskHistoryEntry(taskID, userID string, action TaskHistoryAction) *TaskH
 	}
 }
 
+// Validate performs comprehensive validation of the history entry
 func (h *TaskHistoryEntry) Validate() error {
 	if h.TaskID == "" {
 		return NewValidationError("task_id", "Task ID is required", nil)
@@ -60,6 +69,7 @@ func (h *TaskHistoryEntry) Validate() error {
 	return nil
 }
 
+// SetFieldChange records a field modification with before/after values
 func (h *TaskHistoryEntry) SetFieldChange(fieldName string, oldValue, newValue interface{}) error {
 	h.FieldName = &fieldName
 
@@ -78,6 +88,7 @@ func (h *TaskHistoryEntry) SetFieldChange(fieldName string, oldValue, newValue i
 	return nil
 }
 
+// SetMetadata stores additional context information as JSON
 func (h *TaskHistoryEntry) SetMetadata(metadata map[string]interface{}) error {
 	data, err := json.Marshal(metadata)
 	if err != nil {
@@ -87,6 +98,7 @@ func (h *TaskHistoryEntry) SetMetadata(metadata map[string]interface{}) error {
 	return nil
 }
 
+// GetOldValue retrieves the previous value from JSON storage
 func (h *TaskHistoryEntry) GetOldValue() (interface{}, error) {
 	if h.OldValue == nil {
 		return nil, nil
@@ -98,6 +110,7 @@ func (h *TaskHistoryEntry) GetOldValue() (interface{}, error) {
 	return value, nil
 }
 
+// GetNewValue retrieves the new value from JSON storage
 func (h *TaskHistoryEntry) GetNewValue() (interface{}, error) {
 	if h.NewValue == nil {
 		return nil, nil
@@ -109,6 +122,7 @@ func (h *TaskHistoryEntry) GetNewValue() (interface{}, error) {
 	return value, nil
 }
 
+// GetMetadata retrieves the metadata from JSON storage
 func (h *TaskHistoryEntry) GetMetadata() (map[string]interface{}, error) {
 	if h.Metadata == nil {
 		return make(map[string]interface{}), nil
@@ -120,17 +134,24 @@ func (h *TaskHistoryEntry) GetMetadata() (map[string]interface{}, error) {
 	return metadata, nil
 }
 
+// TaskHistoryFilter represents filtering criteria for task history queries
 type TaskHistoryFilter struct {
-	TaskID    *string             `json:"task_id"`
-	UserID    *string             `json:"user_id"`
-	Actions   []TaskHistoryAction `json:"actions"`
-	FieldName *string             `json:"field_name"`
-	StartDate *time.Time          `json:"start_date"`
-	EndDate   *time.Time          `json:"end_date"`
-	Limit     int                 `json:"limit"`
-	Offset    int                 `json:"offset"`
+	// 8-byte aligned fields first
+	TaskID    *string    `json:"task_id"`
+	UserID    *string    `json:"user_id"`
+	FieldName *string    `json:"field_name"`
+	StartDate *time.Time `json:"start_date"`
+	EndDate   *time.Time `json:"end_date"`
+
+	// Slice fields
+	Actions []TaskHistoryAction `json:"actions"`
+
+	// 4-byte aligned fields
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
 }
 
+// Validate performs comprehensive validation of the filter criteria
 func (f *TaskHistoryFilter) Validate() error {
 	if f.StartDate != nil && f.EndDate != nil && f.StartDate.After(*f.EndDate) {
 		return NewValidationError("dates", "Start date cannot be after end date", nil)

@@ -4,16 +4,23 @@ import (
 	"time"
 )
 
+// Tag represents a label that can be associated with tasks
 type Tag struct {
-	ID         string    `json:"id" db:"id"`
-	Name       string    `json:"name" db:"name"`
-	Color      string    `json:"color" db:"color"`
-	ProjectID  string    `json:"project_id" db:"project"`
-	UsageCount int       `json:"usage_count" db:"usage_count"`
-	CreatedAt  time.Time `json:"created_at" db:"created"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated"`
+	// 8-byte aligned fields first
+	CreatedAt time.Time `json:"created_at" db:"created"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated"`
+
+	// String fields
+	ID        string `json:"id" db:"id"`
+	Name      string `json:"name" db:"name"`
+	Color     string `json:"color" db:"color"`
+	ProjectID string `json:"project_id" db:"project"`
+
+	// 4-byte aligned fields
+	UsageCount int `json:"usage_count" db:"usage_count"`
 }
 
+// NewTag creates a new tag with default values
 func NewTag(name, color, projectID string) *Tag {
 	now := time.Now()
 	return &Tag{
@@ -26,6 +33,7 @@ func NewTag(name, color, projectID string) *Tag {
 	}
 }
 
+// Validate performs comprehensive validation of the tag
 func (t *Tag) Validate() error {
 	if t.Name == "" {
 		return NewValidationError("name", "Tag name is required", nil)
@@ -48,11 +56,13 @@ func (t *Tag) Validate() error {
 	return nil
 }
 
+// IncrementUsage increases the usage counter by one
 func (t *Tag) IncrementUsage() {
 	t.UsageCount++
 	t.UpdatedAt = time.Now()
 }
 
+// DecrementUsage decreases the usage counter by one
 func (t *Tag) DecrementUsage() {
 	if t.UsageCount > 0 {
 		t.UsageCount--
@@ -60,6 +70,7 @@ func (t *Tag) DecrementUsage() {
 	}
 }
 
+// UpdateName changes the tag name with validation
 func (t *Tag) UpdateName(name string) error {
 	if name == "" {
 		return NewValidationError("name", "Tag name is required", nil)
@@ -72,6 +83,7 @@ func (t *Tag) UpdateName(name string) error {
 	return nil
 }
 
+// UpdateColor changes the tag color with validation
 func (t *Tag) UpdateColor(color string) error {
 	if color == "" {
 		return NewValidationError("color", "Tag color is required", nil)
@@ -93,7 +105,7 @@ func isValidHexColor(color string) bool {
 	}
 	for i := 1; i < 7; i++ {
 		c := color[i]
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 	}
