@@ -1,0 +1,110 @@
+name: Create Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - release
+
+jobs:
+  create-release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: release
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Read version from VERSION file
+      id: get_version
+      run: |
+        if [ -f "VERSION" ]; then
+          version=$(cat VERSION)
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "Version found: $version"
+        else
+          echo "VERSION file not found!"
+          exit 1
+        fi
+    
+    - name: Check if tag already exists
+      id: check_tag
+      run: |
+        version="v${{ steps.get_version.outputs.version }}"
+        if git tag -l | grep -q "^${version}$"; then
+          echo "Tag $version already exists!"
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "Tag $version does not exist, proceeding with release"
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Get PR information
+      id: pr_info
+      if: steps.check_tag.outputs.exists == 'false'
+      env:
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+        PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        VERSION: ${{ steps.get_version.outputs.version }}
+      run: |
+        echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+        echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+        echo "pr_author=$PR_AUTHOR" >> $GITHUB_OUTPUT
+        
+        # Create release notes from PR info
+        cat > release_notes.md << EOF
+        ## Release v$VERSION
+        
+        ### Changes
+        - $PR_TITLE (#$PR_NUMBER)
+        
+        ### Pull Request Details
+        **Author:** @$PR_AUTHOR  
+        **PR:** #$PR_NUMBER
+        
+        EOF
+        
+        if [ -n "$PR_BODY" ]; then
+          echo "### Description" >> release_notes.md
+          echo "$PR_BODY" >> release_notes.md
+        fi
+    
+    - name: Create Git tag
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        version="v${{ steps.get_version.outputs.version }}"
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "$version" -m "Release $version"
+        git push origin "$version"
+    
+    - name: Create GitHub Release
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.get_version.outputs.version }}
+        release_name: Release v${{ steps.get_version.outputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+    
+    - name: Create summary
+      run: |
+        if [ "${{ steps.check_tag.outputs.exists }}" == "true" ]; then
+          echo "## Release Creation Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Reason:** Tag already exists" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "## Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** v${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR:** #${{ steps.pr_info.outputs.pr_number }} - ${{ steps.pr_info.outputs.pr_title }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Author:** @${{ steps.pr_info.outputs.pr_author }}" >> $GITHUB_STEP_SUMMARY
+        fi
