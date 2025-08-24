@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      target: builder
+    volumes:
+      - .:/build
+      - go_cache:/go/pkg/mod
+    environment:
+      - GIN_MODE=debug
+      - LOG_LEVEL=debug
+      - HOT_RELOAD=true
+    command: go run ./cmd/server
+    ports:
+      - "8080:8080"
+      - "2345:2345" # Delve debugger port
+
+  pocketbase:
+    environment:
+      - POCKETBASE_ADMIN_EMAIL=admin@localhost
+      - POCKETBASE_ADMIN_PASSWORD=password123
+    ports:
+      - "8090:8090"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+volumes:
+  go_cache:
+    driver: local

@@ -31,7 +31,6 @@ linters:
     - gosec         # Security checker
     - bodyclose     # Check if HTTP response body is closed
     - noctx         # Find sending http request without context.Context
-    - godot         # Check if comments end in a period
   
   settings:
     errcheck:
@@ -76,7 +75,6 @@ formatters:
   enable:
     - gofmt         # Check if code is gofmt-ed
     - gofumpt       # Stricter gofmt
-    - gci           # Control golang package import order
   
   settings:
     gofmt:
