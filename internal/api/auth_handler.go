@@ -1,13 +1,15 @@
 package api
 
+//nolint:gofumpt
 import (
 	"net/http"
-	"simple-easy-tasks/internal/api/middleware"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/services"
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"simple-easy-tasks/internal/api/middleware"
+	"simple-easy-tasks/internal/domain"
+	"simple-easy-tasks/internal/services"
 )
 
 // AuthHandler handles authentication-related HTTP requests.
@@ -31,6 +33,8 @@ func (h *AuthHandler) RegisterRoutes(router *gin.RouterGroup, authMiddleware *mi
 		auth.POST("/refresh", h.RefreshToken)
 		auth.POST("/logout", authMiddleware.RequireAuth(), h.Logout)
 		auth.GET("/me", authMiddleware.RequireAuth(), h.GetProfile)
+		auth.POST("/forgot-password", h.ForgotPassword)
+		auth.POST("/reset-password", h.ResetPassword)
 	}
 }
 
@@ -198,6 +202,70 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	})
 }
 
+// ForgotPassword handles password reset request initiation.
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error": map[string]interface{}{
+				"type":    "VALIDATION_ERROR",
+				"code":    "INVALID_REQUEST",
+				"message": "Invalid request format",
+				"details": err.Error(),
+			},
+		})
+		return
+	}
+
+	// Initiate password reset
+	if err := h.authService.ForgotPassword(c.Request.Context(), req.Email); err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	// Always return success to avoid email enumeration
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "If the email exists, a password reset link has been sent",
+	})
+}
+
+// ResetPassword handles password reset with token.
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req struct {
+		Token       string `json:"token" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error": map[string]interface{}{
+				"type":    "VALIDATION_ERROR",
+				"code":    "INVALID_REQUEST",
+				"message": "Invalid request format",
+				"details": err.Error(),
+			},
+		})
+		return
+	}
+
+	// Reset password
+	if err := h.authService.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Password has been successfully reset",
+	})
+}
+
 // setAuthCookies sets secure HTTP-only cookies for authentication.
 func (h *AuthHandler) setAuthCookies(c *gin.Context, tokenPair *domain.TokenPair) {
 	// Access token cookie (shorter expiry)
@@ -231,43 +299,5 @@ func (h *AuthHandler) clearAuthCookies(c *gin.Context) {
 
 // handleError handles domain errors with appropriate HTTP status codes.
 func (h *AuthHandler) handleError(c *gin.Context, err error) {
-	if domainErr, ok := err.(*domain.Error); ok {
-		statusCode := http.StatusInternalServerError
-
-		switch domainErr.Type {
-		case domain.ValidationError:
-			statusCode = http.StatusBadRequest
-		case domain.NotFoundError:
-			statusCode = http.StatusNotFound
-		case domain.ConflictError:
-			statusCode = http.StatusConflict
-		case domain.AuthenticationError:
-			statusCode = http.StatusUnauthorized
-		case domain.AuthorizationError:
-			statusCode = http.StatusForbidden
-		case domain.InternalError:
-			statusCode = http.StatusInternalServerError
-		case domain.ExternalServiceError:
-			statusCode = http.StatusBadGateway
-		}
-
-		c.JSON(statusCode, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    domainErr.Type,
-				"code":    domainErr.Code,
-				"message": domainErr.Message,
-				"details": domainErr.Details,
-			},
-		})
-	} else {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "INTERNAL_ERROR",
-				"code":    "UNKNOWN_ERROR",
-				"message": "An unexpected error occurred",
-			},
-		})
-	}
+	ErrorResponse(c, err)
 }

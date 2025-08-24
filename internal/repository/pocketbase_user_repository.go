@@ -1,8 +1,10 @@
 package repository
 
+//nolint:gofumpt
 import (
 	"context"
 	"fmt"
+
 	"simple-easy-tasks/internal/domain"
 
 	"github.com/pocketbase/pocketbase"
