@@ -1,0 +1,78 @@
+name: Bump Major Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Target branch for version bump'
+        required: true
+        default: 'develop'
+        type: choice
+        options:
+          - develop
+          - release
+
+jobs:
+  bump-major-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.branch }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Read current version
+      id: current_version
+      run: |
+        if [ -f "VERSION" ]; then
+          version=$(cat VERSION)
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "Current version: $version"
+        else
+          echo "VERSION file not found!"
+          exit 1
+        fi
+    
+    - name: Bump major version
+      id: bump_version
+      run: |
+        current_version="${{ steps.current_version.outputs.version }}"
+        
+        if [[ $current_version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          major=${BASH_REMATCH[1]}
+          
+          # Increment major version and reset minor and patch to 0
+          new_major=$((major + 1))
+          new_version="${new_major}.0.0"
+          
+          echo "$new_version" > VERSION
+          echo "new_version=$new_version" >> $GITHUB_OUTPUT
+          echo "Version bumped from $current_version to $new_version"
+        else
+          echo "Invalid version format: $current_version"
+          exit 1
+        fi
+    
+    - name: Configure git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    
+    - name: Commit version bump
+      run: |
+        git add VERSION
+        git commit -m "chore: bump major version to ${{ steps.bump_version.outputs.new_version }}"
+    
+    - name: Push changes
+      run: |
+        git push origin ${{ inputs.branch }}
+    
+    - name: Create summary
+      run: |
+        echo "## Version Bump Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Previous version:** ${{ steps.current_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **New version:** ${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target branch:** ${{ inputs.branch }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **⚠️ Breaking Changes:** Major version bump indicates breaking changes" >> $GITHUB_STEP_SUMMARY
