@@ -12,19 +12,19 @@ import (
 	"simple-easy-tasks/internal/services"
 )
 
-// HealthHandler handles health check endpoints
+// HealthHandler handles health check endpoints.
 type HealthHandler struct {
 	healthService *services.HealthService
 }
 
-// NewHealthHandler creates a new health handler
+// NewHealthHandler creates a new health handler.
 func NewHealthHandler(healthService *services.HealthService) *HealthHandler {
 	return &HealthHandler{
 		healthService: healthService,
 	}
 }
 
-// RegisterRoutes registers health check routes
+// RegisterRoutes registers health check routes.
 func (h *HealthHandler) RegisterRoutes(router *gin.Engine) {
 	health := router.Group("/health")
 	{

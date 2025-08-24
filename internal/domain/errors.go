@@ -22,17 +22,18 @@ const (
 	ExternalServiceError ErrorType = "EXTERNAL_SERVICE_ERROR"
 )
 
-// DomainError represents a domain-specific error with additional context
-type DomainError struct {
+// Error represents a domain-specific error with additional context.
+// This follows Go naming conventions to avoid stuttering with the package name.
+type Error struct {
+	Details map[string]interface{} `json:"details,omitempty"`
+	Cause   error                  `json:"-"`
 	Type    ErrorType              `json:"type"`
 	Code    string                 `json:"code"`
 	Message string                 `json:"message"`
-	Details map[string]interface{} `json:"details,omitempty"`
-	Cause   error                  `json:"-"`
 }
 
 // Error implements the error interface
-func (e *DomainError) Error() string {
+func (e *Error) Error() string {
 	if e.Cause != nil {
 		return fmt.Sprintf("%s: %s (caused by: %v)", e.Code, e.Message, e.Cause)
 	}
@@ -40,13 +41,13 @@ func (e *DomainError) Error() string {
 }
 
 // Unwrap returns the underlying cause error
-func (e *DomainError) Unwrap() error {
+func (e *Error) Unwrap() error {
 	return e.Cause
 }
 
 // NewValidationError creates a new validation error
-func NewValidationError(code, message string, details map[string]interface{}) *DomainError {
-	return &DomainError{
+func NewValidationError(code, message string, details map[string]interface{}) *Error {
+	return &Error{
 		Type:    ValidationError,
 		Code:    code,
 		Message: message,
@@ -55,8 +56,8 @@ func NewValidationError(code, message string, details map[string]interface{}) *D
 }
 
 // NewNotFoundError creates a new not found error
-func NewNotFoundError(code, message string) *DomainError {
-	return &DomainError{
+func NewNotFoundError(code, message string) *Error {
+	return &Error{
 		Type:    NotFoundError,
 		Code:    code,
 		Message: message,
@@ -64,8 +65,8 @@ func NewNotFoundError(code, message string) *DomainError {
 }
 
 // NewConflictError creates a new conflict error
-func NewConflictError(code, message string) *DomainError {
-	return &DomainError{
+func NewConflictError(code, message string) *Error {
+	return &Error{
 		Type:    ConflictError,
 		Code:    code,
 		Message: message,
@@ -73,8 +74,8 @@ func NewConflictError(code, message string) *DomainError {
 }
 
 // NewAuthenticationError creates a new authentication error
-func NewAuthenticationError(code, message string) *DomainError {
-	return &DomainError{
+func NewAuthenticationError(code, message string) *Error {
+	return &Error{
 		Type:    AuthenticationError,
 		Code:    code,
 		Message: message,
@@ -82,8 +83,8 @@ func NewAuthenticationError(code, message string) *DomainError {
 }
 
 // NewAuthorizationError creates a new authorization error
-func NewAuthorizationError(code, message string) *DomainError {
-	return &DomainError{
+func NewAuthorizationError(code, message string) *Error {
+	return &Error{
 		Type:    AuthorizationError,
 		Code:    code,
 		Message: message,
@@ -91,8 +92,8 @@ func NewAuthorizationError(code, message string) *DomainError {
 }
 
 // NewInternalError creates a new internal error
-func NewInternalError(code, message string, cause error) *DomainError {
-	return &DomainError{
+func NewInternalError(code, message string, cause error) *Error {
+	return &Error{
 		Type:    InternalError,
 		Code:    code,
 		Message: message,
@@ -101,8 +102,8 @@ func NewInternalError(code, message string, cause error) *DomainError {
 }
 
 // NewExternalServiceError creates a new external service error
-func NewExternalServiceError(code, message string, cause error) *DomainError {
-	return &DomainError{
+func NewExternalServiceError(code, message string, cause error) *Error {
+	return &Error{
 		Type:    ExternalServiceError,
 		Code:    code,
 		Message: message,

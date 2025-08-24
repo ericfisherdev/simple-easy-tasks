@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-// EnvLoader handles loading environment variables from .env files
+// EnvLoader handles loading environment variables from .env files.
 type EnvLoader struct {
-	baseDir string
 	loaded  map[string]string
+	baseDir string
 }
 
-// NewEnvLoader creates a new environment loader
+// NewEnvLoader creates a new environment loader.
 func NewEnvLoader(baseDir string) *EnvLoader {
 	return &EnvLoader{
 		baseDir: baseDir,
@@ -22,7 +22,7 @@ func NewEnvLoader(baseDir string) *EnvLoader {
 	}
 }
 
-// LoadEnvFiles loads environment variables from .env files in priority order
+// LoadEnvFiles loads environment variables from .env files in priority order.
 func (l *EnvLoader) LoadEnvFiles(environment string) error {
 	// Priority order (last one wins):
 	// 1. .env.defaults (if exists)
@@ -59,7 +59,7 @@ func (l *EnvLoader) LoadEnvFiles(environment string) error {
 	return nil
 }
 
-// loadEnvFile loads a single .env file
+// loadEnvFile loads a single .env file.
 func (l *EnvLoader) loadEnvFile(path string) error {
 	file, err := os.Open(path) // #nosec G304 -- path is validated by caller
 	if err != nil {
@@ -110,7 +110,7 @@ func (l *EnvLoader) loadEnvFile(path string) error {
 	return scanner.Err()
 }
 
-// GetLoadedVars returns all loaded environment variables
+// GetLoadedVars returns all loaded environment variables.
 func (l *EnvLoader) GetLoadedVars() map[string]string {
 	result := make(map[string]string)
 	for k, v := range l.loaded {
@@ -119,7 +119,7 @@ func (l *EnvLoader) GetLoadedVars() map[string]string {
 	return result
 }
 
-// AutoLoadEnv automatically loads environment files based on detected environment
+// AutoLoadEnv automatically loads environment files based on detected environment.
 func AutoLoadEnv(baseDir string) error {
 	loader := NewEnvLoader(baseDir)
 

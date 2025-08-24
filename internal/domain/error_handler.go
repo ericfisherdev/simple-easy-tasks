@@ -27,15 +27,15 @@ func NewDefaultErrorHandler(logger *log.Logger) *DefaultErrorHandler {
 
 // APIError represents an API error response
 type APIError struct {
+	Details map[string]interface{} `json:"details,omitempty"`
 	Type    string                 `json:"type"`
 	Code    string                 `json:"code"`
 	Message string                 `json:"message"`
-	Details map[string]interface{} `json:"details,omitempty"`
 }
 
 // HandleError converts domain errors to HTTP status codes and API error responses
 func (h *DefaultErrorHandler) HandleError(err error) (statusCode int, response interface{}) {
-	var domainErr *DomainError
+	var domainErr *Error
 	if errors.As(err, &domainErr) {
 		return h.handleDomainError(domainErr)
 	}
@@ -50,7 +50,7 @@ func (h *DefaultErrorHandler) HandleError(err error) (statusCode int, response i
 }
 
 // handleDomainError handles specific domain errors
-func (h *DefaultErrorHandler) handleDomainError(err *DomainError) (statusCode int, response interface{}) {
+func (h *DefaultErrorHandler) handleDomainError(err *Error) (statusCode int, response interface{}) {
 	h.LogError(err)
 
 	apiError := APIError{
@@ -80,7 +80,7 @@ func (h *DefaultErrorHandler) handleDomainError(err *DomainError) (statusCode in
 
 // LogError logs the error with appropriate level based on error type
 func (h *DefaultErrorHandler) LogError(err error) {
-	var domainErr *DomainError
+	var domainErr *Error
 	if errors.As(err, &domainErr) {
 		switch domainErr.Type {
 		case ValidationError, NotFoundError, ConflictError:

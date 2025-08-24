@@ -22,9 +22,9 @@ type Factory func(ctx context.Context, c Container) (interface{}, error)
 // ServiceRegistration represents a registered service
 type ServiceRegistration struct {
 	Factory   Factory
-	Singleton bool
 	Instance  interface{}
 	once      sync.Once
+	Singleton bool
 }
 
 // DIContainer is the default implementation of Container

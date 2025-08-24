@@ -23,23 +23,23 @@ const (
 
 // HealthCheck represents a single health check.
 type HealthCheck struct {
+	Details     map[string]interface{} `json:"details,omitempty"`
+	LastChecked time.Time              `json:"last_checked"`
+	Duration    time.Duration          `json:"duration"`
 	Name        string                 `json:"name"`
 	Status      HealthStatus           `json:"status"`
 	Message     string                 `json:"message,omitempty"`
 	Error       string                 `json:"error,omitempty"`
-	Duration    time.Duration          `json:"duration"`
-	Details     map[string]interface{} `json:"details,omitempty"`
-	LastChecked time.Time              `json:"last_checked"`
 }
 
 // HealthResponse represents the overall health response.
 type HealthResponse struct {
-	Status      HealthStatus           `json:"status"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Version     string                 `json:"version"`
-	Uptime      time.Duration          `json:"uptime"`
-	Checks      []HealthCheck          `json:"checks"`
 	System      map[string]interface{} `json:"system"`
+	Checks      []HealthCheck          `json:"checks"`
+	Timestamp   time.Time              `json:"timestamp"`
+	Uptime      time.Duration          `json:"uptime"`
+	Status      HealthStatus           `json:"status"`
+	Version     string                 `json:"version"`
 	Environment string                 `json:"environment"`
 }
 
@@ -67,12 +67,12 @@ func NewHealthService(version, env string) *HealthService {
 	}
 }
 
-// RegisterChecker registers a health checker
+// RegisterChecker registers a health checker.
 func (h *HealthService) RegisterChecker(checker HealthChecker) {
 	h.checkers = append(h.checkers, checker)
 }
 
-// Check performs all health checks and returns the overall health status
+// Check performs all health checks and returns the overall health status.
 func (h *HealthService) Check(ctx context.Context) HealthResponse {
 	checks := make([]HealthCheck, 0, len(h.checkers))
 	overallStatus := HealthStatusHealthy
@@ -105,7 +105,7 @@ func (h *HealthService) Check(ctx context.Context) HealthResponse {
 	}
 }
 
-// getSystemInfo returns system information
+// getSystemInfo returns system information.
 func (h *HealthService) getSystemInfo() map[string]interface{} {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
