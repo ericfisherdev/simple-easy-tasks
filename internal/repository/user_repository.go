@@ -1,3 +1,4 @@
+// Package repository defines data access interfaces and implementations for the domain entities.
 package repository
 
 import (

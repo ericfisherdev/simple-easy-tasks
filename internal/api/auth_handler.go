@@ -2,13 +2,12 @@ package api
 
 import (
 	"net/http"
-	"time"
-
-	"github.com/gin-gonic/gin"
-
 	"simple-easy-tasks/internal/api/middleware"
 	"simple-easy-tasks/internal/domain"
 	"simple-easy-tasks/internal/services"
+	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // AuthHandler handles authentication-related HTTP requests.

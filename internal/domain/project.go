@@ -14,29 +14,29 @@ const (
 
 // ProjectSettings represents project-specific settings.
 type ProjectSettings struct {
+	CustomFields   map[string]string `json:"custom_fields"`
+	Notifications  map[string]bool   `json:"notifications"`
 	IsPrivate      bool              `json:"is_private"`
 	AllowGuestView bool              `json:"allow_guest_view"`
 	EnableComments bool              `json:"enable_comments"`
-	CustomFields   map[string]string `json:"custom_fields"`
-	Notifications  map[string]bool   `json:"notifications"`
 }
 
 // Project represents a project in the system following DDD principles.
 type Project struct {
-	ID          string          `json:"id"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+	CreatedAt   time.Time       `json:"created_at"`
+	Owner       *User           `json:"owner,omitempty"`
+	Settings    ProjectSettings `json:"settings"`
 	Title       string          `json:"title"`
+	ID          string          `json:"id"`
 	Description string          `json:"description,omitempty"`
 	Slug        string          `json:"slug"`
 	OwnerID     string          `json:"owner_id"`
-	Owner       *User           `json:"owner,omitempty"`
-	MemberIDs   []string        `json:"member_ids"`
-	Members     []User          `json:"members,omitempty"`
-	Settings    ProjectSettings `json:"settings"`
-	Status      ProjectStatus   `json:"status"`
 	Color       string          `json:"color,omitempty"`
 	Icon        string          `json:"icon,omitempty"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	Status      ProjectStatus   `json:"status"`
+	MemberIDs   []string        `json:"member_ids"`
+	Members     []User          `json:"members,omitempty"`
 }
 
 // IsOwner returns true if the given user is the owner of the project.
@@ -80,29 +80,21 @@ func (p *Project) RemoveMember(userID string) {
 
 // Validate validates the project data.
 func (p *Project) Validate() error {
-	if p.Title == "" {
-		return NewValidationError("INVALID_TITLE", "Title is required", map[string]interface{}{
-			"field": "title",
-		})
+	if err := ValidateRequired("title", p.Title, "INVALID_TITLE", "Title is required"); err != nil {
+		return err
 	}
 
-	if p.Slug == "" {
-		return NewValidationError("INVALID_SLUG", "Slug is required", map[string]interface{}{
-			"field": "slug",
-		})
+	if err := ValidateRequired("slug", p.Slug, "INVALID_SLUG", "Slug is required"); err != nil {
+		return err
 	}
 
-	if p.OwnerID == "" {
-		return NewValidationError("INVALID_OWNER", "Owner ID is required", map[string]interface{}{
-			"field": "owner_id",
-		})
+	if err := ValidateRequired("owner_id", p.OwnerID, "INVALID_OWNER", "Owner ID is required"); err != nil {
+		return err
 	}
 
-	if p.Status != ActiveProject && p.Status != ArchivedProject {
-		return NewValidationError("INVALID_STATUS", "Status must be 'active' or 'archived'", map[string]interface{}{
-			"field": "status",
-			"value": p.Status,
-		})
+	if err := ValidateEnum("status", string(p.Status), "INVALID_STATUS", "Status must be 'active' or 'archived'",
+		string(ActiveProject), string(ArchivedProject)); err != nil {
+		return err
 	}
 
 	return nil
@@ -110,12 +102,12 @@ func (p *Project) Validate() error {
 
 // CreateProjectRequest represents the data needed to create a new project.
 type CreateProjectRequest struct {
+	Settings    *ProjectSettings `json:"settings,omitempty"`
 	Title       string           `json:"title" binding:"required,min=1,max=200"`
 	Description string           `json:"description,omitempty"`
 	Slug        string           `json:"slug" binding:"required,min=1,max=100"`
 	Color       string           `json:"color,omitempty"`
 	Icon        string           `json:"icon,omitempty"`
-	Settings    *ProjectSettings `json:"settings,omitempty"`
 }
 
 // UpdateProjectRequest represents the data that can be updated for a project.

@@ -3,14 +3,13 @@ package services
 import (
 	"context"
 	"fmt"
+	"simple-easy-tasks/internal/config"
+	"simple-easy-tasks/internal/domain"
+	"simple-easy-tasks/internal/repository"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
 )
 
 // AuthService defines the interface for authentication operations.
@@ -66,7 +65,7 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 	}
 
 	// Check password
-	if err := user.CheckPassword(req.Password); err != nil {
+	if passwordErr := user.CheckPassword(req.Password); passwordErr != nil {
 		return nil, domain.NewAuthenticationError("INVALID_CREDENTIALS", "Invalid email or password")
 	}
 
@@ -184,7 +183,7 @@ func (s *authService) ValidateToken(ctx context.Context, tokenString string) (*d
 }
 
 // Logout invalidates tokens (placeholder for future blacklist implementation).
-func (s *authService) Logout(ctx context.Context, userID string) error {
+func (s *authService) Logout(_ context.Context, _ string) error {
 	// TODO: Implement token blacklist or invalidation mechanism
 	// For now, we rely on token expiration
 	return nil
@@ -259,7 +258,6 @@ func (s *authService) parseToken(tokenString string) (*TokenClaims, error) {
 		}
 		return s.jwtSecret, nil
 	})
-
 	if err != nil {
 		return nil, err
 	}

@@ -12,30 +12,30 @@ type UserRole string
 const (
 	// AdminRole represents an administrator user.
 	AdminRole UserRole = "admin"
-	// UserRole represents a regular user.
+	// RegularUserRole represents a regular user.
 	RegularUserRole UserRole = "user"
 )
 
 // UserPreferences represents user-specific preferences.
 type UserPreferences struct {
+	Preferences map[string]string `json:"preferences"`
 	Theme       string            `json:"theme"`
 	Language    string            `json:"language"`
 	Timezone    string            `json:"timezone"`
-	Preferences map[string]string `json:"preferences"`
 }
 
 // User represents a user in the system following DDD principles.
 type User struct {
+	Preferences  UserPreferences `json:"preferences"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 	ID           string          `json:"id"`
 	Email        string          `json:"email"`
 	Username     string          `json:"username"`
 	Name         string          `json:"name"`
 	PasswordHash string          `json:"-"` // Never serialize password hash
-	Role         UserRole        `json:"role"`
 	Avatar       string          `json:"avatar,omitempty"`
-	Preferences  UserPreferences `json:"preferences"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	Role         UserRole        `json:"role"`
 }
 
 // SetPassword hashes and sets the user's password.
@@ -64,29 +64,21 @@ func (u *User) IsAdmin() bool {
 
 // Validate validates the user data.
 func (u *User) Validate() error {
-	if u.Email == "" {
-		return NewValidationError("INVALID_EMAIL", "Email is required", map[string]interface{}{
-			"field": "email",
-		})
+	if err := ValidateRequired("email", u.Email, "INVALID_EMAIL", "Email is required"); err != nil {
+		return err
 	}
 
-	if u.Username == "" {
-		return NewValidationError("INVALID_USERNAME", "Username is required", map[string]interface{}{
-			"field": "username",
-		})
+	if err := ValidateRequired("username", u.Username, "INVALID_USERNAME", "Username is required"); err != nil {
+		return err
 	}
 
-	if u.Name == "" {
-		return NewValidationError("INVALID_NAME", "Name is required", map[string]interface{}{
-			"field": "name",
-		})
+	if err := ValidateRequired("name", u.Name, "INVALID_NAME", "Name is required"); err != nil {
+		return err
 	}
 
-	if u.Role != AdminRole && u.Role != RegularUserRole {
-		return NewValidationError("INVALID_ROLE", "Role must be 'admin' or 'user'", map[string]interface{}{
-			"field": "role",
-			"value": u.Role,
-		})
+	if err := ValidateEnum("role", string(u.Role), "INVALID_ROLE", "Role must be 'admin' or 'user'",
+		string(AdminRole), string(RegularUserRole)); err != nil {
+		return err
 	}
 
 	return nil
@@ -116,7 +108,7 @@ type LoginRequest struct {
 
 // TokenPair represents JWT tokens.
 type TokenPair struct {
+	ExpiresAt    time.Time `json:"expires_at"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
-	ExpiresAt    time.Time `json:"expires_at"`
 }
