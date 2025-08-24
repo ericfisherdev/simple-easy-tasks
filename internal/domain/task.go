@@ -3,6 +3,8 @@ package domain
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
 	"time"
 )
 
@@ -49,15 +51,25 @@ func (p TaskPriority) IsValid() bool {
 	}
 }
 
+// Task validation constraints
+const (
+	TitleMaxLen    = 200 // TitleMaxLen defines the maximum length for task titles
+	ProgressMin    = 0   // ProgressMin defines the minimum progress value
+	ProgressMax    = 100 // ProgressMax defines the maximum progress value
+	ProgressFull   = 100 // ProgressFull indicates task completion
+	MinEffortHours = 0.0 // MinEffortHours defines minimum effort estimate
+	MinTimeSpent   = 0.0 // MinTimeSpent defines minimum time spent
+)
+
 // Task represents a work item in the project management system
 type Task struct {
 	UpdatedAt      time.Time       `json:"updated_at" db:"updated"`
 	CreatedAt      time.Time       `json:"created_at" db:"created"`
-	EffortEstimate *float64        `json:"effort_estimate" db:"effort_estimate"`
-	AssigneeID     *string         `json:"assignee_id" db:"assignee"`
-	ParentTaskID   *string         `json:"parent_task_id" db:"parent_task"`
-	DueDate        *time.Time      `json:"due_date" db:"due_date"`
-	StartDate      *time.Time      `json:"start_date" db:"start_date"`
+	EffortEstimate *float64        `json:"effort_estimate,omitempty" db:"effort_estimate"`
+	AssigneeID     *string         `json:"assignee_id,omitempty" db:"assignee"`
+	ParentTaskID   *string         `json:"parent_task_id,omitempty" db:"parent_task"`
+	DueDate        *time.Time      `json:"due_date,omitempty" db:"due_date"`
+	StartDate      *time.Time      `json:"start_date,omitempty" db:"start_date"`
 	Description    string          `json:"description" db:"description"`
 	Priority       TaskPriority    `json:"priority" db:"priority"`
 	Title          string          `json:"title" db:"title"`
@@ -65,12 +77,12 @@ type Task struct {
 	ProjectID      string          `json:"project_id" db:"project"`
 	ReporterID     string          `json:"reporter_id" db:"reporter"`
 	Status         TaskStatus      `json:"status" db:"status"`
-	Dependencies   []string        `json:"dependencies" db:"-"`
-	Tags           []string        `json:"tags" db:"-"`
-	Attachments    []string        `json:"attachments" db:"-"`
-	ColumnPosition json.RawMessage `json:"column_position" db:"column_position"`
-	GithubData     json.RawMessage `json:"github_data" db:"github_data"`
-	CustomFields   json.RawMessage `json:"custom_fields" db:"custom_fields"`
+	Dependencies   []string        `json:"dependencies,omitempty" db:"-"`
+	Tags           []string        `json:"tags,omitempty" db:"-"`
+	Attachments    []string        `json:"attachments,omitempty" db:"-"`
+	ColumnPosition json.RawMessage `json:"column_position,omitempty" db:"column_position"`
+	GithubData     json.RawMessage `json:"github_data,omitempty" db:"github_data"`
+	CustomFields   json.RawMessage `json:"custom_fields,omitempty" db:"custom_fields"`
 	TimeSpent      float64         `json:"time_spent" db:"time_spent"`
 	Progress       int             `json:"progress" db:"progress"`
 	Position       int             `json:"position" db:"position"`
@@ -78,7 +90,7 @@ type Task struct {
 
 // NewTask creates a new task with default values
 func NewTask(title, description, projectID, reporterID string) *Task {
-	now := time.Now()
+	now := time.Now().UTC()
 	return &Task{
 		Title:       title,
 		Description: description,
@@ -109,21 +121,21 @@ func (t *Task) Validate() error {
 }
 
 func (t *Task) validateRequiredFields() error {
-	if t.Title == "" {
+	if strings.TrimSpace(t.Title) == "" {
 		return NewValidationError("title", "Title is required", nil)
 	}
-	if t.ProjectID == "" {
+	if strings.TrimSpace(t.ProjectID) == "" {
 		return NewValidationError("project_id", "Project ID is required", nil)
 	}
-	if t.ReporterID == "" {
+	if strings.TrimSpace(t.ReporterID) == "" {
 		return NewValidationError("reporter_id", "Reporter ID is required", nil)
 	}
 	return nil
 }
 
 func (t *Task) validateFieldValues() error {
-	if len(t.Title) > 200 {
-		return NewValidationError("title", "Title must not exceed 200 characters", nil)
+	if len(t.Title) > TitleMaxLen {
+		return NewValidationError("title", fmt.Sprintf("Title must not exceed %d characters", TitleMaxLen), nil)
 	}
 	if !t.Status.IsValid() {
 		return NewValidationError("status", "Invalid task status", nil)
@@ -131,15 +143,20 @@ func (t *Task) validateFieldValues() error {
 	if !t.Priority.IsValid() {
 		return NewValidationError("priority", "Invalid task priority", nil)
 	}
-	if t.Progress < 0 || t.Progress > 100 {
-		return NewValidationError("progress", "Progress must be between 0 and 100", nil)
+	if t.Progress < ProgressMin || t.Progress > ProgressMax {
+		msg := fmt.Sprintf("Progress must be between %d and %d", ProgressMin, ProgressMax)
+		return NewValidationError("progress", msg, nil)
 	}
 	return nil
 }
 
 func (t *Task) validateDateRules() error {
-	if t.DueDate != nil && t.DueDate.Before(time.Now().Truncate(24*time.Hour)) {
-		return NewValidationError("due_date", "Due date cannot be in the past", nil)
+	if t.DueDate != nil {
+		now := time.Now().UTC()
+		startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		if t.DueDate.Before(startOfDay) {
+			return NewValidationError("due_date", "Due date cannot be in the past", nil)
+		}
 	}
 	if t.StartDate != nil && t.DueDate != nil && t.StartDate.After(*t.DueDate) {
 		return NewValidationError("dates", "Start date cannot be after due date", nil)
@@ -148,11 +165,14 @@ func (t *Task) validateDateRules() error {
 }
 
 func (t *Task) validateNumericFields() error {
-	if t.EffortEstimate != nil && *t.EffortEstimate < 0 {
+	if t.EffortEstimate != nil && *t.EffortEstimate < MinEffortHours {
 		return NewValidationError("effort_estimate", "Effort estimate cannot be negative", nil)
 	}
-	if t.TimeSpent < 0 {
+	if t.TimeSpent < MinTimeSpent {
 		return NewValidationError("time_spent", "Time spent cannot be negative", nil)
+	}
+	if t.Position < 0 {
+		return NewValidationError("position", "Position cannot be negative", nil)
 	}
 	return nil
 }
@@ -192,54 +212,65 @@ func (t *Task) UpdateStatus(newStatus TaskStatus) error {
 			fmt.Sprintf("Cannot transition from %s to %s", t.Status, newStatus))
 	}
 	t.Status = newStatus
-	t.UpdatedAt = time.Now()
+	t.UpdatedAt = time.Now().UTC()
 	return nil
 }
 
 // AssignTo assigns the task to a specific user
 func (t *Task) AssignTo(userID string) {
 	t.AssigneeID = &userID
-	t.UpdatedAt = time.Now()
+	t.UpdatedAt = time.Now().UTC()
 }
 
 // Unassign removes the current assignee from the task
 func (t *Task) Unassign() {
 	t.AssigneeID = nil
-	t.UpdatedAt = time.Now()
+	t.UpdatedAt = time.Now().UTC()
 }
 
 // UpdateProgress updates the task completion percentage
 func (t *Task) UpdateProgress(progress int) error {
-	if progress < 0 || progress > 100 {
-		return NewValidationError("progress", "Progress must be between 0 and 100", nil)
+	if progress < ProgressMin || progress > ProgressMax {
+		msg := fmt.Sprintf("Progress must be between %d and %d", ProgressMin, ProgressMax)
+		return NewValidationError("progress", msg, nil)
 	}
 	t.Progress = progress
-	t.UpdatedAt = time.Now()
+	t.UpdatedAt = time.Now().UTC()
 
-	if progress == 100 && t.Status != StatusComplete {
-		return t.UpdateStatus(StatusComplete)
+	// If progress reaches 100%, attempt status transition as best-effort
+	if progress == ProgressFull && t.Status != StatusComplete {
+		// Ignore transition errors to avoid surprising callers after progress update
+		_ = t.UpdateStatus(StatusComplete)
 	}
 	return nil
 }
 
 // AddTimeSpent adds hours to the time spent on the task
 func (t *Task) AddTimeSpent(hours float64) error {
-	if hours < 0 {
+	if hours < MinTimeSpent {
 		return NewValidationError("time_spent", "Time spent cannot be negative", nil)
 	}
+	if math.IsNaN(hours) || math.IsInf(hours, 0) {
+		return NewValidationError("time_spent", "Time spent must be a finite number", nil)
+	}
 	t.TimeSpent += hours
-	t.UpdatedAt = time.Now()
+	t.UpdatedAt = time.Now().UTC()
 	return nil
 }
 
 // SetParentTask sets the parent task for subtask relationships
+// Note: This only validates immediate self-parent cycles. For broader cycle detection
+// and cross-project validation, additional checks should be performed at the service layer
+// with repository access to traverse the full parent chain via DFS.
 func (t *Task) SetParentTask(parentID string) error {
 	if parentID == t.ID {
 		return NewConflictError("circular_dependency",
 			"Task cannot be its own parent")
 	}
+	// TODO: Implement broader cycle detection and cross-project validation
+	// at the service layer with repository access
 	t.ParentTaskID = &parentID
-	t.UpdatedAt = time.Now()
+	t.UpdatedAt = time.Now().UTC()
 	return nil
 }
 
@@ -253,13 +284,16 @@ func (t *Task) IsOverdue() bool {
 
 // GetColumnPositionMap retrieves the column positions as a map
 func (t *Task) GetColumnPositionMap() (map[string]int, error) {
-	if t.ColumnPosition == nil {
+	if len(t.ColumnPosition) == 0 {
 		return make(map[string]int), nil
 	}
 
 	var positions map[string]int
 	if err := json.Unmarshal(t.ColumnPosition, &positions); err != nil {
 		return nil, err
+	}
+	if positions == nil {
+		positions = make(map[string]int)
 	}
 	return positions, nil
 }
@@ -271,19 +305,22 @@ func (t *Task) SetColumnPosition(positions map[string]int) error {
 		return err
 	}
 	t.ColumnPosition = data
-	t.UpdatedAt = time.Now()
+	t.UpdatedAt = time.Now().UTC()
 	return nil
 }
 
 // GetCustomFieldsMap retrieves the custom fields as a map
 func (t *Task) GetCustomFieldsMap() (map[string]interface{}, error) {
-	if t.CustomFields == nil {
+	if len(t.CustomFields) == 0 {
 		return make(map[string]interface{}), nil
 	}
 
 	var fields map[string]interface{}
 	if err := json.Unmarshal(t.CustomFields, &fields); err != nil {
 		return nil, err
+	}
+	if fields == nil {
+		fields = make(map[string]interface{})
 	}
 	return fields, nil
 }
@@ -295,6 +332,6 @@ func (t *Task) SetCustomFields(fields map[string]interface{}) error {
 		return err
 	}
 	t.CustomFields = data
-	t.UpdatedAt = time.Now()
+	t.UpdatedAt = time.Now().UTC()
 	return nil
 }

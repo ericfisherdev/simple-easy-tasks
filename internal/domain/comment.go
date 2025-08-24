@@ -102,21 +102,14 @@ func (c *Comment) AddAttachment(attachmentID string) error {
 
 // RemoveAttachment removes a file attachment from the comment
 func (c *Comment) RemoveAttachment(attachmentID string) error {
-	newAttachments := make([]string, 0, len(c.Attachments))
-	found := false
-	for _, existing := range c.Attachments {
-		if existing != attachmentID {
-			newAttachments = append(newAttachments, existing)
-		} else {
-			found = true
+	for i, existing := range c.Attachments {
+		if existing == attachmentID {
+			c.Attachments = append(c.Attachments[:i], c.Attachments[i+1:]...)
+			c.UpdatedAt = time.Now()
+			return nil
 		}
 	}
-	if !found {
-		return NewNotFoundError("attachment", "Attachment not found: "+attachmentID)
-	}
-	c.Attachments = newAttachments
-	c.UpdatedAt = time.Now()
-	return nil
+	return NewNotFoundError("attachment", "Attachment not found: "+attachmentID)
 }
 
 // IsReply checks if this comment is a reply to another comment

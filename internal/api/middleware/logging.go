@@ -10,8 +10,6 @@ import (
 )
 
 // LoggingConfig holds configuration for the logging middleware.
-//
-//nolint:govet // fieldalignment: micro-optimization not critical for this config struct
 type LoggingConfig struct {
 	Output     io.Writer
 	TimeFormat string

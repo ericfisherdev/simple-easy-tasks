@@ -1,8 +1,11 @@
 package domain
 
 import (
+	"regexp"
 	"time"
 )
+
+var hexColorRegex = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 // Tag represents a label that can be associated with tasks
 type Tag struct {
@@ -97,17 +100,5 @@ func (t *Tag) UpdateColor(color string) error {
 }
 
 func isValidHexColor(color string) bool {
-	if len(color) != 7 {
-		return false
-	}
-	if color[0] != '#' {
-		return false
-	}
-	for i := 1; i < 7; i++ {
-		c := color[i]
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
-			return false
-		}
-	}
-	return true
+	return hexColorRegex.MatchString(color)
 }
