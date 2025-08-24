@@ -11,20 +11,20 @@ import (
 
 // RateLimiter represents a simple rate limiter using token bucket algorithm.
 type RateLimiter struct {
-	tokens     int
-	capacity   int
-	refill     time.Duration
 	lastRefill time.Time
 	mu         sync.Mutex
+	refill     time.Duration
+	tokens     int
+	capacity   int
 }
 
 // NewRateLimiter creates a new rate limiter.
 func NewRateLimiter(capacity int, refillRate time.Duration) *RateLimiter {
 	return &RateLimiter{
+		lastRefill: time.Now(),
+		refill:     refillRate,
 		tokens:     capacity,
 		capacity:   capacity,
-		refill:     refillRate,
-		lastRefill: time.Now(),
 	}
 }
 
@@ -53,12 +53,12 @@ func (rl *RateLimiter) Allow() bool {
 
 // RateLimitConfig holds configuration for rate limiting.
 type RateLimitConfig struct {
-	// RequestsPerMinute specifies the maximum number of requests per minute.
-	RequestsPerMinute int
 	// KeyGenerator is a function that generates a key for rate limiting (e.g., IP address, user ID).
 	KeyGenerator func(c *gin.Context) string
 	// OnExceeded is called when rate limit is exceeded.
 	OnExceeded func(c *gin.Context)
+	// RequestsPerMinute specifies the maximum number of requests per minute.
+	RequestsPerMinute int
 }
 
 // RateLimitMiddleware returns a rate limiting middleware.

@@ -30,15 +30,15 @@ func NewTestRouter() *gin.Engine {
 
 // TestCase represents a test case for HTTP handlers.
 type TestCase struct {
+	Body           interface{}
+	ExpectedBody   interface{}
+	Headers        map[string]string
+	SetupFunc      func(t *testing.T)
+	CleanupFunc    func(t *testing.T)
 	Name           string
 	Method         string
 	URL            string
-	Body           interface{}
-	Headers        map[string]string
 	ExpectedStatus int
-	ExpectedBody   interface{}
-	SetupFunc      func(t *testing.T)
-	CleanupFunc    func(t *testing.T)
 }
 
 // HTTPTestHelper provides utilities for HTTP testing.

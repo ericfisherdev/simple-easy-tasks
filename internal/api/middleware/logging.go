@@ -10,13 +10,15 @@ import (
 )
 
 // LoggingConfig holds configuration for the logging middleware.
+//
+//nolint:govet // fieldalignment: micro-optimization not critical for this config struct
 type LoggingConfig struct {
-	// Output specifies the output destination. If nil, os.Stdout is used.
-	Output io.Writer
 	// SkipPaths is a slice of paths that should not be logged.
 	SkipPaths []string
 	// TimeFormat specifies the time format for logging.
 	TimeFormat string
+	// Output specifies the output destination. If nil, os.Stdout is used.
+	Output io.Writer
 }
 
 // LoggingMiddleware returns a logging middleware with custom configuration.

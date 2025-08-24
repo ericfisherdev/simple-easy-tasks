@@ -1,5 +1,6 @@
 package middleware_test
 
+//nolint:gofumpt
 import (
 	"context"
 	"net/http"
@@ -196,8 +197,8 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 func TestRecoveryMiddleware(t *testing.T) {
 	tests := []struct {
-		name           string
 		panicValue     interface{}
+		name           string
 		expectedStatus int
 	}{
 		{

@@ -22,8 +22,8 @@ type Error struct {
 
 // Result represents the result of validation.
 type Result struct {
-	Valid  bool     `json:"valid"`
 	Errors []*Error `json:"errors,omitempty"`
+	Valid  bool     `json:"valid"`
 }
 
 // Validator provides validation functionality.
@@ -33,9 +33,9 @@ type Validator struct {
 
 // Rule represents a validation rule for a field.
 type Rule struct {
+	Func    Func
 	Tag     string
 	Message string
-	Func    Func
 }
 
 // Func is a function that validates a field value.

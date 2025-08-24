@@ -1,5 +1,6 @@
 package api_test
 
+//nolint:gofumpt
 import (
 	"context"
 	"net/http"

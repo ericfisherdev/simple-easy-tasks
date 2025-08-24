@@ -1,5 +1,6 @@
 package validation_test
 
+//nolint:gofumpt
 import (
 	"testing"
 
@@ -8,13 +9,13 @@ import (
 
 // TestStruct for validation testing
 type TestStruct struct {
+	Website  *string `json:"website,omitempty" validate:"url"`
 	Name     string  `json:"name" validate:"required,min=2,max=50"`
 	Email    string  `json:"email" validate:"required,email"`
 	Username string  `json:"username" validate:"required,min=3,max=20,alphanum"`
-	Age      int     `json:"age" validate:"min=0,max=150"`
-	Website  *string `json:"website,omitempty" validate:"url"`
 	Role     string  `json:"role" validate:"required,oneof=admin user guest"`
 	Slug     string  `json:"slug" validate:"slug"`
+	Age      int     `json:"age" validate:"min=0,max=150"`
 }
 
 func TestValidator_ValidateStruct_Success(t *testing.T) {
@@ -122,14 +123,14 @@ func TestValidator_ValidateStruct_MinMaxLength(t *testing.T) {
 	tests := []struct {
 		name      string
 		username  string
-		shouldErr bool
 		errorTag  string
+		shouldErr bool
 	}{
-		{"valid length", "john123", false, ""},
-		{"too short", "ab", true, "min"},
-		{"too long", "thisusernameiswaytoolongtobevalid", true, "max"},
-		{"minimum valid", "abc", false, ""},
-		{"maximum valid", "12345678901234567890", false, ""}, // exactly 20 chars
+		{"valid length", "john123", "", false},
+		{"too short", "ab", "min", true},
+		{"too long", "thisusernameiswaytoolongtobevalid", "max", true},
+		{"minimum valid", "abc", "", false},
+		{"maximum valid", "12345678901234567890", "", false}, // exactly 20 chars
 	}
 
 	for _, tt := range tests {
@@ -252,16 +253,16 @@ func TestValidator_ValidateStruct_SlugValidation(t *testing.T) {
 
 func TestValidator_ValidateStruct_URLValidation(t *testing.T) {
 	tests := []struct {
-		name      string
 		website   *string
+		name      string
 		shouldErr bool
 	}{
-		{"valid https URL", stringPtr("https://example.com"), false},
-		{"valid http URL", stringPtr("http://example.com"), false},
-		{"valid URL with path", stringPtr("https://example.com/path"), false},
-		{"invalid URL - no protocol", stringPtr("example.com"), true},
-		{"invalid URL - ftp protocol", stringPtr("ftp://example.com"), true},
-		{"nil pointer", nil, false}, // Should pass as it's optional
+		{stringPtr("https://example.com"), "valid https URL", false},
+		{stringPtr("http://example.com"), "valid http URL", false},
+		{stringPtr("https://example.com/path"), "valid URL with path", false},
+		{stringPtr("example.com"), "invalid URL - no protocol", true},
+		{stringPtr("ftp://example.com"), "invalid URL - ftp protocol", true},
+		{nil, "nil pointer", false}, // Should pass as it's optional
 	}
 
 	for _, tt := range tests {

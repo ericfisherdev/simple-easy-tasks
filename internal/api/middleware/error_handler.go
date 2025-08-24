@@ -16,12 +16,12 @@ import (
 
 // ErrorHandlerConfig holds configuration for error handling middleware.
 type ErrorHandlerConfig struct {
+	// CustomErrorHandler allows for custom error handling logic
+	CustomErrorHandler func(c *gin.Context, err error)
 	// IncludeStackTrace determines whether to include stack traces in error responses
 	IncludeStackTrace bool
 	// LogErrors determines whether errors should be logged
 	LogErrors bool
-	// CustomErrorHandler allows for custom error handling logic
-	CustomErrorHandler func(c *gin.Context, err error)
 }
 
 // ErrorHandlerMiddleware returns a middleware that handles errors consistently.

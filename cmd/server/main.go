@@ -1,6 +1,7 @@
 // Package main provides the entry point for the Simple Easy Tasks server application.
 package main
 
+//nolint:gofumpt
 import (
 	"context"
 	"fmt"
