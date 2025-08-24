@@ -1,54 +1,25 @@
+version: "2"
+
 run:
   timeout: 5m
   issues-exit-code: 1
   tests: true
-  skip-dirs-use-default: true
   modules-download-mode: readonly
 
 output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: false
-  govet:
-    check-shadowing: true
-    enable-all: true
-  gofmt:
-    simplify: true
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  misspell:
-    locale: US
-  lll:
-    line-length: 120
-  gofumpt:
-    extra-rules: true
-  revive:
-    min-confidence: 0
-  staticcheck:
-    checks: ["all"]
+  formats:
+    text:
+      path: stdout
+      colors: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck      # Check for unchecked errors
-    - gosimple      # Simplify Go code
+    - staticcheck   # Static analysis (includes gosimple)
     - govet         # Reports suspicious constructs
     - ineffassign   # Detect ineffectual assignments
-    - staticcheck   # Static analysis
-    - typecheck     # Type checking
     - unused        # Check for unused constants, variables, functions
-    - gofmt         # Check if code is gofmt-ed
-    - gofumpt       # Stricter gofmt
     - gocyclo       # Cyclomatic complexity
     - dupl          # Code clone detection
     - goconst       # Find repeated strings that could be constants
@@ -60,24 +31,55 @@ linters:
     - gosec         # Security checker
     - bodyclose     # Check if HTTP response body is closed
     - noctx         # Find sending http request without context.Context
-    - gci           # Control golang package import order
     - godot         # Check if comments end in a period
+  
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    govet:
+      enable:
+        - shadow
+      enable-all: true
+    gocyclo:
+      min-complexity: 15
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    misspell:
+      locale: US
+    lll:
+      line-length: 120
+    revive:
+      confidence: 0
+    staticcheck:
+      checks: ["all"]
+  
+  exclusions:
+    rules:
+      # Exclude some linters from running on tests files
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - errcheck
+          - dupl
+          - gosec
+          - goconst
+      # Exclude line length check for long lines with URLs or file paths
+      - linters:
+          - lll
+        source: "https?://|/[^ ]+"
 
-issues:
-  exclude-use-default: false
-  exclude:
-    # Allow complexity in main functions
-    - "cyclomatic complexity .* of func `main` is high"
-  exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - dupl
-        - gosec
-        - goconst
-    # Exclude line length check for long lines with URLs or file paths
-    - linters:
-        - lll
-      source: "https?://|/[^ ]+"
+formatters:
+  enable:
+    - gofmt         # Check if code is gofmt-ed
+    - gofumpt       # Stricter gofmt
+    - gci           # Control golang package import order
+  
+  settings:
+    gofmt:
+      simplify: true
+    gofumpt:
+      extra-rules: true
