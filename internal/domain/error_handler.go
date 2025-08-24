@@ -25,7 +25,7 @@ func NewDefaultErrorHandler(logger *log.Logger) *DefaultErrorHandler {
 	}
 }
 
-// APIError represents an API error response
+// APIError represents an API error response.
 type APIError struct {
 	Details map[string]interface{} `json:"details,omitempty"`
 	Type    string                 `json:"type"`
@@ -33,7 +33,7 @@ type APIError struct {
 	Message string                 `json:"message"`
 }
 
-// HandleError converts domain errors to HTTP status codes and API error responses
+// HandleError converts domain errors to HTTP status codes and API error responses.
 func (h *DefaultErrorHandler) HandleError(err error) (statusCode int, response interface{}) {
 	var domainErr *Error
 	if errors.As(err, &domainErr) {
@@ -49,7 +49,7 @@ func (h *DefaultErrorHandler) HandleError(err error) (statusCode int, response i
 	}
 }
 
-// handleDomainError handles specific domain errors
+// handleDomainError handles specific domain errors.
 func (h *DefaultErrorHandler) handleDomainError(err *Error) (statusCode int, response interface{}) {
 	h.LogError(err)
 
@@ -78,7 +78,7 @@ func (h *DefaultErrorHandler) handleDomainError(err *Error) (statusCode int, res
 	}
 }
 
-// LogError logs the error with appropriate level based on error type
+// LogError logs the error with appropriate level based on error type.
 func (h *DefaultErrorHandler) LogError(err error) {
 	var domainErr *Error
 	if errors.As(err, &domainErr) {

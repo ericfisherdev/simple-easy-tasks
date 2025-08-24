@@ -276,10 +276,10 @@ type IndexUsageStats struct {
 
 // PerformanceMetrics holds various performance metrics
 type PerformanceMetrics struct {
+	LastOptimized time.Time         `json:"last_optimized"`
 	TableSizes    map[string]int64  `json:"table_sizes"`
 	RecordCounts  map[string]int64  `json:"record_counts"`
 	IndexStats    []IndexUsageStats `json:"index_stats"`
-	LastOptimized time.Time         `json:"last_optimized"`
 	TotalSize     int64             `json:"total_size"`
 }
 

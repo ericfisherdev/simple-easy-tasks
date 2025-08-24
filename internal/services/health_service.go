@@ -23,24 +23,24 @@ const (
 
 // HealthCheck represents a single health check.
 type HealthCheck struct {
-	Details     map[string]interface{} `json:"details,omitempty"`
 	LastChecked time.Time              `json:"last_checked"`
-	Duration    time.Duration          `json:"duration"`
+	Details     map[string]interface{} `json:"details,omitempty"`
 	Name        string                 `json:"name"`
-	Status      HealthStatus           `json:"status"`
 	Message     string                 `json:"message,omitempty"`
 	Error       string                 `json:"error,omitempty"`
+	Status      HealthStatus           `json:"status"`
+	Duration    time.Duration          `json:"duration"`
 }
 
 // HealthResponse represents the overall health response.
 type HealthResponse struct {
-	System      map[string]interface{} `json:"system"`
-	Checks      []HealthCheck          `json:"checks"`
 	Timestamp   time.Time              `json:"timestamp"`
-	Uptime      time.Duration          `json:"uptime"`
-	Status      HealthStatus           `json:"status"`
+	System      map[string]interface{} `json:"system"`
 	Version     string                 `json:"version"`
 	Environment string                 `json:"environment"`
+	Status      HealthStatus           `json:"status"`
+	Checks      []HealthCheck          `json:"checks"`
+	Uptime      time.Duration          `json:"uptime"`
 }
 
 // HealthChecker defines the interface for health checkers.
@@ -51,10 +51,10 @@ type HealthChecker interface {
 
 // HealthService manages health checks for the application.
 type HealthService struct {
-	checkers  []HealthChecker
 	startTime time.Time
 	version   string
 	env       string
+	checkers  []HealthChecker
 }
 
 // NewHealthService creates a new health service.
@@ -132,7 +132,7 @@ func (h *HealthService) getSystemInfo() map[string]interface{} {
 	}
 }
 
-// Liveness returns a simple liveness probe (application is running)
+// Liveness returns a simple liveness probe (application is running).
 func (h *HealthService) Liveness() HealthResponse {
 	return HealthResponse{
 		Status:      HealthStatusHealthy,
@@ -146,7 +146,7 @@ func (h *HealthService) Liveness() HealthResponse {
 	}
 }
 
-// Readiness returns readiness probe (application is ready to serve traffic)
+// Readiness returns readiness probe (application is ready to serve traffic).
 func (h *HealthService) Readiness(ctx context.Context) HealthResponse {
 	// For readiness, we only check critical dependencies
 	criticalCheckers := make([]HealthChecker, 0)
@@ -183,7 +183,7 @@ func (h *HealthService) Readiness(ctx context.Context) HealthResponse {
 	}
 }
 
-// isCriticalChecker determines if a checker is critical for readiness
+// isCriticalChecker determines if a checker is critical for readiness.
 func isCriticalChecker(checker HealthChecker) bool {
 	criticalCheckers := []string{
 		"database",
@@ -200,7 +200,7 @@ func isCriticalChecker(checker HealthChecker) bool {
 	return false
 }
 
-// HTTPHealthChecker checks HTTP endpoints
+// HTTPHealthChecker checks HTTP endpoints.
 type HTTPHealthChecker struct {
 	name     string
 	url      string
@@ -208,7 +208,7 @@ type HTTPHealthChecker struct {
 	expected int
 }
 
-// NewHTTPHealthChecker creates a new HTTP health checker
+// NewHTTPHealthChecker creates a new HTTP health checker.
 func NewHTTPHealthChecker(name, url string, timeout time.Duration, expectedStatus int) *HTTPHealthChecker {
 	return &HTTPHealthChecker{
 		name:     name,
@@ -218,7 +218,7 @@ func NewHTTPHealthChecker(name, url string, timeout time.Duration, expectedStatu
 	}
 }
 
-// Name returns the checker name
+// Name returns the checker name.
 func (h *HTTPHealthChecker) Name() string {
 	return h.name
 }

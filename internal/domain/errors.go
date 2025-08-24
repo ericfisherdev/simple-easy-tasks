@@ -2,17 +2,17 @@ package domain
 
 import "fmt"
 
-// ErrorType represents the type of domain error
+// ErrorType represents the type of domain error.
 type ErrorType string
 
 const (
-	// ValidationError represents validation failures
+	// ValidationError represents validation failures.
 	ValidationError ErrorType = "VALIDATION_ERROR"
-	// NotFoundError represents resource not found
+	// NotFoundError represents resource not found.
 	NotFoundError ErrorType = "NOT_FOUND_ERROR"
-	// ConflictError represents resource conflicts
+	// ConflictError represents resource conflicts.
 	ConflictError ErrorType = "CONFLICT_ERROR"
-	// AuthenticationError represents authentication failures
+	// AuthenticationError represents authentication failures.
 	AuthenticationError ErrorType = "AUTHENTICATION_ERROR"
 	// AuthorizationError represents authorization failures
 	AuthorizationError ErrorType = "AUTHORIZATION_ERROR"

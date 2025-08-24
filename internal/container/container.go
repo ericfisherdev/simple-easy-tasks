@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// Container represents a dependency injection container
+// Container represents a dependency injection container.
 type Container interface {
 	Register(name string, factory Factory) error
 	RegisterSingleton(name string, factory Factory) error
@@ -16,10 +16,10 @@ type Container interface {
 	Has(name string) bool
 }
 
-// Factory is a function that creates an instance of a dependency
+// Factory is a function that creates an instance of a dependency.
 type Factory func(ctx context.Context, c Container) (interface{}, error)
 
-// ServiceRegistration represents a registered service
+// ServiceRegistration represents a registered service.
 type ServiceRegistration struct {
 	Factory   Factory
 	Instance  interface{}
@@ -27,20 +27,20 @@ type ServiceRegistration struct {
 	Singleton bool
 }
 
-// DIContainer is the default implementation of Container
+// DIContainer is the default implementation of Container.
 type DIContainer struct {
-	mu       sync.RWMutex
 	services map[string]*ServiceRegistration
+	mu       sync.RWMutex
 }
 
-// NewContainer creates a new dependency injection container
+// NewContainer creates a new dependency injection container.
 func NewContainer() *DIContainer {
 	return &DIContainer{
 		services: make(map[string]*ServiceRegistration),
 	}
 }
 
-// Register registers a factory for a named service
+// Register registers a factory for a named service.
 func (c *DIContainer) Register(name string, factory Factory) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -53,7 +53,7 @@ func (c *DIContainer) Register(name string, factory Factory) error {
 	return nil
 }
 
-// RegisterSingleton registers a singleton factory for a named service
+// RegisterSingleton registers a singleton factory for a named service.
 func (c *DIContainer) RegisterSingleton(name string, factory Factory) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -66,12 +66,12 @@ func (c *DIContainer) RegisterSingleton(name string, factory Factory) error {
 	return nil
 }
 
-// Resolve resolves a dependency by name
+// Resolve resolves a dependency by name.
 func (c *DIContainer) Resolve(name string) (interface{}, error) {
 	return c.ResolveWithContext(context.Background(), name)
 }
 
-// ResolveWithContext resolves a dependency by name with context
+// ResolveWithContext resolves a dependency by name with context.
 func (c *DIContainer) ResolveWithContext(ctx context.Context, name string) (interface{}, error) {
 	c.mu.RLock()
 	registration, exists := c.services[name]
@@ -95,7 +95,7 @@ func (c *DIContainer) ResolveWithContext(ctx context.Context, name string) (inte
 	return registration.Factory(ctx, c)
 }
 
-// Has checks if a service is registered
+// Has checks if a service is registered.
 func (c *DIContainer) Has(name string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -103,28 +103,28 @@ func (c *DIContainer) Has(name string) bool {
 	return exists
 }
 
-// ResolveType resolves a dependency by type using reflection
+// ResolveType resolves a dependency by type using reflection.
 func (c *DIContainer) ResolveType(t reflect.Type) (interface{}, error) {
 	return c.ResolveTypeWithContext(context.Background(), t)
 }
 
-// ResolveTypeWithContext resolves a dependency by type using reflection with context
+// ResolveTypeWithContext resolves a dependency by type using reflection with context.
 func (c *DIContainer) ResolveTypeWithContext(ctx context.Context, t reflect.Type) (interface{}, error) {
 	typeName := t.String()
 	return c.ResolveWithContext(ctx, typeName)
 }
 
-// RegisterType registers a factory for a service by type
+// RegisterType registers a factory for a service by type.
 func (c *DIContainer) RegisterType(serviceType reflect.Type, factory Factory) error {
 	return c.Register(serviceType.String(), factory)
 }
 
-// RegisterSingletonType registers a singleton factory for a service by type
+// RegisterSingletonType registers a singleton factory for a service by type.
 func (c *DIContainer) RegisterSingletonType(serviceType reflect.Type, factory Factory) error {
 	return c.RegisterSingleton(serviceType.String(), factory)
 }
 
-// DependencyError represents a dependency injection error
+// DependencyError represents a dependency injection error.
 type DependencyError struct {
 	Code    string
 	Message string

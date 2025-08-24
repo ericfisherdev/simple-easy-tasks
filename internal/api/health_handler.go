@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"simple-easy-tasks/internal/services"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"simple-easy-tasks/internal/services"
 )
 
 // HealthHandler handles health check endpoints.
@@ -46,7 +46,7 @@ func (h *HealthHandler) RegisterRoutes(router *gin.Engine) {
 	}
 }
 
-// HealthCheck performs a comprehensive health check
+// HealthCheck performs a comprehensive health check.
 func (h *HealthHandler) HealthCheck(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
@@ -55,7 +55,7 @@ func (h *HealthHandler) HealthCheck(c *gin.Context) {
 	h.renderHealthResponse(c, response)
 }
 
-// Liveness returns the liveness status
+// Liveness returns the liveness status.
 func (h *HealthHandler) Liveness(c *gin.Context) {
 	response := h.healthService.Liveness()
 	c.JSON(http.StatusOK, gin.H{
@@ -67,7 +67,7 @@ func (h *HealthHandler) Liveness(c *gin.Context) {
 	})
 }
 
-// Readiness returns the readiness status
+// Readiness returns the readiness status.
 func (h *HealthHandler) Readiness(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
@@ -76,7 +76,7 @@ func (h *HealthHandler) Readiness(c *gin.Context) {
 	h.renderHealthResponse(c, response)
 }
 
-// DetailedHealth returns detailed health information including system metrics
+// DetailedHealth returns detailed health information including system metrics.
 func (h *HealthHandler) DetailedHealth(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
@@ -87,7 +87,7 @@ func (h *HealthHandler) DetailedHealth(c *gin.Context) {
 	c.JSON(status, response)
 }
 
-// SystemInfo returns system information only
+// SystemInfo returns system information only.
 func (h *HealthHandler) SystemInfo(c *gin.Context) {
 	response := h.healthService.Liveness()
 	c.JSON(http.StatusOK, gin.H{
@@ -99,7 +99,7 @@ func (h *HealthHandler) SystemInfo(c *gin.Context) {
 	})
 }
 
-// renderHealthResponse renders a health response with proper status mapping
+// renderHealthResponse renders a health response with proper status mapping.
 func (h *HealthHandler) renderHealthResponse(c *gin.Context, response services.HealthResponse) {
 	status := h.mapHealthStatusToHTTP(response.Status)
 	c.JSON(status, gin.H{
