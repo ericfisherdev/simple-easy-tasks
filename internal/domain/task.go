@@ -3,6 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
@@ -212,12 +213,55 @@ func (t *Task) CanTransitionTo(newStatus TaskStatus) bool {
 
 // UpdateStatus transitions the task to a new status if allowed
 func (t *Task) UpdateStatus(newStatus TaskStatus) error {
-	if !t.CanTransitionTo(newStatus) {
-		return NewConflictError("invalid_transition",
-			fmt.Sprintf("Cannot transition from %s to %s", t.Status, newStatus))
+	if !newStatus.IsValid() {
+		return NewValidationError("status", "Invalid status provided", map[string]interface{}{
+			"provided_status": string(newStatus),
+			"valid_statuses": []string{
+				string(StatusBacklog), string(StatusTodo), string(StatusDeveloping),
+				string(StatusReview), string(StatusComplete),
+			},
+		})
 	}
+
+	if !t.CanTransitionTo(newStatus) {
+		transitions := map[TaskStatus][]TaskStatus{
+			StatusBacklog:    {StatusTodo, StatusDeveloping},
+			StatusTodo:       {StatusBacklog, StatusDeveloping},
+			StatusDeveloping: {StatusTodo, StatusReview, StatusBacklog},
+			StatusReview:     {StatusDeveloping, StatusComplete, StatusTodo},
+			StatusComplete:   {StatusReview, StatusTodo},
+		}
+
+		allowedStatuses, exists := transitions[t.Status]
+		var allowedStatusStrings []string
+		if exists {
+			for _, status := range allowedStatuses {
+				allowedStatusStrings = append(allowedStatusStrings, string(status))
+			}
+		}
+
+		conflictErr := NewConflictError("invalid_transition",
+			fmt.Sprintf("Cannot transition from %s to %s", t.Status, newStatus))
+		conflictErr.Details = map[string]interface{}{
+			"current_status":      string(t.Status),
+			"requested_status":    string(newStatus),
+			"allowed_transitions": allowedStatusStrings,
+		}
+		return conflictErr
+	}
+
+	previousStatus := t.Status
 	t.Status = newStatus
 	t.UpdatedAt = time.Now().UTC()
+
+	// Log successful transition for audit trail
+	slog.Debug("Task status transition completed",
+		"task_id", t.ID,
+		"from_status", string(previousStatus),
+		"to_status", string(newStatus),
+		"timestamp", t.UpdatedAt,
+	)
+
 	return nil
 }
 
@@ -242,10 +286,41 @@ func (t *Task) UpdateProgress(progress int) error {
 	t.Progress = progress
 	t.UpdatedAt = time.Now().UTC()
 
-	// If progress reaches 100%, attempt status transition as best-effort
+	// If progress reaches 100%, attempt automatic status transition with proper error handling
 	if progress == ProgressFull && t.Status != StatusComplete {
-		// Ignore transition errors to avoid surprising callers after progress update
-		_ = t.UpdateStatus(StatusComplete)
+		if err := t.UpdateStatus(StatusComplete); err != nil {
+			// Log the transition failure but don't fail the progress update
+			// This maintains backward compatibility while providing visibility
+			slog.Warn("Automatic status transition failed after progress completion",
+				"task_id", t.ID,
+				"current_status", string(t.Status),
+				"attempted_status", string(StatusComplete),
+				"error", err.Error(),
+				"progress", progress,
+			)
+
+			// Optionally, we could add the failed transition to task metadata
+			// for later analysis or manual intervention
+			if t.CustomFields == nil {
+				t.CustomFields = json.RawMessage("{}")
+			}
+
+			// Add transition failure metadata
+			transitionFailure := map[string]interface{}{
+				"failed_auto_transition": map[string]interface{}{
+					"timestamp":        time.Now().UTC(),
+					"from_status":      string(t.Status),
+					"to_status":        string(StatusComplete),
+					"trigger":          "progress_completion",
+					"error":            err.Error(),
+					"progress_at_time": progress,
+				},
+			}
+
+			if customData, err := json.Marshal(transitionFailure); err == nil {
+				t.CustomFields = customData
+			}
+		}
 	}
 	return nil
 }
