@@ -105,6 +105,9 @@ func TestAuthService_ResetPassword(t *testing.T) {
 	}
 	userRepo.AddUser(user)
 
+	// Store the original token version for comparison
+	originalTokenVersion := user.TokenVersion
+
 	// Create a reset token
 	resetToken := &domain.PasswordResetToken{
 		ID:        "token123",
@@ -151,8 +154,9 @@ func TestAuthService_ResetPassword(t *testing.T) {
 	}
 
 	// Verify user token version was incremented (all sessions invalidated)
-	if updatedUser.TokenVersion <= user.TokenVersion {
-		t.Error("User token version should be incremented after password reset")
+	if updatedUser.TokenVersion <= originalTokenVersion {
+		t.Errorf("User token version should be incremented after password reset. "+
+			"Original: %d, Updated: %d", originalTokenVersion, updatedUser.TokenVersion)
 	}
 }
 
