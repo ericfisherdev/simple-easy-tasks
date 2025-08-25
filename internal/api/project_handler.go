@@ -8,19 +8,22 @@ import (
 	"simple-easy-tasks/internal/api/middleware"
 	"simple-easy-tasks/internal/domain"
 	"simple-easy-tasks/internal/repository"
+	"simple-easy-tasks/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
 
 // ProjectHandler handles project-related HTTP requests.
 type ProjectHandler struct {
-	projectRepo repository.ProjectRepository
+	projectService services.ProjectService
+	projectRepo    repository.ProjectRepository
 }
 
 // NewProjectHandler creates a new project handler.
-func NewProjectHandler(projectRepo repository.ProjectRepository) *ProjectHandler {
+func NewProjectHandler(projectService services.ProjectService, projectRepo repository.ProjectRepository) *ProjectHandler {
 	return &ProjectHandler{
-		projectRepo: projectRepo,
+		projectService: projectService,
+		projectRepo:    projectRepo,
 	}
 }
 
@@ -70,7 +73,7 @@ func (h *ProjectHandler) ListProjects(c *gin.Context) {
 	}
 
 	// Get user's projects (owner + member)
-	projects, err := h.projectRepo.GetMemberProjects(c.Request.Context(), user.ID, offset, limit)
+	projects, err := h.projectService.ListUserProjects(c.Request.Context(), user.ID, offset, limit)
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -351,18 +354,29 @@ func (h *ProjectHandler) AddMember(c *gin.Context) {
 		return
 	}
 
-	// Get project
-	project, err := h.projectRepo.GetByID(c.Request.Context(), projectID)
+	// Get requester ID from context
+	user, exists := middleware.GetUserFromContext(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": map[string]interface{}{
+				"type":    "AUTHENTICATION_ERROR",
+				"code":    "USER_NOT_FOUND",
+				"message": "User not found in context",
+			},
+		})
+		return
+	}
+
+	// Add member using service (includes validation)
+	err := h.projectService.AddMember(c.Request.Context(), projectID, req.UserID, user.ID)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
 
-	// Add member
-	project.AddMember(req.UserID)
-
-	// Update project
-	err = h.projectRepo.Update(c.Request.Context(), project)
+	// Get updated project to return
+	project, err := h.projectService.GetProject(c.Request.Context(), projectID, user.ID)
 	if err != nil {
 		h.handleError(c, err)
 		return

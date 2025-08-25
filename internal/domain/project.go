@@ -119,3 +119,17 @@ type UpdateProjectRequest struct {
 	Settings    *ProjectSettings `json:"settings,omitempty"`
 	Status      *ProjectStatus   `json:"status,omitempty"`
 }
+
+// Validate validates the create project request.
+func (r *CreateProjectRequest) Validate() *Error {
+	if err := ValidateRequired("title", r.Title, "TITLE_REQUIRED", "Project title is required"); err != nil {
+		return err
+	}
+	if len(r.Title) > 200 {
+		return NewValidationError("TITLE_TOO_LONG", "Project title must be 200 characters or less", map[string]interface{}{
+			"field":      "title",
+			"max_length": 200,
+		})
+	}
+	return nil
+}

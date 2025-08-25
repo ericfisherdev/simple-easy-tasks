@@ -48,7 +48,7 @@ func NewUserService(userRepo repository.UserRepository, authService AuthService)
 // GetProfile gets a user's profile by ID.
 func (s *userService) GetProfile(ctx context.Context, userID string) (*domain.User, error) {
 	if userID == "" {
-		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
 
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -65,7 +65,7 @@ func (s *userService) GetProfile(ctx context.Context, userID string) (*domain.Us
 // UpdateProfile updates a user's profile.
 func (s *userService) UpdateProfile(ctx context.Context, userID string, req domain.UpdateUserRequest) (*domain.User, error) {
 	if userID == "" {
-		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
 
 	// Get existing user
@@ -126,7 +126,7 @@ func (s *userService) ListUsers(ctx context.Context, offset, limit int) ([]*doma
 // GetUserByEmail gets a user by email (admin only).
 func (s *userService) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	if email == "" {
-		return nil, domain.NewValidationError("INVALID_EMAIL", "Email cannot be empty")
+		return nil, domain.NewValidationError("INVALID_EMAIL", "Email cannot be empty", nil)
 	}
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
@@ -143,7 +143,7 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*domain
 // GetUserByUsername gets a user by username.
 func (s *userService) GetUserByUsername(ctx context.Context, username string) (*domain.User, error) {
 	if username == "" {
-		return nil, domain.NewValidationError("INVALID_USERNAME", "Username cannot be empty")
+		return nil, domain.NewValidationError("INVALID_USERNAME", "Username cannot be empty", nil)
 	}
 
 	user, err := s.userRepo.GetByUsername(ctx, username)
@@ -160,7 +160,7 @@ func (s *userService) GetUserByUsername(ctx context.Context, username string) (*
 // ExistsByEmail checks if a user exists by email.
 func (s *userService) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	if email == "" {
-		return false, domain.NewValidationError("INVALID_EMAIL", "Email cannot be empty")
+		return false, domain.NewValidationError("INVALID_EMAIL", "Email cannot be empty", nil)
 	}
 
 	return s.userRepo.ExistsByEmail(ctx, email)
@@ -169,7 +169,7 @@ func (s *userService) ExistsByEmail(ctx context.Context, email string) (bool, er
 // ExistsByUsername checks if a user exists by username.
 func (s *userService) ExistsByUsername(ctx context.Context, username string) (bool, error) {
 	if username == "" {
-		return false, domain.NewValidationError("INVALID_USERNAME", "Username cannot be empty")
+		return false, domain.NewValidationError("INVALID_USERNAME", "Username cannot be empty", nil)
 	}
 
 	return s.userRepo.ExistsByUsername(ctx, username)

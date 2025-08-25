@@ -78,22 +78,26 @@ func (s *taskService) CreateTask(ctx context.Context, req domain.CreateTaskReque
 		}
 
 		if !project.HasAccess(req.AssigneeID) {
-			return nil, domain.NewValidationError("ASSIGNEE_NO_ACCESS", "Assignee doesn't have access to this project")
+			return nil, domain.NewValidationError("ASSIGNEE_NO_ACCESS", "Assignee doesn't have access to this project", nil)
 		}
 	}
 
-	// Create task
+	// Create task with proper field mapping
+	var assigneePtr *string
+	if req.AssigneeID != "" {
+		assigneePtr = &req.AssigneeID
+	}
+
 	task := &domain.Task{
 		Title:       req.Title,
 		Description: req.Description,
 		ProjectID:   req.ProjectID,
-		CreatedBy:   userID,
-		AssigneeID:  req.AssigneeID,
-		Status:      domain.TaskStatusOpen,
+		ReporterID:  userID,
+		AssigneeID:  assigneePtr,
+		Status:      domain.StatusTodo,
 		Priority:    req.Priority,
 		DueDate:     req.DueDate,
 		Tags:        req.Tags,
-		Metadata:    req.Metadata,
 	}
 
 	if err := s.taskRepo.Create(ctx, task); err != nil {
@@ -106,7 +110,7 @@ func (s *taskService) CreateTask(ctx context.Context, req domain.CreateTaskReque
 // GetTask gets a task by ID.
 func (s *taskService) GetTask(ctx context.Context, taskID string, userID string) (*domain.Task, error) {
 	if taskID == "" {
-		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
 
 	task, err := s.taskRepo.GetByID(ctx, taskID)
@@ -120,7 +124,7 @@ func (s *taskService) GetTask(ctx context.Context, taskID string, userID string)
 		return nil, domain.NewNotFoundError("PROJECT_NOT_FOUND", "Project not found")
 	}
 
-	if !project.HasAccess(userID) && !project.Settings.IsPublic {
+	if !project.HasAccess(userID) && project.Settings.IsPrivate {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to this task")
 	}
 
@@ -130,7 +134,7 @@ func (s *taskService) GetTask(ctx context.Context, taskID string, userID string)
 // UpdateTask updates a task.
 func (s *taskService) UpdateTask(ctx context.Context, taskID string, req domain.UpdateTaskRequest, userID string) (*domain.Task, error) {
 	if taskID == "" {
-		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
 
 	// Get existing task
@@ -165,10 +169,10 @@ func (s *taskService) UpdateTask(ctx context.Context, taskID string, req domain.
 			}
 
 			if !project.HasAccess(*req.AssigneeID) {
-				return nil, domain.NewValidationError("ASSIGNEE_NO_ACCESS", "Assignee doesn't have access to this project")
+				return nil, domain.NewValidationError("ASSIGNEE_NO_ACCESS", "Assignee doesn't have access to this project", nil)
 			}
 		}
-		task.AssigneeID = *req.AssigneeID
+		task.AssigneeID = req.AssigneeID
 	}
 	if req.Status != nil {
 		task.Status = *req.Status
@@ -182,12 +186,8 @@ func (s *taskService) UpdateTask(ctx context.Context, taskID string, req domain.
 	if req.Tags != nil {
 		task.Tags = req.Tags
 	}
-	if req.Metadata != nil {
-		task.Metadata = req.Metadata
-	}
-
-	// Update modified by
-	task.LastModifiedBy = userID
+	// Metadata and LastModifiedBy fields don't exist in Task domain model
+	// Remove these assignments
 
 	// Validate updated task
 	if err := task.Validate(); err != nil {
@@ -205,7 +205,7 @@ func (s *taskService) UpdateTask(ctx context.Context, taskID string, req domain.
 // DeleteTask deletes a task.
 func (s *taskService) DeleteTask(ctx context.Context, taskID string, userID string) error {
 	if taskID == "" {
-		return domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty")
+		return domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
 
 	// Get existing task
@@ -220,8 +220,8 @@ func (s *taskService) DeleteTask(ctx context.Context, taskID string, userID stri
 		return domain.NewNotFoundError("PROJECT_NOT_FOUND", "Project not found")
 	}
 
-	// Only project admins/owners or task creator can delete tasks
-	canDelete := project.IsOwner(userID) || project.IsAdmin(userID) || task.CreatedBy == userID
+	// Only project owners or task creator can delete tasks
+	canDelete := project.IsOwner(userID) || task.ReporterID == userID
 	if !canDelete {
 		return domain.NewAuthorizationError("ACCESS_DENIED", "You don't have permission to delete this task")
 	}
@@ -237,7 +237,7 @@ func (s *taskService) DeleteTask(ctx context.Context, taskID string, userID stri
 // ListProjectTasks lists tasks for a project.
 func (s *taskService) ListProjectTasks(ctx context.Context, projectID string, userID string, offset, limit int) ([]*domain.Task, error) {
 	if projectID == "" {
-		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
 
 	// Check if user has access to the project
@@ -246,7 +246,7 @@ func (s *taskService) ListProjectTasks(ctx context.Context, projectID string, us
 		return nil, domain.NewNotFoundError("PROJECT_NOT_FOUND", "Project not found")
 	}
 
-	if !project.HasAccess(userID) && !project.Settings.IsPublic {
+	if !project.HasAccess(userID) && project.Settings.IsPrivate {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to this project")
 	}
 
@@ -268,7 +268,7 @@ func (s *taskService) ListProjectTasks(ctx context.Context, projectID string, us
 // ListUserTasks lists tasks assigned to a user.
 func (s *taskService) ListUserTasks(ctx context.Context, userID string, offset, limit int) ([]*domain.Task, error) {
 	if userID == "" {
-		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
 
 	if offset < 0 {
@@ -289,10 +289,10 @@ func (s *taskService) ListUserTasks(ctx context.Context, userID string, offset, 
 // AssignTask assigns a task to a user.
 func (s *taskService) AssignTask(ctx context.Context, taskID string, assigneeID string, userID string) (*domain.Task, error) {
 	if taskID == "" {
-		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
 	if assigneeID == "" {
-		return nil, domain.NewValidationError("INVALID_ASSIGNEE_ID", "Assignee ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_ASSIGNEE_ID", "Assignee ID cannot be empty", nil)
 	}
 
 	// Get task
@@ -318,12 +318,11 @@ func (s *taskService) AssignTask(ctx context.Context, taskID string, assigneeID 
 	}
 
 	if !project.HasAccess(assigneeID) {
-		return nil, domain.NewValidationError("ASSIGNEE_NO_ACCESS", "Assignee doesn't have access to this project")
+		return nil, domain.NewValidationError("ASSIGNEE_NO_ACCESS", "Assignee doesn't have access to this project", nil)
 	}
 
 	// Assign task
-	task.AssigneeID = assigneeID
-	task.LastModifiedBy = userID
+	task.AssigneeID = &assigneeID
 
 	// Update in repository
 	if err := s.taskRepo.Update(ctx, task); err != nil {
@@ -336,7 +335,7 @@ func (s *taskService) AssignTask(ctx context.Context, taskID string, assigneeID 
 // UnassignTask removes assignment from a task.
 func (s *taskService) UnassignTask(ctx context.Context, taskID string, userID string) (*domain.Task, error) {
 	if taskID == "" {
-		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
 
 	// Get task
@@ -356,8 +355,7 @@ func (s *taskService) UnassignTask(ctx context.Context, taskID string, userID st
 	}
 
 	// Unassign task
-	task.AssigneeID = ""
-	task.LastModifiedBy = userID
+	task.AssigneeID = nil
 
 	// Update in repository
 	if err := s.taskRepo.Update(ctx, task); err != nil {
@@ -370,7 +368,7 @@ func (s *taskService) UnassignTask(ctx context.Context, taskID string, userID st
 // UpdateTaskStatus updates a task's status.
 func (s *taskService) UpdateTaskStatus(ctx context.Context, taskID string, status domain.TaskStatus, userID string) (*domain.Task, error) {
 	if taskID == "" {
-		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
 
 	// Get task
@@ -391,7 +389,6 @@ func (s *taskService) UpdateTaskStatus(ctx context.Context, taskID string, statu
 
 	// Update status
 	task.Status = status
-	task.LastModifiedBy = userID
 
 	// Update in repository
 	if err := s.taskRepo.Update(ctx, task); err != nil {

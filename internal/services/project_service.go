@@ -81,20 +81,25 @@ func (s *projectService) CreateProject(ctx context.Context, req domain.CreatePro
 	}
 
 	// Create project
+	settings := domain.ProjectSettings{
+		IsPrivate:      true, // Default to private
+		AllowGuestView: false,
+		EnableComments: true,
+	}
+	if req.Settings != nil {
+		settings = *req.Settings
+	}
+
 	project := &domain.Project{
 		Title:       req.Title,
 		Description: req.Description,
 		Slug:        slug,
 		OwnerID:     ownerID,
-		Status:      domain.ProjectStatusActive,
+		Status:      domain.ActiveProject,
 		Color:       req.Color,
 		Icon:        req.Icon,
-		Settings: domain.ProjectSettings{
-			IsPublic:    req.IsPublic,
-			AllowGuests: req.AllowGuests,
-			DefaultRole: domain.ProjectRoleMember,
-		},
-		Members: []string{ownerID}, // Owner is automatically a member
+		Settings:    settings,
+		MemberIDs:   []string{ownerID}, // Owner is automatically a member
 	}
 
 	if err := s.projectRepo.Create(ctx, project); err != nil {
@@ -107,7 +112,7 @@ func (s *projectService) CreateProject(ctx context.Context, req domain.CreatePro
 // GetProject gets a project by ID.
 func (s *projectService) GetProject(ctx context.Context, projectID string, userID string) (*domain.Project, error) {
 	if projectID == "" {
-		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
 
 	project, err := s.projectRepo.GetByID(ctx, projectID)
@@ -116,7 +121,7 @@ func (s *projectService) GetProject(ctx context.Context, projectID string, userI
 	}
 
 	// Check if user has access
-	if !project.HasAccess(userID) && !project.Settings.IsPublic {
+	if !project.HasAccess(userID) && !!project.Settings.IsPrivate {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to this project")
 	}
 
@@ -126,7 +131,7 @@ func (s *projectService) GetProject(ctx context.Context, projectID string, userI
 // GetProjectBySlug gets a project by slug.
 func (s *projectService) GetProjectBySlug(ctx context.Context, slug string, userID string) (*domain.Project, error) {
 	if slug == "" {
-		return nil, domain.NewValidationError("INVALID_SLUG", "Project slug cannot be empty")
+		return nil, domain.NewValidationError("INVALID_SLUG", "Project slug cannot be empty", nil)
 	}
 
 	project, err := s.projectRepo.GetBySlug(ctx, slug)
@@ -135,7 +140,7 @@ func (s *projectService) GetProjectBySlug(ctx context.Context, slug string, user
 	}
 
 	// Check if user has access
-	if !project.HasAccess(userID) && !project.Settings.IsPublic {
+	if !project.HasAccess(userID) && !!project.Settings.IsPrivate {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to this project")
 	}
 
@@ -145,7 +150,7 @@ func (s *projectService) GetProjectBySlug(ctx context.Context, slug string, user
 // UpdateProject updates a project.
 func (s *projectService) UpdateProject(ctx context.Context, projectID string, req domain.UpdateProjectRequest, userID string) (*domain.Project, error) {
 	if projectID == "" {
-		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
 
 	// Get existing project
@@ -199,7 +204,7 @@ func (s *projectService) UpdateProject(ctx context.Context, projectID string, re
 // DeleteProject deletes a project.
 func (s *projectService) DeleteProject(ctx context.Context, projectID string, userID string) error {
 	if projectID == "" {
-		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty")
+		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
 
 	// Get existing project
@@ -224,7 +229,7 @@ func (s *projectService) DeleteProject(ctx context.Context, projectID string, us
 // ListUserProjects lists projects for a user.
 func (s *projectService) ListUserProjects(ctx context.Context, userID string, offset, limit int) ([]*domain.Project, error) {
 	if userID == "" {
-		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
 
 	if offset < 0 {
@@ -246,10 +251,10 @@ func (s *projectService) ListUserProjects(ctx context.Context, userID string, of
 // AddMember adds a user to a project.
 func (s *projectService) AddMember(ctx context.Context, projectID string, userID string, requesterID string) error {
 	if projectID == "" {
-		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty")
+		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
 	if userID == "" {
-		return domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty")
+		return domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
 
 	// Get project
@@ -258,9 +263,9 @@ func (s *projectService) AddMember(ctx context.Context, projectID string, userID
 		return err
 	}
 
-	// Check if requester has permission to add members
-	if !project.IsOwner(requesterID) && !project.IsAdmin(requesterID) {
-		return domain.NewAuthorizationError("ACCESS_DENIED", "You don't have permission to add members")
+	// Check if requester has permission to add members (only owners can add members)
+	if !project.IsOwner(requesterID) {
+		return domain.NewAuthorizationError("ACCESS_DENIED", "Only project owners can add members")
 	}
 
 	// Check if user exists
@@ -270,9 +275,7 @@ func (s *projectService) AddMember(ctx context.Context, projectID string, userID
 	}
 
 	// Add member
-	if err := project.AddMember(userID); err != nil {
-		return err
-	}
+	project.AddMember(userID)
 
 	// Update project
 	if err := s.projectRepo.Update(ctx, project); err != nil {
@@ -285,10 +288,10 @@ func (s *projectService) AddMember(ctx context.Context, projectID string, userID
 // RemoveMember removes a user from a project.
 func (s *projectService) RemoveMember(ctx context.Context, projectID string, userID string, requesterID string) error {
 	if projectID == "" {
-		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty")
+		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
 	if userID == "" {
-		return domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty")
+		return domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
 
 	// Get project
@@ -297,21 +300,19 @@ func (s *projectService) RemoveMember(ctx context.Context, projectID string, use
 		return err
 	}
 
-	// Check if requester has permission (owners and admins can remove others, users can remove themselves)
-	canRemove := project.IsOwner(requesterID) || project.IsAdmin(requesterID) || requesterID == userID
+	// Check if requester has permission (owners can remove others, users can remove themselves)
+	canRemove := project.IsOwner(requesterID) || requesterID == userID
 	if !canRemove {
 		return domain.NewAuthorizationError("ACCESS_DENIED", "You don't have permission to remove this member")
 	}
 
 	// Cannot remove owner
 	if project.IsOwner(userID) {
-		return domain.NewValidationError("CANNOT_REMOVE_OWNER", "Project owner cannot be removed")
+		return domain.NewValidationError("CANNOT_REMOVE_OWNER", "Project owner cannot be removed", nil)
 	}
 
 	// Remove member
-	if err := project.RemoveMember(userID); err != nil {
-		return err
-	}
+	project.RemoveMember(userID)
 
 	// Update project
 	if err := s.projectRepo.Update(ctx, project); err != nil {
@@ -324,7 +325,7 @@ func (s *projectService) RemoveMember(ctx context.Context, projectID string, use
 // ListMembers lists project members.
 func (s *projectService) ListMembers(ctx context.Context, projectID string, userID string) ([]*domain.User, error) {
 	if projectID == "" {
-		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty")
+		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
 
 	// Get project
@@ -334,13 +335,13 @@ func (s *projectService) ListMembers(ctx context.Context, projectID string, user
 	}
 
 	// Check if user has access to view members
-	if !project.HasAccess(userID) && !project.Settings.IsPublic {
+	if !project.HasAccess(userID) && !!project.Settings.IsPrivate {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to view project members")
 	}
 
 	// Get member details
-	members := make([]*domain.User, 0, len(project.Members))
-	for _, memberID := range project.Members {
+	members := make([]*domain.User, 0, len(project.MemberIDs))
+	for _, memberID := range project.MemberIDs {
 		user, err := s.userRepo.GetByID(ctx, memberID)
 		if err != nil {
 			// Skip members that no longer exist

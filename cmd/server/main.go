@@ -122,14 +122,26 @@ func setupRouter(ctx context.Context, cfg config.Config, container interface{}) 
 	router.Use(middleware.DefaultRecoveryMiddleware())
 	router.Use(middleware.DefaultCORSMiddleware())
 
-	// Rate limiting middleware (100 requests per minute per IP) with proper cleanup
-	rateLimitMiddleware, rateLimitManager := middleware.RateLimitMiddleware(ctx, middleware.RateLimitConfig{
-		RequestsPerMinute: 100,
-		KeyGenerator: func(c *gin.Context) string {
-			return c.ClientIP()
-		},
-	})
-	router.Use(rateLimitMiddleware)
+	// Rate limiting middleware with configuration-driven settings
+	var rateLimitManager *middleware.RateLimitManager
+	if config.GetRateLimitEnabled() {
+		rateLimitMiddleware, manager := middleware.RateLimitMiddleware(ctx, middleware.RateLimitConfig{
+			RequestsPerMinute: config.GetRateLimitRequestsPerMinute(),
+			CacheCapacity:     config.GetRateLimitCacheCapacity(),
+			UseRedis:          config.GetRedisEnabled(),
+			RedisAddr:         config.GetRedisAddr(),
+			RedisPassword:     config.GetRedisPassword(),
+			RedisDB:           config.GetRedisDB(),
+			KeyGenerator: func(c *gin.Context) string {
+				return c.ClientIP()
+			},
+		})
+		router.Use(rateLimitMiddleware)
+		rateLimitManager = manager
+
+		// Ensure graceful shutdown of rate limiter
+		defer rateLimitManager.Shutdown()
+	}
 
 	// Service container is now initialized and available for use
 	// Future handlers can resolve services from the container
@@ -153,6 +165,32 @@ func setupRouter(ctx context.Context, cfg config.Config, container interface{}) 
 				"di_pattern":   "enabled",
 			},
 		})
+	})
+
+	// Add metrics endpoint for monitoring
+	router.GET("/metrics", func(c *gin.Context) {
+		metrics := gin.H{
+			"timestamp": time.Now().Unix(),
+			"system": gin.H{
+				"environment": config.GetEnvironment(),
+				"version":     "1.0.0",
+			},
+		}
+
+		if rateLimitManager != nil {
+			stats := rateLimitManager.Stats()
+			metrics["rate_limiting"] = gin.H{
+				"enabled":       config.GetRateLimitEnabled(),
+				"redis_enabled": config.GetRedisEnabled(),
+				"cache_stats":   stats,
+			}
+		} else {
+			metrics["rate_limiting"] = gin.H{
+				"enabled": false,
+			}
+		}
+
+		c.JSON(http.StatusOK, metrics)
 	})
 
 	// API base endpoint

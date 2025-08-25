@@ -50,20 +50,38 @@ type SecurityConfig interface {
 	GetRefreshTokenExpiration() time.Duration
 }
 
+// RateLimitConfig interface for rate limiting configuration.
+type RateLimitConfig interface {
+	GetRateLimitEnabled() bool
+	GetRateLimitRequestsPerMinute() int
+	GetRateLimitCacheCapacity() int
+	GetRedisEnabled() bool
+	GetRedisAddr() string
+	GetRedisPassword() string
+	GetRedisDB() int
+}
+
 // AppConfig implements all configuration interfaces.
 type AppConfig struct {
-	serverPort             string
-	databaseURL            string
-	jwtSecret              string
-	environment            string
-	logLevel               string
-	readTimeout            time.Duration
-	writeTimeout           time.Duration
-	idleTimeout            time.Duration
-	maxConnections         int
-	connectionTimeout      time.Duration
-	jwtExpiration          time.Duration
-	refreshTokenExpiration time.Duration
+	serverPort                 string
+	databaseURL                string
+	jwtSecret                  string
+	environment                string
+	logLevel                   string
+	redisAddr                  string
+	redisPassword              string
+	readTimeout                time.Duration
+	writeTimeout               time.Duration
+	idleTimeout                time.Duration
+	connectionTimeout          time.Duration
+	jwtExpiration              time.Duration
+	refreshTokenExpiration     time.Duration
+	maxConnections             int
+	rateLimitRequestsPerMinute int
+	rateLimitCacheCapacity     int
+	redisDB                    int
+	rateLimitEnabled           bool
+	redisEnabled               bool
 }
 
 // NewConfig creates a new configuration instance with default values
@@ -73,18 +91,25 @@ func NewConfig() *AppConfig {
 	jwtSecret := getJWTSecret(environment)
 
 	return &AppConfig{
-		serverPort:             getEnvString("SERVER_PORT", "8080"),
-		databaseURL:            getEnvString("DATABASE_URL", "pb_data/database.db"),
-		jwtSecret:              jwtSecret,
-		environment:            environment,
-		logLevel:               getEnvString("LOG_LEVEL", "info"),
-		readTimeout:            getEnvDuration("READ_TIMEOUT", "15s"),
-		writeTimeout:           getEnvDuration("WRITE_TIMEOUT", "15s"),
-		idleTimeout:            getEnvDuration("IDLE_TIMEOUT", "60s"),
-		maxConnections:         getEnvInt("MAX_CONNECTIONS", 25),
-		connectionTimeout:      getEnvDuration("CONNECTION_TIMEOUT", "30s"),
-		jwtExpiration:          getEnvDuration("JWT_EXPIRATION", "24h"),
-		refreshTokenExpiration: getEnvDuration("REFRESH_TOKEN_EXPIRATION", "168h"), // 7 days
+		serverPort:                 getEnvString("SERVER_PORT", "8080"),
+		databaseURL:                getEnvString("DATABASE_URL", "pb_data/database.db"),
+		jwtSecret:                  jwtSecret,
+		environment:                environment,
+		logLevel:                   getEnvString("LOG_LEVEL", "info"),
+		readTimeout:                getEnvDuration("READ_TIMEOUT", "15s"),
+		writeTimeout:               getEnvDuration("WRITE_TIMEOUT", "15s"),
+		idleTimeout:                getEnvDuration("IDLE_TIMEOUT", "60s"),
+		maxConnections:             getEnvInt("MAX_CONNECTIONS", 25),
+		connectionTimeout:          getEnvDuration("CONNECTION_TIMEOUT", "30s"),
+		jwtExpiration:              getEnvDuration("JWT_EXPIRATION", "24h"),
+		refreshTokenExpiration:     getEnvDuration("REFRESH_TOKEN_EXPIRATION", "168h"), // 7 days
+		rateLimitEnabled:           getEnvBool("RATE_LIMIT_ENABLED", true),
+		rateLimitRequestsPerMinute: getEnvInt("RATE_LIMIT_REQUESTS_PER_MINUTE", 100),
+		rateLimitCacheCapacity:     getEnvInt("RATE_LIMIT_CACHE_CAPACITY", 10000),
+		redisEnabled:               getEnvBool("REDIS_ENABLED", false),
+		redisAddr:                  getEnvString("REDIS_ADDR", "localhost:6379"),
+		redisPassword:              getEnvString("REDIS_PASSWORD", ""),
+		redisDB:                    getEnvInt("REDIS_DB", 0),
 	}
 }
 
@@ -153,6 +178,41 @@ func (c *AppConfig) GetRefreshTokenExpiration() time.Duration {
 	return c.refreshTokenExpiration
 }
 
+// GetRateLimitEnabled returns whether rate limiting is enabled.
+func (c *AppConfig) GetRateLimitEnabled() bool {
+	return c.rateLimitEnabled
+}
+
+// GetRateLimitRequestsPerMinute returns the rate limit requests per minute.
+func (c *AppConfig) GetRateLimitRequestsPerMinute() int {
+	return c.rateLimitRequestsPerMinute
+}
+
+// GetRateLimitCacheCapacity returns the rate limiter cache capacity.
+func (c *AppConfig) GetRateLimitCacheCapacity() int {
+	return c.rateLimitCacheCapacity
+}
+
+// GetRedisEnabled returns whether Redis is enabled.
+func (c *AppConfig) GetRedisEnabled() bool {
+	return c.redisEnabled
+}
+
+// GetRedisAddr returns the Redis address.
+func (c *AppConfig) GetRedisAddr() string {
+	return c.redisAddr
+}
+
+// GetRedisPassword returns the Redis password.
+func (c *AppConfig) GetRedisPassword() string {
+	return c.redisPassword
+}
+
+// GetRedisDB returns the Redis database number.
+func (c *AppConfig) GetRedisDB() int {
+	return c.redisDB
+}
+
 // Validate checks if the configuration is valid.
 func (c *AppConfig) Validate() error {
 	if c.serverPort == "" {
@@ -176,6 +236,21 @@ func (c *AppConfig) Validate() error {
 		return fmt.Errorf("environment must be one of: %s, %s, %s", EnvDevelopment, EnvStaging, EnvProduction)
 	}
 
+	// Validate Redis configuration if enabled
+	if c.redisEnabled {
+		if c.redisAddr == "" {
+			return fmt.Errorf("redis address cannot be empty when Redis is enabled")
+		}
+	}
+
+	// Validate rate limiting configuration
+	if c.rateLimitRequestsPerMinute <= 0 {
+		return fmt.Errorf("rate limit requests per minute must be positive")
+	}
+	if c.rateLimitCacheCapacity <= 0 {
+		return fmt.Errorf("rate limit cache capacity must be positive")
+	}
+
 	return nil
 }
 
@@ -191,6 +266,15 @@ func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
 		}
 	}
 	return defaultValue
