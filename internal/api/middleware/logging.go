@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -88,18 +89,20 @@ func StructuredLoggingMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// JSON structured log
-		return fmt.Sprintf(
-			`{"timestamp":"%s","status":%d,"latency":"%s","client_ip":"%s",`+
-				`"method":"%s","path":"%s","request_id":"%s","error":"%s"}`+"\n",
-			param.TimeStamp.Format("2006-01-02T15:04:05Z07:00"),
-			param.StatusCode,
-			param.Latency,
-			param.ClientIP,
-			param.Method,
-			param.Path,
-			requestID,
-			param.ErrorMessage,
-		)
+		// Build structured log record using proper JSON marshaling
+		rec := map[string]interface{}{
+			"timestamp":  param.TimeStamp.Format("2006-01-02T15:04:05Z07:00"),
+			"status":     param.StatusCode,
+			"latency":    param.Latency.String(),
+			"client_ip":  param.ClientIP,
+			"method":     param.Method,
+			"path":       param.Path,
+			"request_id": requestID,
+			"error":      param.ErrorMessage,
+		}
+
+		// Marshal to JSON to ensure proper escaping
+		b, _ := json.Marshal(rec)
+		return string(b) + "\n"
 	})
 }

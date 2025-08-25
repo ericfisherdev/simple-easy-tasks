@@ -211,9 +211,18 @@
         "options": {
           "maxSelect": 10,
           "maxSize": 5242880,
-          "mimeTypes": [],
+          "mimeTypes": [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+            "application/pdf",
+            "text/plain",
+            "text/markdown",
+            "application/json"
+          ],
           "thumbs": [],
-          "protected": false
+          "protected": true
         }
       },
       {
@@ -409,9 +418,18 @@
         "options": {
           "maxSelect": 10,
           "maxSize": 5242880,
-          "mimeTypes": [],
+          "mimeTypes": [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+            "application/pdf",
+            "text/plain",
+            "text/markdown",
+            "application/json"
+          ],
           "thumbs": [],
-          "protected": false
+          "protected": true
         }
       },
       {

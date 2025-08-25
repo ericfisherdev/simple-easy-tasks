@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strings"
 	"time"
 )
 
@@ -61,10 +62,18 @@ func (c *Comment) Validate() error {
 
 // SetParentComment establishes a parent-child relationship for threading
 func (c *Comment) SetParentComment(parentID string) error {
+	// Reject empty parent IDs
+	if strings.TrimSpace(parentID) == "" {
+		return NewValidationError("parent_comment_id", "Parent comment ID cannot be empty", nil)
+	}
+
+	// Check for self-reference
 	if parentID == c.ID {
 		return NewConflictError("circular_reference",
 			"Comment cannot be its own parent")
 	}
+
+	// Set the parent comment ID and update timestamp
 	c.ParentCommentID = &parentID
 	c.UpdatedAt = time.Now()
 	return nil

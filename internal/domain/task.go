@@ -91,6 +91,11 @@ type Task struct {
 // NewTask creates a new task with default values
 func NewTask(title, description, projectID, reporterID string) *Task {
 	now := time.Now().UTC()
+	// Normalize inputs
+	title = strings.TrimSpace(title)
+	description = strings.TrimSpace(description)
+	projectID = strings.TrimSpace(projectID)
+	reporterID = strings.TrimSpace(reporterID)
 	return &Task{
 		Title:       title,
 		Description: description,
