@@ -1,3 +1,4 @@
+// Package services provides business logic implementations for the Simple Easy Tasks application.
 package services
 
 //nolint:gofumpt
@@ -5,8 +6,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -40,40 +41,43 @@ type AuthService interface {
 	// ResetPassword resets the user's password using a reset token.
 	//nolint:gofumpt
 	ResetPassword(ctx context.Context, token string, newPassword string) error
+
+	// InvalidateAllUserTokens invalidates all tokens for a user
+	InvalidateAllUserTokens(ctx context.Context, userID string) error
 }
 
 // TokenClaims represents JWT token claims.
 type TokenClaims struct {
-	UserID   string `json:"user_id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
 	jwt.RegisteredClaims
-}
-
-// passwordResetToken stores information about password reset tokens.
-type passwordResetToken struct {
-	ExpiresAt time.Time
-	UserID    string
-	Token     string
+	UserID       string `json:"user_id"`
+	Email        string `json:"email"`
+	Username     string `json:"username"`
+	Role         string `json:"role"`
+	TokenVersion int    `json:"token_version"`
 }
 
 // authService implements AuthService interface.
 type authService struct {
-	resetTokens map[string]*passwordResetToken
-	userRepo    repository.UserRepository
-	config      config.SecurityConfig
-	jwtSecret   []byte
-	resetMutex  sync.RWMutex
+	userRepo       repository.UserRepository
+	blacklistRepo  domain.TokenBlacklistRepository
+	resetTokenRepo domain.PasswordResetTokenRepository
+	config         config.SecurityConfig
+	jwtSecret      []byte
 }
 
 // NewAuthService creates a new authentication service.
-func NewAuthService(userRepo repository.UserRepository, cfg config.SecurityConfig) AuthService {
+func NewAuthService(
+	userRepo repository.UserRepository,
+	blacklistRepo domain.TokenBlacklistRepository,
+	resetTokenRepo domain.PasswordResetTokenRepository,
+	cfg config.SecurityConfig,
+) AuthService {
 	return &authService{
-		userRepo:    userRepo,
-		config:      cfg,
-		jwtSecret:   []byte(cfg.GetJWTSecret()),
-		resetTokens: make(map[string]*passwordResetToken),
+		userRepo:       userRepo,
+		blacklistRepo:  blacklistRepo,
+		resetTokenRepo: resetTokenRepo,
+		config:         cfg,
+		jwtSecret:      []byte(cfg.GetJWTSecret()),
 	}
 }
 
@@ -191,10 +195,23 @@ func (s *authService) ValidateToken(ctx context.Context, tokenString string) (*d
 		return nil, domain.NewAuthenticationError("INVALID_TOKEN", "Invalid or expired token")
 	}
 
+	// Check if token is blacklisted
+	isBlacklisted, err := s.blacklistRepo.IsTokenBlacklisted(ctx, claims.ID)
+	if err != nil {
+		// Log error but continue (fallback to token version check)
+	} else if isBlacklisted {
+		return nil, domain.NewAuthenticationError("TOKEN_BLACKLISTED", "Token has been invalidated")
+	}
+
 	// Get user
 	user, err := s.userRepo.GetByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, domain.NewAuthenticationError("USER_NOT_FOUND", "User not found")
+	}
+
+	// Check token version
+	if claims.TokenVersion < user.TokenVersion {
+		return nil, domain.NewAuthenticationError("TOKEN_OUTDATED", "Token version is outdated")
 	}
 
 	// Remove password hash from response
@@ -203,11 +220,46 @@ func (s *authService) ValidateToken(ctx context.Context, tokenString string) (*d
 	return user, nil
 }
 
-// Logout invalidates tokens (placeholder for future blacklist implementation).
-func (s *authService) Logout(_ context.Context, _ string) error {
-	// TODO: Implement token blacklist or invalidation mechanism
-	// For now, we rely on token expiration
-	return nil
+// Logout invalidates tokens by blacklisting the specific token.
+func (s *authService) Logout(ctx context.Context, tokenString string) error {
+	// Parse token to get claims
+	claims, err := s.parseToken(tokenString)
+	if err != nil {
+		// Token is already invalid, consider logout successful
+		return nil
+	}
+
+	// Create blacklist entry
+	blacklistedToken := &domain.BlacklistedToken{
+		TokenID:   claims.ID,
+		UserID:    claims.UserID,
+		ExpiresAt: claims.ExpiresAt.Time,
+		CreatedAt: time.Now(),
+	}
+
+	// Add to blacklist
+	return s.blacklistRepo.BlacklistToken(ctx, blacklistedToken)
+}
+
+// InvalidateAllUserTokens invalidates all tokens for a user by incrementing token version.
+func (s *authService) InvalidateAllUserTokens(ctx context.Context, userID string) error {
+	// Get user
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return domain.NewInternalError("USER_NOT_FOUND", "User not found", err)
+	}
+
+	// Increment token version
+	user.IncrementTokenVersion()
+
+	// Update user
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return domain.NewInternalError("USER_UPDATE_FAILED", "Failed to update user token version", err)
+	}
+
+	// Also add a blacklist entry for all current tokens as backup
+	maxExpiry := time.Now().Add(s.config.GetRefreshTokenExpiration())
+	return s.blacklistRepo.BlacklistAllUserTokens(ctx, userID, maxExpiry)
 }
 
 // generateTokenPair creates both access and refresh tokens.
@@ -218,10 +270,11 @@ func (s *authService) generateTokenPair(user *domain.User) (*domain.TokenPair, e
 
 	// Create access token claims
 	accessClaims := &TokenClaims{
-		UserID:   user.ID,
-		Email:    user.Email,
-		Username: user.Username,
-		Role:     string(user.Role),
+		UserID:       user.ID,
+		Email:        user.Email,
+		Username:     user.Username,
+		Role:         string(user.Role),
+		TokenVersion: user.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.ID,
 			ExpiresAt: jwt.NewNumericDate(accessExpiry),
@@ -235,10 +288,11 @@ func (s *authService) generateTokenPair(user *domain.User) (*domain.TokenPair, e
 
 	// Create refresh token claims
 	refreshClaims := &TokenClaims{
-		UserID:   user.ID,
-		Email:    user.Email,
-		Username: user.Username,
-		Role:     string(user.Role),
+		UserID:       user.ID,
+		Email:        user.Email,
+		Username:     user.Username,
+		Role:         string(user.Role),
+		TokenVersion: user.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.ID,
 			ExpiresAt: jwt.NewNumericDate(refreshExpiry),
@@ -299,27 +353,43 @@ func (s *authService) ForgotPassword(ctx context.Context, email string) error {
 		return nil
 	}
 
+	// Invalidate any existing tokens for this user
+	if err := s.resetTokenRepo.InvalidateUserTokens(ctx, user.ID); err != nil {
+		// Log error but continue - this is not critical for the flow
+	}
+
 	// Generate secure random token
-	token, err := s.generateSecureToken()
+	tokenValue, err := s.generateSecureToken()
 	if err != nil {
 		return domain.NewInternalError("TOKEN_GENERATION_FAILED", "Failed to generate reset token", err)
 	}
 
-	// Store token with expiration (1 hour)
-	s.resetMutex.Lock()
-	s.resetTokens[token] = &passwordResetToken{
+	// Create password reset token
+	resetToken := &domain.PasswordResetToken{
+		ID:        uuid.New().String(),
+		Token:     tokenValue,
 		UserID:    user.ID,
-		Token:     token,
 		ExpiresAt: time.Now().Add(1 * time.Hour),
+		Used:      false,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
-	s.resetMutex.Unlock()
 
-	// Clean up expired tokens periodically
-	go s.cleanupExpiredTokens()
+	// Store token in database
+	if err := s.resetTokenRepo.Create(ctx, resetToken); err != nil {
+		return domain.NewInternalError("TOKEN_STORAGE_FAILED", "Failed to store reset token", err)
+	}
+
+	// Schedule cleanup of expired tokens
+	go func() {
+		if cleanupErr := s.resetTokenRepo.CleanupExpiredTokens(ctx); cleanupErr != nil {
+			// Log error but don't affect the main flow
+		}
+	}()
 
 	// TODO: Send email with reset link containing the token
 	// For now, we'll log the token (in production, this should be sent via email)
-	fmt.Printf("Password reset token for user %s: %s\n", user.Email, token)
+	fmt.Printf("Password reset token for user %s: %s\n", user.Email, tokenValue)
 
 	return nil
 }
@@ -327,22 +397,27 @@ func (s *authService) ForgotPassword(ctx context.Context, email string) error {
 // ResetPassword resets the user's password using a reset token.
 //
 //nolint:gofumpt
-func (s *authService) ResetPassword(ctx context.Context, token string, newPassword string) error {
-	// Validate token
-	s.resetMutex.RLock()
-	resetToken, exists := s.resetTokens[token]
-	s.resetMutex.RUnlock()
-
-	if !exists {
-		return domain.NewAuthenticationError("INVALID_RESET_TOKEN", "Invalid or expired reset token")
+func (s *authService) ResetPassword(ctx context.Context, tokenValue string, newPassword string) error {
+	// Get token from database
+	resetToken, err := s.resetTokenRepo.GetByToken(ctx, tokenValue)
+	if err != nil {
+		var domainErr *domain.Error
+		if errors.As(err, &domainErr) && domainErr.Type == domain.NotFoundError {
+			return domain.NewAuthenticationError("INVALID_RESET_TOKEN", "Invalid or expired reset token")
+		}
+		return domain.NewInternalError("TOKEN_LOOKUP_FAILED", "Failed to lookup reset token", err)
 	}
 
-	// Check if token is expired
-	if time.Now().After(resetToken.ExpiresAt) {
-		// Remove expired token
-		s.resetMutex.Lock()
-		delete(s.resetTokens, token)
-		s.resetMutex.Unlock()
+	// Check if token is valid (not expired and not used)
+	if !resetToken.IsValid() {
+		// Clean up the invalid token
+		if cleanupErr := s.resetTokenRepo.Delete(ctx, resetToken.ID); cleanupErr != nil {
+			// Log error but continue
+		}
+
+		if resetToken.Used {
+			return domain.NewAuthenticationError("TOKEN_ALREADY_USED", "Reset token has already been used")
+		}
 		return domain.NewAuthenticationError("EXPIRED_RESET_TOKEN", "Reset token has expired")
 	}
 
@@ -362,10 +437,16 @@ func (s *authService) ResetPassword(ctx context.Context, token string, newPasswo
 		return domain.NewInternalError("PASSWORD_UPDATE_FAILED", "Failed to update password", err)
 	}
 
-	// Remove used token
-	s.resetMutex.Lock()
-	delete(s.resetTokens, token)
-	s.resetMutex.Unlock()
+	// Mark token as used
+	resetToken.MarkAsUsed()
+	if err := s.resetTokenRepo.Update(ctx, resetToken); err != nil {
+		// Log error but don't fail the password reset since it was successful
+	}
+
+	// Invalidate all user sessions for security
+	if err := s.InvalidateAllUserTokens(ctx, user.ID); err != nil {
+		// Log error but don't fail the password reset
+	}
 
 	return nil
 }
@@ -379,15 +460,8 @@ func (s *authService) generateSecureToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// cleanupExpiredTokens removes expired password reset tokens.
-func (s *authService) cleanupExpiredTokens() {
-	s.resetMutex.Lock()
-	defer s.resetMutex.Unlock()
-
-	now := time.Now()
-	for token, resetToken := range s.resetTokens {
-		if now.After(resetToken.ExpiresAt) {
-			delete(s.resetTokens, token)
-		}
-	}
+// CleanupExpiredTokens removes expired password reset tokens.
+// This method can be called periodically by a background job.
+func (s *authService) CleanupExpiredTokens(ctx context.Context) error {
+	return s.resetTokenRepo.CleanupExpiredTokens(ctx)
 }

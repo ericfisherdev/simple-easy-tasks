@@ -347,6 +347,10 @@ func (m *MockAuthService) ResetPassword(_ context.Context, _, _ string) error {
 	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 
+func (m *MockAuthService) InvalidateAllUserTokens(_ context.Context, _ string) error {
+	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
 // Helper function to check if string contains substring
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && s[len(s)-len(substr):] == substr ||

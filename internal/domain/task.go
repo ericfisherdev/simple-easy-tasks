@@ -340,3 +340,40 @@ func (t *Task) SetCustomFields(fields map[string]interface{}) error {
 	t.UpdatedAt = time.Now().UTC()
 	return nil
 }
+
+// CreateTaskRequest represents the data needed to create a new task.
+type CreateTaskRequest struct {
+	Title       string                 `json:"title" binding:"required,min=1,max=200"`
+	Description string                 `json:"description,omitempty"`
+	ProjectID   string                 `json:"project_id" binding:"required"`
+	AssigneeID  string                 `json:"assignee_id,omitempty"`
+	Priority    TaskPriority           `json:"priority,omitempty"`
+	DueDate     *time.Time             `json:"due_date,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// Validate validates the create task request.
+func (r *CreateTaskRequest) Validate() error {
+	if err := ValidateRequired("title", r.Title, "INVALID_TITLE", "Task title is required"); err != nil {
+		return err
+	}
+
+	if err := ValidateRequired("project_id", r.ProjectID, "INVALID_PROJECT_ID", "Project ID is required"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateTaskRequest represents the data that can be updated for a task.
+type UpdateTaskRequest struct {
+	Title       *string                `json:"title,omitempty"`
+	Description *string                `json:"description,omitempty"`
+	AssigneeID  *string                `json:"assignee_id,omitempty"`
+	Status      *TaskStatus            `json:"status,omitempty"`
+	Priority    *TaskPriority          `json:"priority,omitempty"`
+	DueDate     *time.Time             `json:"due_date,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}

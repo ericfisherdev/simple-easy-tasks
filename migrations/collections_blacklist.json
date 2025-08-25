@@ -1,0 +1,59 @@
+[
+  {
+    "id": "blacklisted_tokens",
+    "name": "blacklisted_tokens",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "token_id",
+        "name": "token_id",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 255,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "user_id",
+        "name": "user_id",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 255,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "expires_at",
+        "name": "expires_at",
+        "type": "date",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_blacklisted_tokens_token_id ON blacklisted_tokens (token_id)",
+      "CREATE INDEX idx_blacklisted_tokens_user_id ON blacklisted_tokens (user_id)", 
+      "CREATE INDEX idx_blacklisted_tokens_expires_at ON blacklisted_tokens (expires_at)"
+    ],
+    "listRule": null,
+    "viewRule": null,
+    "createRule": null,
+    "updateRule": null,
+    "deleteRule": null,
+    "options": {}
+  }
+]

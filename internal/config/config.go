@@ -2,10 +2,19 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
+)
+
+// Environment constants
+const (
+	EnvDevelopment = "development"
+	EnvStaging     = "staging"
+	EnvProduction  = "production"
 )
 
 // Config defines the application configuration interface.
@@ -60,11 +69,14 @@ type AppConfig struct {
 // NewConfig creates a new configuration instance with default values
 // and overrides from environment variables.
 func NewConfig() *AppConfig {
+	environment := getEnvString("ENVIRONMENT", EnvDevelopment)
+	jwtSecret := getJWTSecret(environment)
+
 	return &AppConfig{
 		serverPort:             getEnvString("SERVER_PORT", "8080"),
 		databaseURL:            getEnvString("DATABASE_URL", "pb_data/database.db"),
-		jwtSecret:              getEnvString("JWT_SECRET", generateDefaultJWTSecret()),
-		environment:            getEnvString("ENVIRONMENT", "development"),
+		jwtSecret:              jwtSecret,
+		environment:            environment,
 		logLevel:               getEnvString("LOG_LEVEL", "info"),
 		readTimeout:            getEnvDuration("READ_TIMEOUT", "15s"),
 		writeTimeout:           getEnvDuration("WRITE_TIMEOUT", "15s"),
@@ -103,7 +115,7 @@ func (c *AppConfig) GetLogLevel() string {
 
 // IsProduction returns true if the application is running in production environment.
 func (c *AppConfig) IsProduction() bool {
-	return c.environment == "production"
+	return c.environment == EnvProduction
 }
 
 // GetReadTimeout returns the server read timeout configuration.
@@ -155,8 +167,13 @@ func (c *AppConfig) Validate() error {
 		return fmt.Errorf("JWT secret must be at least 32 characters long")
 	}
 
-	if c.environment != "development" && c.environment != "staging" && c.environment != "production" {
-		return fmt.Errorf("environment must be one of: development, staging, production")
+	// Reject default/predictable secrets in production
+	if c.IsProduction() && isDefaultSecret(c.jwtSecret) {
+		return fmt.Errorf("production environments cannot use default JWT secrets - set JWT_SECRET environment variable")
+	}
+
+	if c.environment != EnvDevelopment && c.environment != EnvStaging && c.environment != EnvProduction {
+		return fmt.Errorf("environment must be one of: %s, %s, %s", EnvDevelopment, EnvStaging, EnvProduction)
 	}
 
 	return nil
@@ -191,7 +208,47 @@ func getEnvDuration(key, defaultValue string) time.Duration {
 	return time.Second
 }
 
-// generateDefaultJWTSecret generates a default JWT secret for development.
-func generateDefaultJWTSecret() string {
-	return "simple-easy-tasks-development-jwt-secret-key-32chars-minimum-length-required"
+// getJWTSecret gets the JWT secret with proper security validation.
+func getJWTSecret(environment string) string {
+	if secret := os.Getenv("JWT_SECRET"); secret != "" {
+		return secret
+	}
+
+	// In production, require JWT_SECRET to be explicitly set
+	if environment == EnvProduction {
+		panic("JWT_SECRET environment variable is required in production")
+	}
+
+	// For non-production environments, generate a cryptographically secure random secret
+	return generateSecureJWTSecret()
+}
+
+// generateSecureJWTSecret generates a cryptographically secure random JWT secret.
+func generateSecureJWTSecret() string {
+	bytes := make([]byte, 32) // 256 bits
+	if _, err := rand.Read(bytes); err != nil {
+		panic(fmt.Sprintf("failed to generate secure JWT secret: %v", err))
+	}
+	return base64.URLEncoding.EncodeToString(bytes)
+}
+
+// isDefaultSecret checks if a secret is a known default/predictable value.
+func isDefaultSecret(secret string) bool {
+	defaultSecrets := []string{
+		"simple-easy-tasks-development-jwt-secret-key-32chars-minimum-length-required",
+		"secret",
+		"jwt-secret",
+		"your-secret-key",
+		"default-secret",
+		"development-secret",
+		"test-secret",
+	}
+
+	for _, defaultSecret := range defaultSecrets {
+		if secret == defaultSecret {
+			return true
+		}
+	}
+
+	return false
 }

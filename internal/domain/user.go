@@ -36,6 +36,7 @@ type User struct {
 	PasswordHash string          `json:"-"` // Never serialize password hash
 	Avatar       string          `json:"avatar,omitempty"`
 	Role         UserRole        `json:"role"`
+	TokenVersion int             `json:"token_version"` // For token invalidation
 }
 
 // SetPassword hashes and sets the user's password.
@@ -60,6 +61,11 @@ func (u *User) CheckPassword(password string) error {
 // IsAdmin returns true if the user has admin role.
 func (u *User) IsAdmin() bool {
 	return u.Role == AdminRole
+}
+
+// IncrementTokenVersion increments the user's token version to invalidate existing tokens.
+func (u *User) IncrementTokenVersion() {
+	u.TokenVersion++
 }
 
 // Validate validates the user data.
