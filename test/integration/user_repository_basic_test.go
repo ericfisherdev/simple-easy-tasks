@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
-	testutil "simple-easy-tasks/internal/testutil/integration"
 )
 
 // createUserWithPassword is a helper function that creates a user and sets password
@@ -33,8 +31,12 @@ func createUserWithPassword(email, name string) *domain.User {
 // TestUserRepository_BasicIntegration tests core user repository functionality
 // with only the fields that are working properly in the current schema
 func TestUserRepository_BasicIntegration(t *testing.T) {
-	suite := testutil.SetupDatabaseTest(t)
-	repo := repository.NewPocketBaseUserRepository(suite.DB.App())
+	// Setup test container with DI
+	tc := NewTestContainer(t)
+	defer tc.Cleanup()
+
+	// Get repository from DI container
+	repo := tc.GetUserRepository(t)
 
 	t.Run("Create_ValidUser_BasicFields_Success", func(t *testing.T) {
 		// Arrange - Create a user with minimal working fields
@@ -258,8 +260,8 @@ func TestUserRepository_BasicIntegration(t *testing.T) {
 	})
 
 	t.Run("List_WithPagination_ReturnsUsers", func(t *testing.T) {
-		// Arrange - Reset and create known number of users
-		require.NoError(t, suite.DB.Reset())
+		// Arrange - Clear database for isolation
+		tc.ClearDatabase(t)
 		expectedCount := 5
 		for i := 0; i < expectedCount; i++ {
 			user := createUserWithPassword(
@@ -292,8 +294,8 @@ func TestUserRepository_BasicIntegration(t *testing.T) {
 	})
 
 	t.Run("List_EmptyDatabase_ReturnsEmptySlice", func(t *testing.T) {
-		// Arrange - Reset database to ensure it's empty
-		require.NoError(t, suite.DB.Reset())
+		// Arrange - Clear database to ensure it's empty
+		tc.ClearDatabase(t)
 
 		// Act
 		users, err := repo.List(context.Background(), 0, 10)
@@ -304,8 +306,8 @@ func TestUserRepository_BasicIntegration(t *testing.T) {
 	})
 
 	t.Run("Count_MultipleUsers_ReturnsCorrectCount", func(t *testing.T) {
-		// Arrange - Reset and create known number of users
-		require.NoError(t, suite.DB.Reset())
+		// Arrange - Clear database and create known number of users
+		tc.ClearDatabase(t)
 		expectedCount := 7
 		for i := 0; i < expectedCount; i++ {
 			user := createUserWithPassword(
@@ -324,8 +326,8 @@ func TestUserRepository_BasicIntegration(t *testing.T) {
 	})
 
 	t.Run("Count_EmptyDatabase_ReturnsZero", func(t *testing.T) {
-		// Arrange - Reset database
-		require.NoError(t, suite.DB.Reset())
+		// Arrange - Clear database
+		tc.ClearDatabase(t)
 
 		// Act
 		count, err := repo.Count(context.Background())
