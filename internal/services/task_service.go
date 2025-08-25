@@ -45,7 +45,11 @@ type taskService struct {
 }
 
 // NewTaskService creates a new task service.
-func NewTaskService(taskRepo repository.TaskRepository, projectRepo repository.ProjectRepository, userRepo repository.UserRepository) TaskService {
+func NewTaskService(
+	taskRepo repository.TaskRepository,
+	projectRepo repository.ProjectRepository,
+	userRepo repository.UserRepository,
+) TaskService {
 	return &taskService{
 		taskRepo:    taskRepo,
 		projectRepo: projectRepo,
@@ -54,7 +58,11 @@ func NewTaskService(taskRepo repository.TaskRepository, projectRepo repository.P
 }
 
 // CreateTask creates a new task.
-func (s *taskService) CreateTask(ctx context.Context, req domain.CreateTaskRequest, userID string) (*domain.Task, error) {
+func (s *taskService) CreateTask(
+	ctx context.Context,
+	req domain.CreateTaskRequest,
+	userID string,
+) (*domain.Task, error) {
 	// Validate request
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -132,7 +140,12 @@ func (s *taskService) GetTask(ctx context.Context, taskID string, userID string)
 }
 
 // UpdateTask updates a task.
-func (s *taskService) UpdateTask(ctx context.Context, taskID string, req domain.UpdateTaskRequest, userID string) (*domain.Task, error) {
+func (s *taskService) UpdateTask(
+	ctx context.Context,
+	taskID string,
+	req domain.UpdateTaskRequest,
+	userID string,
+) (*domain.Task, error) {
 	if taskID == "" {
 		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
@@ -161,16 +174,8 @@ func (s *taskService) UpdateTask(ctx context.Context, taskID string, req domain.
 		task.Description = *req.Description
 	}
 	if req.AssigneeID != nil {
-		// Check if assignee has access to project
-		if *req.AssigneeID != "" {
-			_, err := s.userRepo.GetByID(ctx, *req.AssigneeID)
-			if err != nil {
-				return nil, domain.NewNotFoundError("ASSIGNEE_NOT_FOUND", "Assignee not found")
-			}
-
-			if !project.HasAccess(*req.AssigneeID) {
-				return nil, domain.NewValidationError("ASSIGNEE_NO_ACCESS", "Assignee doesn't have access to this project", nil)
-			}
+		if err := s.validateAssigneeAccess(ctx, *req.AssigneeID, project); err != nil {
+			return nil, err
 		}
 		task.AssigneeID = req.AssigneeID
 	}
@@ -235,7 +240,12 @@ func (s *taskService) DeleteTask(ctx context.Context, taskID string, userID stri
 }
 
 // ListProjectTasks lists tasks for a project.
-func (s *taskService) ListProjectTasks(ctx context.Context, projectID string, userID string, offset, limit int) ([]*domain.Task, error) {
+func (s *taskService) ListProjectTasks(
+	ctx context.Context,
+	projectID string,
+	userID string,
+	offset, limit int,
+) ([]*domain.Task, error) {
 	if projectID == "" {
 		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
@@ -287,7 +297,12 @@ func (s *taskService) ListUserTasks(ctx context.Context, userID string, offset, 
 }
 
 // AssignTask assigns a task to a user.
-func (s *taskService) AssignTask(ctx context.Context, taskID string, assigneeID string, userID string) (*domain.Task, error) {
+func (s *taskService) AssignTask(
+	ctx context.Context,
+	taskID string,
+	assigneeID string,
+	userID string,
+) (*domain.Task, error) {
 	if taskID == "" {
 		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
@@ -332,8 +347,24 @@ func (s *taskService) AssignTask(ctx context.Context, taskID string, assigneeID 
 	return task, nil
 }
 
-// UnassignTask removes assignment from a task.
-func (s *taskService) UnassignTask(ctx context.Context, taskID string, userID string) (*domain.Task, error) {
+// validateAssigneeAccess validates that an assignee exists and has project access
+func (s *taskService) validateAssigneeAccess(ctx context.Context, assigneeID string, project *domain.Project) error {
+	// Check if assignee has access to project
+	if assigneeID != "" {
+		_, err := s.userRepo.GetByID(ctx, assigneeID)
+		if err != nil {
+			return domain.NewNotFoundError("ASSIGNEE_NOT_FOUND", "Assignee not found")
+		}
+
+		if !project.HasAccess(assigneeID) {
+			return domain.NewValidationError("ASSIGNEE_NO_ACCESS", "Assignee doesn't have access to this project", nil)
+		}
+	}
+	return nil
+}
+
+// validateTaskAccess validates task ID and user access
+func (s *taskService) validateTaskAccess(ctx context.Context, taskID string, userID string) (*domain.Task, error) {
 	if taskID == "" {
 		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
@@ -352,6 +383,16 @@ func (s *taskService) UnassignTask(ctx context.Context, taskID string, userID st
 
 	if !project.HasAccess(userID) {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to modify this task")
+	}
+
+	return task, nil
+}
+
+// UnassignTask removes assignment from a task.
+func (s *taskService) UnassignTask(ctx context.Context, taskID string, userID string) (*domain.Task, error) {
+	task, err := s.validateTaskAccess(ctx, taskID, userID)
+	if err != nil {
+		return nil, err
 	}
 
 	// Unassign task
@@ -366,25 +407,15 @@ func (s *taskService) UnassignTask(ctx context.Context, taskID string, userID st
 }
 
 // UpdateTaskStatus updates a task's status.
-func (s *taskService) UpdateTaskStatus(ctx context.Context, taskID string, status domain.TaskStatus, userID string) (*domain.Task, error) {
-	if taskID == "" {
-		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
-	}
-
-	// Get task
-	task, err := s.taskRepo.GetByID(ctx, taskID)
+func (s *taskService) UpdateTaskStatus(
+	ctx context.Context,
+	taskID string,
+	status domain.TaskStatus,
+	userID string,
+) (*domain.Task, error) {
+	task, err := s.validateTaskAccess(ctx, taskID, userID)
 	if err != nil {
 		return nil, err
-	}
-
-	// Check if user has access to the project
-	project, err := s.projectRepo.GetByID(ctx, task.ProjectID)
-	if err != nil {
-		return nil, domain.NewNotFoundError("PROJECT_NOT_FOUND", "Project not found")
-	}
-
-	if !project.HasAccess(userID) {
-		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to modify this task")
 	}
 
 	// Update status

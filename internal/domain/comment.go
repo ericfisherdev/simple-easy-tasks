@@ -144,11 +144,11 @@ func (c *Comment) IsReply() bool {
 
 // CreateCommentRequest represents the data needed to create a new comment.
 type CreateCommentRequest struct {
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 	TaskID   string                 `json:"task_id" binding:"required"`
 	ParentID string                 `json:"parent_id,omitempty"`
 	Content  string                 `json:"content" binding:"required,min=1"`
 	Type     CommentType            `json:"type,omitempty"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // Validate validates the create comment request.

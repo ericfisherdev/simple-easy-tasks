@@ -418,14 +418,14 @@ func (t *Task) SetCustomFields(fields map[string]interface{}) error {
 
 // CreateTaskRequest represents the data needed to create a new task.
 type CreateTaskRequest struct {
+	DueDate     *time.Time             `json:"due_date,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	Title       string                 `json:"title" binding:"required,min=1,max=200"`
 	Description string                 `json:"description,omitempty"`
 	ProjectID   string                 `json:"project_id" binding:"required"`
 	AssigneeID  string                 `json:"assignee_id,omitempty"`
 	Priority    TaskPriority           `json:"priority,omitempty"`
-	DueDate     *time.Time             `json:"due_date,omitempty"`
 	Tags        []string               `json:"tags,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // Validate validates the create task request.
@@ -449,6 +449,6 @@ type UpdateTaskRequest struct {
 	Status      *TaskStatus            `json:"status,omitempty"`
 	Priority    *TaskPriority          `json:"priority,omitempty"`
 	DueDate     *time.Time             `json:"due_date,omitempty"`
-	Tags        []string               `json:"tags,omitempty"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
 }

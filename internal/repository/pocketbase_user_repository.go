@@ -202,7 +202,7 @@ func (r *pocketbaseUserRepository) ExistsByEmail(_ context.Context, email string
 
 	_, err := r.app.FindAuthRecordByEmail("users", email)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if err.Error() == sqlNoRowsError {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check user existence by email: %w", err)
@@ -219,7 +219,7 @@ func (r *pocketbaseUserRepository) ExistsByUsername(_ context.Context, username 
 
 	_, err := r.app.FindFirstRecordByFilter("users", "username = {:username}", dbx.Params{"username": username})
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if err.Error() == sqlNoRowsError {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check user existence by username: %w", err)

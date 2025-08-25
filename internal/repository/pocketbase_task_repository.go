@@ -1,3 +1,4 @@
+//nolint:revive // ctx parameters will be used when stub implementations are completed
 package repository
 
 import (
@@ -24,31 +25,41 @@ func (r *pocketbaseTaskRepository) GetByID(ctx context.Context, id string) (*dom
 }
 
 // ListByProject retrieves tasks for a specific project.
-func (r *pocketbaseTaskRepository) ListByProject(ctx context.Context, projectID string, offset, limit int) ([]*domain.Task, error) {
+func (r *pocketbaseTaskRepository) ListByProject(
+	ctx context.Context, projectID string, offset, limit int,
+) ([]*domain.Task, error) {
 	// Stub implementation
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Task repository not yet implemented", nil)
 }
 
 // ListByAssignee retrieves tasks assigned to a specific user.
-func (r *pocketbaseTaskRepository) ListByAssignee(ctx context.Context, assigneeID string, offset, limit int) ([]*domain.Task, error) {
+func (r *pocketbaseTaskRepository) ListByAssignee(
+	ctx context.Context, assigneeID string, offset, limit int,
+) ([]*domain.Task, error) {
 	// Stub implementation
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Task repository not yet implemented", nil)
 }
 
 // ListByStatus retrieves tasks by status.
-func (r *pocketbaseTaskRepository) ListByStatus(ctx context.Context, status domain.TaskStatus, offset, limit int) ([]*domain.Task, error) {
+func (r *pocketbaseTaskRepository) ListByStatus(
+	ctx context.Context, status domain.TaskStatus, offset, limit int,
+) ([]*domain.Task, error) {
 	// Stub implementation
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Task repository not yet implemented", nil)
 }
 
 // ListByCreator retrieves tasks created by a specific user.
-func (r *pocketbaseTaskRepository) ListByCreator(ctx context.Context, creatorID string, offset, limit int) ([]*domain.Task, error) {
+func (r *pocketbaseTaskRepository) ListByCreator(
+	ctx context.Context, creatorID string, offset, limit int,
+) ([]*domain.Task, error) {
 	// Stub implementation
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Task repository not yet implemented", nil)
 }
 
 // Search searches tasks by title, description or content.
-func (r *pocketbaseTaskRepository) Search(ctx context.Context, query string, projectID string, offset, limit int) ([]*domain.Task, error) {
+func (r *pocketbaseTaskRepository) Search(
+	ctx context.Context, query string, projectID string, offset, limit int,
+) ([]*domain.Task, error) {
 	// Stub implementation
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Task repository not yet implemented", nil)
 }

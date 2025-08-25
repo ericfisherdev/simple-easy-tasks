@@ -57,7 +57,7 @@ type HealthService struct {
 	checkers  []HealthChecker
 }
 
-// HealthService interface defines the contract for health services.
+// HealthServiceInterface defines the contract for health services.
 type HealthServiceInterface interface {
 	Check(ctx context.Context) HealthResponse
 	Liveness() HealthResponse
@@ -66,7 +66,7 @@ type HealthServiceInterface interface {
 }
 
 // NewHealthService creates a new health service.
-func NewHealthService(cfg interface{}) HealthServiceInterface {
+func NewHealthService(_ interface{}) HealthServiceInterface {
 	// Extract version and environment from config
 	version := "1.0.0"
 	env := "development"

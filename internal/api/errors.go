@@ -65,7 +65,13 @@ func (s *ErrorSanitizer) getOrCreateCorrelationID(c *gin.Context) string {
 }
 
 // logErrorWithContext logs detailed error information server-side
-func (s *ErrorSanitizer) logErrorWithContext(c *gin.Context, err error, correlationID string, isDomainError bool, domainErr *domain.Error) {
+func (s *ErrorSanitizer) logErrorWithContext(
+	c *gin.Context,
+	err error,
+	correlationID string,
+	isDomainError bool,
+	domainErr *domain.Error,
+) {
 	// Base log attributes
 	attrs := []slog.Attr{
 		slog.String("correlation_id", correlationID),
@@ -125,7 +131,11 @@ func (s *ErrorSanitizer) logErrorWithContext(c *gin.Context, err error, correlat
 }
 
 // sanitizeErrorForClient returns safe error response for client consumption
-func (s *ErrorSanitizer) sanitizeErrorForClient(domainErr *domain.Error, isDomainError bool, correlationID string) (int, gin.H) {
+func (s *ErrorSanitizer) sanitizeErrorForClient(
+	domainErr *domain.Error,
+	isDomainError bool,
+	correlationID string,
+) (int, gin.H) {
 	if isDomainError {
 		statusCode := s.getStatusCodeForDomainError(domainErr.Type)
 
@@ -140,27 +150,33 @@ func (s *ErrorSanitizer) sanitizeErrorForClient(domainErr *domain.Error, isDomai
 		}
 
 		// Only include user-safe messages
+		errorMap, ok := response["error"].(map[string]interface{})
+		if !ok {
+			// Fallback if type assertion fails
+			errorMap = make(map[string]interface{})
+			response["error"] = errorMap
+		}
 		switch domainErr.Type {
 		case domain.ValidationError:
-			response["error"].(map[string]interface{})["message"] = "Invalid input provided"
+			errorMap["message"] = "Invalid input provided"
 			// Include field-level validation details if available and safe
 			if domainErr.Details != nil {
 				if field, ok := domainErr.Details["field"]; ok {
-					response["error"].(map[string]interface{})["field"] = field
+					errorMap["field"] = field
 				}
 			}
 		case domain.NotFoundError:
-			response["error"].(map[string]interface{})["message"] = "Requested resource not found"
+			errorMap["message"] = "Requested resource not found"
 		case domain.ConflictError:
-			response["error"].(map[string]interface{})["message"] = "Resource conflict occurred"
+			errorMap["message"] = "Resource conflict occurred"
 		case domain.AuthenticationError:
-			response["error"].(map[string]interface{})["message"] = "Authentication failed"
+			errorMap["message"] = "Authentication failed"
 		case domain.AuthorizationError:
-			response["error"].(map[string]interface{})["message"] = "Access denied"
+			errorMap["message"] = "Access denied"
 		case domain.ExternalServiceError:
-			response["error"].(map[string]interface{})["message"] = "External service temporarily unavailable"
+			errorMap["message"] = "External service temporarily unavailable"
 		default:
-			response["error"].(map[string]interface{})["message"] = "An error occurred while processing your request"
+			errorMap["message"] = "An error occurred while processing your request"
 		}
 
 		return statusCode, response

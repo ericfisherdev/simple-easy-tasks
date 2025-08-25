@@ -1,3 +1,4 @@
+//nolint:revive // ctx parameters will be used when stub implementations are completed
 package repository
 
 import (
@@ -24,13 +25,17 @@ func (r *pocketbaseCommentRepository) GetByID(ctx context.Context, id string) (*
 }
 
 // ListByTask retrieves comments for a specific task.
-func (r *pocketbaseCommentRepository) ListByTask(ctx context.Context, taskID string, offset, limit int) ([]*domain.Comment, error) {
+func (r *pocketbaseCommentRepository) ListByTask(
+	ctx context.Context, taskID string, offset, limit int,
+) ([]*domain.Comment, error) {
 	// Stub implementation
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Comment repository not yet implemented", nil)
 }
 
 // ListByAuthor retrieves comments by a specific author.
-func (r *pocketbaseCommentRepository) ListByAuthor(ctx context.Context, authorID string, offset, limit int) ([]*domain.Comment, error) {
+func (r *pocketbaseCommentRepository) ListByAuthor(
+	ctx context.Context, authorID string, offset, limit int,
+) ([]*domain.Comment, error) {
 	// Stub implementation
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Comment repository not yet implemented", nil)
 }
@@ -72,7 +77,9 @@ func (r *pocketbaseCommentRepository) ExistsByID(ctx context.Context, id string)
 }
 
 // Search searches comments by content.
-func (r *pocketbaseCommentRepository) Search(ctx context.Context, query string, taskID string, offset, limit int) ([]*domain.Comment, error) {
+func (r *pocketbaseCommentRepository) Search(
+	ctx context.Context, query string, taskID string, offset, limit int,
+) ([]*domain.Comment, error) {
 	// Stub implementation
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Comment repository not yet implemented", nil)
 }

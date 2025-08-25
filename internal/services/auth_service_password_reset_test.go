@@ -72,7 +72,6 @@ func TestAuthService_ForgotPassword_NonExistentEmail(t *testing.T) {
 
 	// Test forgot password with non-existent email
 	err := authService.ForgotPassword(context.Background(), "nonexistent@example.com")
-
 	// Should not return error for security (no email enumeration)
 	if err != nil {
 		t.Errorf("ForgotPassword should not return error for non-existent email: %v", err)
@@ -173,10 +172,13 @@ func TestAuthService_ResetPassword_InvalidToken(t *testing.T) {
 		t.Error("ResetPassword should return error for invalid token")
 	}
 
-	authErr, ok := err.(*domain.AuthenticationError)
-	if !ok {
-		t.Errorf("Expected AuthenticationError, got %T", err)
-	} else if authErr.Code != "INVALID_RESET_TOKEN" {
+	authErr, ok := err.(*domain.Error)
+	switch {
+	case !ok:
+		t.Errorf("Expected domain.Error, got %T", err)
+	case authErr.Type != domain.AuthenticationError:
+		t.Errorf("Expected AuthenticationError, got %s", authErr.Type)
+	case authErr.Code != "INVALID_RESET_TOKEN":
 		t.Errorf("Expected error code INVALID_RESET_TOKEN, got %s", authErr.Code)
 	}
 }
@@ -218,7 +220,7 @@ func TestAuthService_ResetPassword_ExpiredToken(t *testing.T) {
 		t.Error("ResetPassword should return error for expired token")
 	}
 
-	authErr, ok := err.(*domain.AuthenticationError)
+	authErr, ok := err.(*domain.Error)
 	if !ok {
 		t.Errorf("Expected AuthenticationError, got %T", err)
 	} else if authErr.Code != "EXPIRED_RESET_TOKEN" {
@@ -263,7 +265,7 @@ func TestAuthService_ResetPassword_UsedToken(t *testing.T) {
 		t.Error("ResetPassword should return error for used token")
 	}
 
-	authErr, ok := err.(*domain.AuthenticationError)
+	authErr, ok := err.(*domain.Error)
 	if !ok {
 		t.Errorf("Expected AuthenticationError, got %T", err)
 	} else if authErr.Code != "TOKEN_ALREADY_USED" {

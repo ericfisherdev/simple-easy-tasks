@@ -302,8 +302,8 @@ func setupProjectTestRouter(_ *testing.T) *gin.Engine {
 	// Create middleware
 	authMiddleware := middleware.NewAuthMiddleware(mockAuthService)
 
-	// Setup routes
-	projectHandler := api.NewProjectHandler(projectRepo)
+	// Setup routes - pass nil for project service since it's not used in this test
+	projectHandler := api.NewProjectHandler(nil, projectRepo)
 
 	apiGroup := router.Group("/api")
 	projectHandler.RegisterRoutes(apiGroup, authMiddleware)

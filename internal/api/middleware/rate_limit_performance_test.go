@@ -161,7 +161,7 @@ func BenchmarkRateLimitManager_InMemory(b *testing.B) {
 	config := RateLimitConfig{
 		RequestsPerMinute: 10000,
 		CacheCapacity:     1000,
-		KeyGenerator: func(c *gin.Context) string {
+		KeyGenerator: func(_ *gin.Context) string {
 			return "benchmark-key"
 		},
 	}

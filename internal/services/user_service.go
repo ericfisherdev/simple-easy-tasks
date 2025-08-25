@@ -63,7 +63,11 @@ func (s *userService) GetProfile(ctx context.Context, userID string) (*domain.Us
 }
 
 // UpdateProfile updates a user's profile.
-func (s *userService) UpdateProfile(ctx context.Context, userID string, req domain.UpdateUserRequest) (*domain.User, error) {
+func (s *userService) UpdateProfile(
+	ctx context.Context,
+	userID string,
+	req domain.UpdateUserRequest,
+) (*domain.User, error) {
 	if userID == "" {
 		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}

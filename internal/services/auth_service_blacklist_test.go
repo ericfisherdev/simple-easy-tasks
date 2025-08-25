@@ -42,17 +42,17 @@ func newMockTokenBlacklistRepository() *mockTokenBlacklistRepository {
 	}
 }
 
-func (m *mockTokenBlacklistRepository) BlacklistToken(ctx context.Context, token *domain.BlacklistedToken) error {
+func (m *mockTokenBlacklistRepository) BlacklistToken(_ context.Context, token *domain.BlacklistedToken) error {
 	m.blacklistedTokens[token.TokenID] = token
 	return nil
 }
 
-func (m *mockTokenBlacklistRepository) IsTokenBlacklisted(ctx context.Context, tokenID string) (bool, error) {
+func (m *mockTokenBlacklistRepository) IsTokenBlacklisted(_ context.Context, tokenID string) (bool, error) {
 	_, exists := m.blacklistedTokens[tokenID]
 	return exists, nil
 }
 
-func (m *mockTokenBlacklistRepository) CleanupExpiredTokens(ctx context.Context) error {
+func (m *mockTokenBlacklistRepository) CleanupExpiredTokens(_ context.Context) error {
 	now := time.Now()
 	for tokenID, token := range m.blacklistedTokens {
 		if token.ExpiresAt.Before(now) {
@@ -62,7 +62,11 @@ func (m *mockTokenBlacklistRepository) CleanupExpiredTokens(ctx context.Context)
 	return nil
 }
 
-func (m *mockTokenBlacklistRepository) BlacklistAllUserTokens(ctx context.Context, userID string, expiryTime time.Time) error {
+func (m *mockTokenBlacklistRepository) BlacklistAllUserTokens(
+	_ context.Context,
+	userID string,
+	expiryTime time.Time,
+) error {
 	m.blacklistedTokens["USER_ALL_TOKENS_"+userID] = &domain.BlacklistedToken{
 		TokenID:   "USER_ALL_TOKENS_" + userID,
 		UserID:    userID,
@@ -83,12 +87,15 @@ func newMockPasswordResetTokenRepository() *mockPasswordResetTokenRepository {
 	}
 }
 
-func (m *mockPasswordResetTokenRepository) Create(ctx context.Context, token *domain.PasswordResetToken) error {
+func (m *mockPasswordResetTokenRepository) Create(_ context.Context, token *domain.PasswordResetToken) error {
 	m.tokens[token.Token] = token
 	return nil
 }
 
-func (m *mockPasswordResetTokenRepository) GetByToken(ctx context.Context, tokenValue string) (*domain.PasswordResetToken, error) {
+func (m *mockPasswordResetTokenRepository) GetByToken(
+	_ context.Context,
+	tokenValue string,
+) (*domain.PasswordResetToken, error) {
 	token, exists := m.tokens[tokenValue]
 	if !exists {
 		return nil, domain.NewNotFoundError("TOKEN_NOT_FOUND", "Password reset token not found")
@@ -96,7 +103,7 @@ func (m *mockPasswordResetTokenRepository) GetByToken(ctx context.Context, token
 	return token, nil
 }
 
-func (m *mockPasswordResetTokenRepository) Update(ctx context.Context, token *domain.PasswordResetToken) error {
+func (m *mockPasswordResetTokenRepository) Update(_ context.Context, token *domain.PasswordResetToken) error {
 	if _, exists := m.tokens[token.Token]; !exists {
 		return domain.NewNotFoundError("TOKEN_NOT_FOUND", "Password reset token not found")
 	}
@@ -104,7 +111,7 @@ func (m *mockPasswordResetTokenRepository) Update(ctx context.Context, token *do
 	return nil
 }
 
-func (m *mockPasswordResetTokenRepository) Delete(ctx context.Context, tokenID string) error {
+func (m *mockPasswordResetTokenRepository) Delete(_ context.Context, tokenID string) error {
 	for tokenValue, token := range m.tokens {
 		if token.ID == tokenID {
 			delete(m.tokens, tokenValue)
@@ -114,7 +121,7 @@ func (m *mockPasswordResetTokenRepository) Delete(ctx context.Context, tokenID s
 	return nil
 }
 
-func (m *mockPasswordResetTokenRepository) CleanupExpiredTokens(ctx context.Context) error {
+func (m *mockPasswordResetTokenRepository) CleanupExpiredTokens(_ context.Context) error {
 	now := time.Now()
 	for tokenValue, token := range m.tokens {
 		if token.ExpiresAt.Before(now) {
@@ -124,7 +131,7 @@ func (m *mockPasswordResetTokenRepository) CleanupExpiredTokens(ctx context.Cont
 	return nil
 }
 
-func (m *mockPasswordResetTokenRepository) InvalidateUserTokens(ctx context.Context, userID string) error {
+func (m *mockPasswordResetTokenRepository) InvalidateUserTokens(_ context.Context, userID string) error {
 	for _, token := range m.tokens {
 		if token.UserID == userID && token.IsValid() {
 			token.MarkAsUsed()

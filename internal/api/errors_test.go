@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,17 +16,21 @@ func TestSanitizedErrorResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name               string
 		error              error
-		expectedStatusCode int
+		name               string
 		expectedErrorType  string
 		expectedCode       string
+		expectedStatusCode int
 		shouldHaveDetails  bool
 		shouldHaveCorrID   bool
 	}{
 		{
-			name:               "validation error should be sanitized",
-			error:              domain.NewValidationError("INVALID_FIELD", "Field validation failed", map[string]interface{}{"field": "email"}),
+			name: "validation error should be sanitized",
+			error: domain.NewValidationError(
+				"INVALID_FIELD",
+				"Field validation failed",
+				map[string]interface{}{"field": "email"},
+			),
 			expectedStatusCode: http.StatusBadRequest,
 			expectedErrorType:  "VALIDATION_ERROR",
 			expectedCode:       "INVALID_FIELD",
@@ -58,7 +63,7 @@ func TestSanitizedErrorResponse(t *testing.T) {
 			c, _ := gin.CreateTestContext(w)
 
 			// Create a mock request so gin context works properly
-			req, _ := http.NewRequest("GET", "/test", nil)
+			req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 			c.Request = req
 
 			SanitizedErrorResponse(c, tt.error)

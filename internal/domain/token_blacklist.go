@@ -7,11 +7,11 @@ import (
 
 // BlacklistedToken represents a blacklisted JWT token.
 type BlacklistedToken struct {
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
 	ID        string    `json:"id"`
-	TokenID   string    `json:"token_id"`   // JWT ID claim (jti)
-	UserID    string    `json:"user_id"`    // User who owned the token
-	ExpiresAt time.Time `json:"expires_at"` // When the token expires
-	CreatedAt time.Time `json:"created_at"` // When it was blacklisted
+	TokenID   string    `json:"token_id"`
+	UserID    string    `json:"user_id"`
 }
 
 // TokenBlacklistRepository defines the interface for token blacklist operations.

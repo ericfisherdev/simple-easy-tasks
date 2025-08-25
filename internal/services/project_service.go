@@ -20,7 +20,12 @@ type ProjectService interface {
 	GetProjectBySlug(ctx context.Context, slug string, userID string) (*domain.Project, error)
 
 	// UpdateProject updates a project
-	UpdateProject(ctx context.Context, projectID string, req domain.UpdateProjectRequest, userID string) (*domain.Project, error)
+	UpdateProject(
+		ctx context.Context,
+		projectID string,
+		req domain.UpdateProjectRequest,
+		userID string,
+	) (*domain.Project, error)
 
 	// DeleteProject deletes a project
 	DeleteProject(ctx context.Context, projectID string, userID string) error
@@ -53,7 +58,11 @@ func NewProjectService(projectRepo repository.ProjectRepository, userRepo reposi
 }
 
 // CreateProject creates a new project.
-func (s *projectService) CreateProject(ctx context.Context, req domain.CreateProjectRequest, ownerID string) (*domain.Project, error) {
+func (s *projectService) CreateProject(
+	ctx context.Context,
+	req domain.CreateProjectRequest,
+	ownerID string,
+) (*domain.Project, error) {
 	// Validate request
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -121,7 +130,7 @@ func (s *projectService) GetProject(ctx context.Context, projectID string, userI
 	}
 
 	// Check if user has access
-	if !project.HasAccess(userID) && !!project.Settings.IsPrivate {
+	if !project.HasAccess(userID) && project.Settings.IsPrivate {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to this project")
 	}
 
@@ -140,7 +149,7 @@ func (s *projectService) GetProjectBySlug(ctx context.Context, slug string, user
 	}
 
 	// Check if user has access
-	if !project.HasAccess(userID) && !!project.Settings.IsPrivate {
+	if !project.HasAccess(userID) && project.Settings.IsPrivate {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to this project")
 	}
 
@@ -148,7 +157,12 @@ func (s *projectService) GetProjectBySlug(ctx context.Context, slug string, user
 }
 
 // UpdateProject updates a project.
-func (s *projectService) UpdateProject(ctx context.Context, projectID string, req domain.UpdateProjectRequest, userID string) (*domain.Project, error) {
+func (s *projectService) UpdateProject(
+	ctx context.Context,
+	projectID string,
+	req domain.UpdateProjectRequest,
+	userID string,
+) (*domain.Project, error) {
 	if projectID == "" {
 		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
@@ -227,7 +241,11 @@ func (s *projectService) DeleteProject(ctx context.Context, projectID string, us
 }
 
 // ListUserProjects lists projects for a user.
-func (s *projectService) ListUserProjects(ctx context.Context, userID string, offset, limit int) ([]*domain.Project, error) {
+func (s *projectService) ListUserProjects(
+	ctx context.Context,
+	userID string,
+	offset, limit int,
+) ([]*domain.Project, error) {
 	if userID == "" {
 		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
@@ -335,7 +353,7 @@ func (s *projectService) ListMembers(ctx context.Context, projectID string, user
 	}
 
 	// Check if user has access to view members
-	if !project.HasAccess(userID) && !!project.Settings.IsPrivate {
+	if !project.HasAccess(userID) && project.Settings.IsPrivate {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to view project members")
 	}
 

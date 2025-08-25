@@ -109,9 +109,13 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		if cookie, err := c.Cookie("refresh_token"); err == nil {
 			reqData.RefreshToken = cookie
 		} else {
-			validationErr := domain.NewValidationError("MISSING_REFRESH_TOKEN", "Refresh token is required", map[string]interface{}{
-				"field": "refresh_token",
-			})
+			validationErr := domain.NewValidationError(
+				"MISSING_REFRESH_TOKEN",
+				"Refresh token is required",
+				map[string]interface{}{
+					"field": "refresh_token",
+				},
+			)
 			SanitizedErrorResponse(c, validationErr)
 			return
 		}

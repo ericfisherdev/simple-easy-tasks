@@ -63,7 +63,6 @@ func (r *pocketbasePasswordResetTokenRepository) GetByToken(
 		"token = {:token}",
 		dbx.Params{"token": tokenValue},
 	)
-
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			return nil, domain.NewNotFoundError("TOKEN_NOT_FOUND", "Password reset token not found")
@@ -127,7 +126,6 @@ func (r *pocketbasePasswordResetTokenRepository) CleanupExpiredTokens(_ context.
 			"now": time.Now().Format("2006-01-02 15:04:05.000Z"),
 		},
 	)
-
 	if err != nil {
 		return domain.NewInternalError("CLEANUP_QUERY_FAILED", "Failed to query expired password reset tokens", err)
 	}
@@ -155,7 +153,6 @@ func (r *pocketbasePasswordResetTokenRepository) InvalidateUserTokens(_ context.
 			"now":    time.Now().Format("2006-01-02 15:04:05.000Z"),
 		},
 	)
-
 	if err != nil {
 		return domain.NewInternalError("INVALIDATE_QUERY_FAILED", "Failed to query user password reset tokens", err)
 	}

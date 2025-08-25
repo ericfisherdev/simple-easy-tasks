@@ -21,7 +21,7 @@ func NewPocketBaseTokenBlacklistRepository(app core.App) domain.TokenBlacklistRe
 }
 
 // BlacklistToken adds a token to the blacklist.
-func (r *pocketbaseTokenBlacklistRepository) BlacklistToken(ctx context.Context, token *domain.BlacklistedToken) error {
+func (r *pocketbaseTokenBlacklistRepository) BlacklistToken(_ context.Context, token *domain.BlacklistedToken) error {
 	collection, err := r.app.FindCollectionByNameOrId("blacklisted_tokens")
 	if err != nil {
 		return domain.NewInternalError("COLLECTION_NOT_FOUND", "Blacklisted tokens collection not found", err)
@@ -40,7 +40,7 @@ func (r *pocketbaseTokenBlacklistRepository) BlacklistToken(ctx context.Context,
 }
 
 // IsTokenBlacklisted checks if a token is blacklisted.
-func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(ctx context.Context, tokenID string) (bool, error) {
+func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(_ context.Context, tokenID string) (bool, error) {
 	const sqlNoRowsError = "sql: no rows in result set"
 
 	_, err := r.app.FindFirstRecordByFilter(
@@ -51,7 +51,6 @@ func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(ctx context.Cont
 			"now":     time.Now().Format("2006-01-02 15:04:05.000Z"),
 		},
 	)
-
 	if err != nil {
 		if err.Error() == sqlNoRowsError {
 			return false, nil
@@ -63,7 +62,7 @@ func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(ctx context.Cont
 }
 
 // CleanupExpiredTokens removes expired blacklisted tokens.
-func (r *pocketbaseTokenBlacklistRepository) CleanupExpiredTokens(ctx context.Context) error {
+func (r *pocketbaseTokenBlacklistRepository) CleanupExpiredTokens(_ context.Context) error {
 	records, err := r.app.FindRecordsByFilter(
 		"blacklisted_tokens",
 		"expires_at <= {:now}",
@@ -74,7 +73,6 @@ func (r *pocketbaseTokenBlacklistRepository) CleanupExpiredTokens(ctx context.Co
 			"now": time.Now().Format("2006-01-02 15:04:05.000Z"),
 		},
 	)
-
 	if err != nil {
 		return domain.NewInternalError("CLEANUP_QUERY_FAILED", "Failed to query expired tokens", err)
 	}
@@ -90,7 +88,11 @@ func (r *pocketbaseTokenBlacklistRepository) CleanupExpiredTokens(ctx context.Co
 }
 
 // BlacklistAllUserTokens blacklists all tokens for a specific user.
-func (r *pocketbaseTokenBlacklistRepository) BlacklistAllUserTokens(ctx context.Context, userID string, expiryTime time.Time) error {
+func (r *pocketbaseTokenBlacklistRepository) BlacklistAllUserTokens(
+	_ context.Context,
+	userID string,
+	expiryTime time.Time,
+) error {
 	// Create a single blacklist entry for all user tokens with a special token_id
 	collection, err := r.app.FindCollectionByNameOrId("blacklisted_tokens")
 	if err != nil {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRateLimitManager_Lifecycle(t *testing.T) {
@@ -34,15 +33,13 @@ func TestRateLimitManager_Lifecycle(t *testing.T) {
 
 	assert.NotNil(t, limiter1)
 	assert.NotNil(t, limiter2)
-	assert.Equal(t, 2, len(manager.limiters))
+	assert.Equal(t, 2, manager.cache.Len())
 
 	// Wait for cleanup to potentially trigger
 	time.Sleep(300 * time.Millisecond)
 
 	// Limiters should be cleaned up due to inactivity
-	manager.mu.RLock()
-	count := len(manager.limiters)
-	manager.mu.RUnlock()
+	count := manager.cache.Len()
 
 	assert.Equal(t, 0, count, "Inactive limiters should be cleaned up")
 
@@ -93,18 +90,14 @@ func TestRateLimitMiddleware_MemoryLeak(t *testing.T) {
 	}
 
 	// Verify limiters were created
-	manager.mu.RLock()
-	initialCount := len(manager.limiters)
-	manager.mu.RUnlock()
+	initialCount := manager.cache.Len()
 	assert.Equal(t, 50, initialCount)
 
 	// Wait for cleanup cycles
 	time.Sleep(200 * time.Millisecond)
 
 	// Verify limiters were cleaned up
-	manager.mu.RLock()
-	finalCount := len(manager.limiters)
-	manager.mu.RUnlock()
+	finalCount := manager.cache.Len()
 
 	assert.Equal(t, 0, finalCount, "All inactive limiters should be cleaned up")
 }
@@ -115,7 +108,7 @@ func TestRateLimitMiddleware_RateLimiting(t *testing.T) {
 	ctx := context.Background()
 	config := RateLimitConfig{
 		RequestsPerMinute: 2, // Very low limit for testing
-		KeyGenerator: func(c *gin.Context) string {
+		KeyGenerator: func(_ *gin.Context) string {
 			return "test-key"
 		},
 	}
@@ -155,7 +148,7 @@ func TestRateLimitManager_ContextCancellation(t *testing.T) {
 		RequestsPerMinute: 10,
 		CleanupInterval:   50 * time.Millisecond,
 		MaxAge:            100 * time.Millisecond,
-		KeyGenerator: func(c *gin.Context) string {
+		KeyGenerator: func(_ *gin.Context) string {
 			return "test"
 		},
 	}
@@ -182,7 +175,7 @@ func TestRateLimitMiddleware_CustomOnExceeded(t *testing.T) {
 
 	config := RateLimitConfig{
 		RequestsPerMinute: 1,
-		KeyGenerator: func(c *gin.Context) string {
+		KeyGenerator: func(_ *gin.Context) string {
 			return "test-key"
 		},
 		OnExceeded: func(c *gin.Context) {

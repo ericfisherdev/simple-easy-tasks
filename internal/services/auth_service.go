@@ -197,7 +197,7 @@ func (s *authService) ValidateToken(ctx context.Context, tokenString string) (*d
 
 	// Check if token is blacklisted
 	isBlacklisted, err := s.blacklistRepo.IsTokenBlacklisted(ctx, claims.ID)
-	if err != nil {
+	if err != nil { //nolint:revive // Intentionally ignore error to continue with fallback check
 		// Log error but continue (fallback to token version check)
 	} else if isBlacklisted {
 		return nil, domain.NewAuthenticationError("TOKEN_BLACKLISTED", "Token has been invalidated")
@@ -354,8 +354,9 @@ func (s *authService) ForgotPassword(ctx context.Context, email string) error {
 	}
 
 	// Invalidate any existing tokens for this user
-	if err := s.resetTokenRepo.InvalidateUserTokens(ctx, user.ID); err != nil {
+	if invalidateErr := s.resetTokenRepo.InvalidateUserTokens(ctx, user.ID); invalidateErr != nil { //nolint:revive // Error is intentionally ignored
 		// Log error but continue - this is not critical for the flow
+		_ = invalidateErr // Acknowledge the error exists
 	}
 
 	// Generate secure random token
@@ -382,8 +383,9 @@ func (s *authService) ForgotPassword(ctx context.Context, email string) error {
 
 	// Schedule cleanup of expired tokens
 	go func() {
-		if cleanupErr := s.resetTokenRepo.CleanupExpiredTokens(ctx); cleanupErr != nil {
+		if cleanupErr := s.resetTokenRepo.CleanupExpiredTokens(ctx); cleanupErr != nil { //nolint:revive // Error is intentionally ignored
 			// Log error but don't affect the main flow
+			_ = cleanupErr // Acknowledge the error exists
 		}
 	}()
 
@@ -411,8 +413,9 @@ func (s *authService) ResetPassword(ctx context.Context, tokenValue string, newP
 	// Check if token is valid (not expired and not used)
 	if !resetToken.IsValid() {
 		// Clean up the invalid token
-		if cleanupErr := s.resetTokenRepo.Delete(ctx, resetToken.ID); cleanupErr != nil {
+		if cleanupErr := s.resetTokenRepo.Delete(ctx, resetToken.ID); cleanupErr != nil { //nolint:revive // Error is intentionally ignored
 			// Log error but continue
+			_ = cleanupErr // Acknowledge the error exists
 		}
 
 		if resetToken.Used {
@@ -439,13 +442,15 @@ func (s *authService) ResetPassword(ctx context.Context, tokenValue string, newP
 
 	// Mark token as used
 	resetToken.MarkAsUsed()
-	if err := s.resetTokenRepo.Update(ctx, resetToken); err != nil {
+	if err := s.resetTokenRepo.Update(ctx, resetToken); err != nil { //nolint:revive // Error is intentionally ignored
 		// Log error but don't fail the password reset since it was successful
+		_ = err // Acknowledge the error exists
 	}
 
 	// Invalidate all user sessions for security
-	if err := s.InvalidateAllUserTokens(ctx, user.ID); err != nil {
+	if err := s.InvalidateAllUserTokens(ctx, user.ID); err != nil { //nolint:revive // Error is intentionally ignored
 		// Log error but don't fail the password reset
+		_ = err // Acknowledge the error exists
 	}
 
 	return nil

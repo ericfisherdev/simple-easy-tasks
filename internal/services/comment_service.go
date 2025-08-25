@@ -16,7 +16,12 @@ type CommentService interface {
 	GetComment(ctx context.Context, commentID string, userID string) (*domain.Comment, error)
 
 	// UpdateComment updates a comment
-	UpdateComment(ctx context.Context, commentID string, req domain.UpdateCommentRequest, userID string) (*domain.Comment, error)
+	UpdateComment(
+		ctx context.Context,
+		commentID string,
+		req domain.UpdateCommentRequest,
+		userID string,
+	) (*domain.Comment, error)
 
 	// DeleteComment deletes a comment
 	DeleteComment(ctx context.Context, commentID string, userID string) error
@@ -36,7 +41,11 @@ type commentService struct {
 }
 
 // NewCommentService creates a new comment service.
-func NewCommentService(commentRepo repository.CommentRepository, taskRepo repository.TaskRepository, userRepo repository.UserRepository) CommentService {
+func NewCommentService(
+	commentRepo repository.CommentRepository,
+	taskRepo repository.TaskRepository,
+	userRepo repository.UserRepository,
+) CommentService {
 	return &commentService{
 		commentRepo: commentRepo,
 		taskRepo:    taskRepo,
@@ -45,7 +54,11 @@ func NewCommentService(commentRepo repository.CommentRepository, taskRepo reposi
 }
 
 // CreateComment creates a new comment on a task.
-func (s *commentService) CreateComment(ctx context.Context, req domain.CreateCommentRequest, userID string) (*domain.Comment, error) {
+func (s *commentService) CreateComment(
+	ctx context.Context,
+	req domain.CreateCommentRequest,
+	userID string,
+) (*domain.Comment, error) {
 	// Validate request
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -95,7 +108,7 @@ func (s *commentService) CreateComment(ctx context.Context, req domain.CreateCom
 }
 
 // GetComment gets a comment by ID.
-func (s *commentService) GetComment(ctx context.Context, commentID string, userID string) (*domain.Comment, error) {
+func (s *commentService) GetComment(ctx context.Context, commentID string, _ string) (*domain.Comment, error) {
 	if commentID == "" {
 		return nil, domain.NewValidationError("INVALID_COMMENT_ID", "Comment ID cannot be empty", nil)
 	}
@@ -119,7 +132,12 @@ func (s *commentService) GetComment(ctx context.Context, commentID string, userI
 }
 
 // UpdateComment updates a comment.
-func (s *commentService) UpdateComment(ctx context.Context, commentID string, req domain.UpdateCommentRequest, userID string) (*domain.Comment, error) {
+func (s *commentService) UpdateComment(
+	ctx context.Context,
+	commentID string,
+	req domain.UpdateCommentRequest,
+	userID string,
+) (*domain.Comment, error) {
 	if commentID == "" {
 		return nil, domain.NewValidationError("INVALID_COMMENT_ID", "Comment ID cannot be empty", nil)
 	}
@@ -187,7 +205,12 @@ func (s *commentService) DeleteComment(ctx context.Context, commentID string, us
 }
 
 // ListTaskComments lists comments for a task.
-func (s *commentService) ListTaskComments(ctx context.Context, taskID string, userID string, offset, limit int) ([]*domain.Comment, error) {
+func (s *commentService) ListTaskComments(
+	ctx context.Context,
+	taskID string,
+	_ string,
+	offset, limit int,
+) ([]*domain.Comment, error) {
 	if taskID == "" {
 		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
 	}
@@ -218,7 +241,7 @@ func (s *commentService) ListTaskComments(ctx context.Context, taskID string, us
 }
 
 // GetCommentThread gets a comment thread (comment and its replies).
-func (s *commentService) GetCommentThread(ctx context.Context, commentID string, userID string) ([]*domain.Comment, error) {
+func (s *commentService) GetCommentThread(ctx context.Context, commentID string, _ string) ([]*domain.Comment, error) {
 	if commentID == "" {
 		return nil, domain.NewValidationError("INVALID_COMMENT_ID", "Comment ID cannot be empty", nil)
 	}

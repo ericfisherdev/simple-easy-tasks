@@ -20,7 +20,10 @@ type ProjectHandler struct {
 }
 
 // NewProjectHandler creates a new project handler.
-func NewProjectHandler(projectService services.ProjectService, projectRepo repository.ProjectRepository) *ProjectHandler {
+func NewProjectHandler(
+	projectService services.ProjectService,
+	projectRepo repository.ProjectRepository,
+) *ProjectHandler {
 	return &ProjectHandler{
 		projectService: projectService,
 		projectRepo:    projectRepo,

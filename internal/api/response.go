@@ -29,7 +29,7 @@ func getDefaultSanitizer() *ErrorSanitizer {
 }
 
 // ErrorResponse handles domain errors with improved security and logging.
-// DEPRECATED: Use SanitizedErrorResponse for better security.
+// Deprecated: Use SanitizedErrorResponse for better security.
 // This function is kept for backward compatibility but should be replaced.
 func ErrorResponse(c *gin.Context, err error) {
 	// Use the new sanitized error response for better security

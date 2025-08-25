@@ -96,7 +96,7 @@ func run(ctx context.Context) error {
 }
 
 // setupServiceContainer initializes the DI container with all services.
-func setupServiceContainer(cfg config.Config) (interface{}, error) {
+func setupServiceContainer(cfg *config.AppConfig) (interface{}, error) {
 	// For now, return a simple map as a placeholder
 	// In a full implementation, this would use the container package
 	services := map[string]interface{}{
@@ -107,7 +107,11 @@ func setupServiceContainer(cfg config.Config) (interface{}, error) {
 }
 
 // setupRouter configures the Gin router with all middleware and routes.
-func setupRouter(ctx context.Context, cfg config.Config, container interface{}) (*gin.Engine, *middleware.RateLimitManager) {
+func setupRouter(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	_ interface{},
+) (*gin.Engine, *middleware.RateLimitManager) {
 	// Set Gin mode based on environment
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.DebugMode)
@@ -124,14 +128,14 @@ func setupRouter(ctx context.Context, cfg config.Config, container interface{}) 
 
 	// Rate limiting middleware with configuration-driven settings
 	var rateLimitManager *middleware.RateLimitManager
-	if config.GetRateLimitEnabled() {
+	if cfg.GetRateLimitEnabled() {
 		rateLimitMiddleware, manager := middleware.RateLimitMiddleware(ctx, middleware.RateLimitConfig{
-			RequestsPerMinute: config.GetRateLimitRequestsPerMinute(),
-			CacheCapacity:     config.GetRateLimitCacheCapacity(),
-			UseRedis:          config.GetRedisEnabled(),
-			RedisAddr:         config.GetRedisAddr(),
-			RedisPassword:     config.GetRedisPassword(),
-			RedisDB:           config.GetRedisDB(),
+			RequestsPerMinute: cfg.GetRateLimitRequestsPerMinute(),
+			CacheCapacity:     cfg.GetRateLimitCacheCapacity(),
+			UseRedis:          cfg.GetRedisEnabled(),
+			RedisAddr:         cfg.GetRedisAddr(),
+			RedisPassword:     cfg.GetRedisPassword(),
+			RedisDB:           cfg.GetRedisDB(),
 			KeyGenerator: func(c *gin.Context) string {
 				return c.ClientIP()
 			},
@@ -172,7 +176,7 @@ func setupRouter(ctx context.Context, cfg config.Config, container interface{}) 
 		metrics := gin.H{
 			"timestamp": time.Now().Unix(),
 			"system": gin.H{
-				"environment": config.GetEnvironment(),
+				"environment": cfg.GetEnvironment(),
 				"version":     "1.0.0",
 			},
 		}
@@ -180,8 +184,8 @@ func setupRouter(ctx context.Context, cfg config.Config, container interface{}) 
 		if rateLimitManager != nil {
 			stats := rateLimitManager.Stats()
 			metrics["rate_limiting"] = gin.H{
-				"enabled":       config.GetRateLimitEnabled(),
-				"redis_enabled": config.GetRedisEnabled(),
+				"enabled":       cfg.GetRateLimitEnabled(),
+				"redis_enabled": cfg.GetRedisEnabled(),
 				"cache_stats":   stats,
 			}
 		} else {
