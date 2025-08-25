@@ -86,8 +86,31 @@ func (r *pocketbaseCommentRepository) Search(
 
 // Create creates a new comment.
 func (r *pocketbaseCommentRepository) Create(ctx context.Context, comment *domain.Comment) error {
-	// Stub implementation
-	return domain.NewInternalError("NOT_IMPLEMENTED", "Comment repository not yet implemented", nil)
+	collection, err := r.app.FindCollectionByNameOrId("comments")
+	if err != nil {
+		return domain.NewInternalError("COLLECTION_NOT_FOUND", "Failed to find comments collection", err)
+	}
+
+	record := core.NewRecord(collection)
+	record.Set("content", comment.Content)
+	record.Set("task", comment.TaskID)
+	record.Set("author", comment.AuthorID)
+
+	// Optional fields
+	if comment.ParentCommentID != nil && *comment.ParentCommentID != "" {
+		record.Set("parent_comment", *comment.ParentCommentID)
+	}
+	if comment.IsEdited {
+		record.Set("is_edited", comment.IsEdited)
+	}
+
+	if err := r.app.Save(record); err != nil {
+		return domain.NewInternalError("SAVE_FAILED", "Failed to create comment", err)
+	}
+
+	// Update the comment with the generated ID
+	comment.ID = record.Id
+	return nil
 }
 
 // Update updates an existing comment.

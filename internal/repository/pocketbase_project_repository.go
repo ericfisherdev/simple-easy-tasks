@@ -12,8 +12,6 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-const sqlNoRowsError = "sql: no rows in result set"
-
 // pocketbaseProjectRepository implements ProjectRepository using PocketBase.
 type pocketbaseProjectRepository struct {
 	app core.App
@@ -41,12 +39,12 @@ func (r *pocketbaseProjectRepository) Create(_ context.Context, project *domain.
 	record.Set("title", project.Title)
 	record.Set("description", project.Description)
 	record.Set("slug", project.Slug)
-	record.Set("owner_id", project.OwnerID)
+	record.Set("owner", project.OwnerID)
 	record.Set("color", project.Color)
 	record.Set("icon", project.Icon)
 	record.Set("status", string(project.Status))
 	record.Set("settings", project.Settings)
-	record.Set("member_ids", project.MemberIDs)
+	record.Set("members", project.MemberIDs)
 
 	if !project.CreatedAt.IsZero() {
 		record.Set("created", project.CreatedAt)
@@ -120,12 +118,12 @@ func (r *pocketbaseProjectRepository) Update(_ context.Context, project *domain.
 	record.Set("title", project.Title)
 	record.Set("description", project.Description)
 	record.Set("slug", project.Slug)
-	record.Set("owner_id", project.OwnerID)
+	record.Set("owner", project.OwnerID)
 	record.Set("color", project.Color)
 	record.Set("icon", project.Icon)
 	record.Set("status", string(project.Status))
 	record.Set("settings", project.Settings)
-	record.Set("member_ids", project.MemberIDs)
+	record.Set("members", project.MemberIDs)
 	record.Set("updated", time.Now())
 
 	if err := r.app.Save(record); err != nil {
@@ -166,7 +164,7 @@ func (r *pocketbaseProjectRepository) ListByOwner(
 	}
 
 	records, err := r.app.FindRecordsByFilter(
-		"projects", "owner_id = {:ownerID}", "-created", limit, offset, dbx.Params{"ownerID": ownerID},
+		"projects", "owner = {:ownerID}", "-created", limit, offset, dbx.Params{"ownerID": ownerID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find projects by owner: %w", err)
@@ -184,7 +182,7 @@ func (r *pocketbaseProjectRepository) ListByMember(
 	}
 
 	records, err := r.app.FindRecordsByFilter(
-		"projects", "member_ids ~ {:memberID}", "-created", limit, offset, dbx.Params{"memberID": memberID},
+		"projects", "members ~ {:memberID}", "-created", limit, offset, dbx.Params{"memberID": memberID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find projects by member: %w", err)
@@ -239,7 +237,7 @@ func (r *pocketbaseProjectRepository) GetMemberProjects(
 	}
 
 	// Find projects where user is owner OR member OR has guest access
-	filter := "owner_id = {:userID} || member_ids ~ {:userID} || " +
+	filter := "owner = {:userID} || members ~ {:userID} || " +
 		"(settings.is_private = false && settings.allow_guest_view = true)"
 	records, err := r.app.FindRecordsByFilter(
 		"projects", filter, "-created", limit, offset, dbx.Params{"userID": userID},
@@ -259,7 +257,7 @@ func (r *pocketbaseProjectRepository) recordToProject(record *core.Record) (*dom
 	}
 
 	var memberIDs []string
-	if err := record.UnmarshalJSONField("member_ids", &memberIDs); err != nil {
+	if err := record.UnmarshalJSONField("members", &memberIDs); err != nil {
 		memberIDs = []string{}
 	}
 
@@ -268,7 +266,7 @@ func (r *pocketbaseProjectRepository) recordToProject(record *core.Record) (*dom
 		Title:       record.GetString("title"),
 		Description: record.GetString("description"),
 		Slug:        record.GetString("slug"),
-		OwnerID:     record.GetString("owner_id"),
+		OwnerID:     record.GetString("owner"),
 		Color:       record.GetString("color"),
 		Icon:        record.GetString("icon"),
 		Status:      domain.ProjectStatus(record.GetString("status")),

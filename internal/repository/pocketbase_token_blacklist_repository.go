@@ -41,7 +41,6 @@ func (r *pocketbaseTokenBlacklistRepository) BlacklistToken(_ context.Context, t
 
 // IsTokenBlacklisted checks if a token is blacklisted.
 func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(_ context.Context, tokenID string) (bool, error) {
-	const sqlNoRowsError = "sql: no rows in result set"
 
 	_, err := r.app.FindFirstRecordByFilter(
 		"blacklisted_tokens",
