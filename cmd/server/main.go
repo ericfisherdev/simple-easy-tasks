@@ -16,6 +16,9 @@ import (
 	"simple-easy-tasks/internal/api/middleware"
 	"simple-easy-tasks/internal/config"
 
+	// Import migrations to register them with PocketBase
+	_ "simple-easy-tasks/migrations"
+
 	"github.com/gin-gonic/gin"
 )
 

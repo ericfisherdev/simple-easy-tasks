@@ -91,6 +91,14 @@ dev: ## Run the server in development mode
 	@export GIN_MODE=debug; \
 	go run ./cmd/server
 
+pocketbase: ## Run PocketBase with migrations
+	@echo "Starting PocketBase with migrations..."
+	go run ./cmd/pocketbase serve --http="0.0.0.0:8090" --dir="./pb_data"
+
+pocketbase-migrate: ## Run PocketBase migrations only
+	@echo "Running PocketBase migrations..."
+	go run ./cmd/pocketbase migrate up
+
 watch: ## Watch for changes and restart server
 	@echo "Watching for changes..."
 	@if command -v air >/dev/null 2>&1; then \

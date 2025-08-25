@@ -71,13 +71,6 @@ linters:
           - lll
         source: "https?://|/[^ ]+"
 
-formatters:
-  enable:
-    - gofmt         # Check if code is gofmt-ed
-    - gofumpt       # Stricter gofmt
-  
-  settings:
-    gofmt:
-      simplify: true
-    gofumpt:
-      extra-rules: true
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

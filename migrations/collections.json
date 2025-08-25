@@ -1,0 +1,557 @@
+[
+  {
+    "id": "tasks_collection_id",
+    "name": "tasks",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "title_field",
+        "name": "title",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 200,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "description_field",
+        "name": "description",
+        "type": "editor",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "project_field",
+        "name": "project",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "projects_collection_id",
+          "cascadeDelete": false,
+          "minSelect": 1,
+          "maxSelect": 1,
+          "displayFields": ["name"]
+        }
+      },
+      {
+        "id": "status_field",
+        "name": "status",
+        "type": "select",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": ["backlog", "todo", "developing", "review", "complete"]
+        }
+      },
+      {
+        "id": "priority_field",
+        "name": "priority",
+        "type": "select",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": ["critical", "high", "medium", "low"]
+        }
+      },
+      {
+        "id": "assignee_field",
+        "name": "assignee",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["name", "email"]
+        }
+      },
+      {
+        "id": "reporter_field",
+        "name": "reporter",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": 1,
+          "maxSelect": 1,
+          "displayFields": ["name", "email"]
+        }
+      },
+      {
+        "id": "parent_task_field",
+        "name": "parent_task",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "tasks_collection_id",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["title"]
+        }
+      },
+      {
+        "id": "dependencies_field",
+        "name": "dependencies",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "tasks_collection_id",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": null,
+          "displayFields": ["title"]
+        }
+      },
+      {
+        "id": "tags_field",
+        "name": "tags",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "tags_collection_id",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": null,
+          "displayFields": ["name"]
+        }
+      },
+      {
+        "id": "due_date_field",
+        "name": "due_date",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "start_date_field",
+        "name": "start_date",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "effort_estimate_field",
+        "name": "effort_estimate",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "time_spent_field",
+        "name": "time_spent",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "progress_field",
+        "name": "progress",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": 100
+        }
+      },
+      {
+        "id": "attachments_field",
+        "name": "attachments",
+        "type": "file",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 10,
+          "maxSize": 5242880,
+          "mimeTypes": [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+            "application/pdf",
+            "text/plain",
+            "text/markdown",
+            "application/json"
+          ],
+          "thumbs": [],
+          "protected": true
+        }
+      },
+      {
+        "id": "position_field",
+        "name": "position",
+        "type": "number",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": 999999
+        }
+      },
+      {
+        "id": "column_position_field",
+        "name": "column_position",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "github_data_field",
+        "name": "github_data",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "custom_fields_field",
+        "name": "custom_fields",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_tasks_project_status ON tasks (project, status)",
+      "CREATE INDEX idx_tasks_assignee ON tasks (assignee)",
+      "CREATE INDEX idx_tasks_due_date ON tasks (due_date)",
+      "CREATE INDEX idx_tasks_position ON tasks (project, status, position)"
+    ],
+    "listRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "viewRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "createRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "updateRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "deleteRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "options": {}
+  },
+  {
+    "id": "tags_collection_id",
+    "name": "tags",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "name_field",
+        "name": "name",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": 1,
+          "max": 50,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "color_field",
+        "name": "color",
+        "type": "text",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        }
+      },
+      {
+        "id": "project_field",
+        "name": "project",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "projects_collection_id",
+          "cascadeDelete": true,
+          "minSelect": 1,
+          "maxSelect": 1,
+          "displayFields": ["name"]
+        }
+      },
+      {
+        "id": "usage_count_field",
+        "name": "usage_count",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_tags_name_project ON tags (name, project)"
+    ],
+    "listRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "viewRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "createRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "updateRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "deleteRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
+    "options": {}
+  },
+  {
+    "id": "comments_collection_id",
+    "name": "comments",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "content_field",
+        "name": "content",
+        "type": "editor",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "task_field",
+        "name": "task",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "tasks_collection_id",
+          "cascadeDelete": true,
+          "minSelect": 1,
+          "maxSelect": 1,
+          "displayFields": ["title"]
+        }
+      },
+      {
+        "id": "author_field",
+        "name": "author",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": 1,
+          "maxSelect": 1,
+          "displayFields": ["name", "email"]
+        }
+      },
+      {
+        "id": "parent_comment_field",
+        "name": "parent_comment",
+        "type": "relation",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "collectionId": "comments_collection_id",
+          "cascadeDelete": false,
+          "minSelect": null,
+          "maxSelect": 1,
+          "displayFields": ["content"]
+        }
+      },
+      {
+        "id": "attachments_field",
+        "name": "attachments",
+        "type": "file",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "maxSelect": 10,
+          "maxSize": 5242880,
+          "mimeTypes": [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+            "application/pdf",
+            "text/plain",
+            "text/markdown",
+            "application/json"
+          ],
+          "thumbs": [],
+          "protected": true
+        }
+      },
+      {
+        "id": "is_edited_field",
+        "name": "is_edited",
+        "type": "bool",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_comments_task ON comments (task)",
+      "CREATE INDEX idx_comments_author ON comments (author)"
+    ],
+    "listRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
+    "viewRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
+    "createRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
+    "updateRule": "@request.auth.id != \"\" && author.id = @request.auth.id",
+    "deleteRule": "@request.auth.id != \"\" && author.id = @request.auth.id",
+    "options": {}
+  },
+  {
+    "id": "task_history_collection_id",
+    "name": "task_history",
+    "type": "base",
+    "system": false,
+    "schema": [
+      {
+        "id": "task_field",
+        "name": "task",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "tasks_collection_id",
+          "cascadeDelete": true,
+          "minSelect": 1,
+          "maxSelect": 1,
+          "displayFields": ["title"]
+        }
+      },
+      {
+        "id": "user_field",
+        "name": "user",
+        "type": "relation",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "collectionId": "users",
+          "cascadeDelete": false,
+          "minSelect": 1,
+          "maxSelect": 1,
+          "displayFields": ["name", "email"]
+        }
+      },
+      {
+        "id": "action_field",
+        "name": "action",
+        "type": "select",
+        "system": false,
+        "required": true,
+        "unique": false,
+        "options": {
+          "maxSelect": 1,
+          "values": ["created", "updated", "moved", "assigned", "commented", "deleted"]
+        }
+      },
+      {
+        "id": "field_name_field",
+        "name": "field_name",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": 100,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "old_value_field",
+        "name": "old_value",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "new_value_field",
+        "name": "new_value",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "metadata_field",
+        "name": "metadata",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_task_history_task ON task_history (task)",
+      "CREATE INDEX idx_task_history_user ON task_history (user)",
+      "CREATE INDEX idx_task_history_action ON task_history (action)"
+    ],
+    "listRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
+    "viewRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
+    "createRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
+    "updateRule": null,
+    "deleteRule": null,
+    "options": {}
+  }
+]

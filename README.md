@@ -91,10 +91,17 @@ docker-compose up -d
 
 5. Or run locally:
 ```bash
+# Run the Gin API server
 go run cmd/server/main.go
+
+# In a separate terminal, run PocketBase (for database and migrations)
+./scripts/pocketbase.sh
+# Or directly: go run cmd/pocketbase/main.go serve
 ```
 
-The application will be available at `http://localhost:8080`
+The application will be available at:
+- API Server: `http://localhost:8080`
+- PocketBase Admin: `http://localhost:8090/_/`
 
 ### Running Tests
 ```bash
