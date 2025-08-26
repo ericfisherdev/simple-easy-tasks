@@ -47,7 +47,7 @@ func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(_ context.Contex
 		"token_id = {:tokenID} AND expires_at > {:now}",
 		dbx.Params{
 			"tokenID": tokenID,
-			"now":     time.Now().Format("2006-01-02 15:04:05.000Z"),
+			"now":     time.Now().UTC().Format("2006-01-02 15:04:05.000Z"),
 		},
 	)
 	if err != nil {
@@ -69,7 +69,7 @@ func (r *pocketbaseTokenBlacklistRepository) CleanupExpiredTokens(_ context.Cont
 		0,
 		0,
 		dbx.Params{
-			"now": time.Now().Format("2006-01-02 15:04:05.000Z"),
+			"now": time.Now().UTC().Format("2006-01-02 15:04:05.000Z"),
 		},
 	)
 	if err != nil {
