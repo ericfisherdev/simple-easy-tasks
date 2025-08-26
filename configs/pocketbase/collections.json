@@ -265,12 +265,7 @@
         "options": {}
       }
     ],
-    "indexes": [
-      "CREATE INDEX idx_tasks_project_status ON tasks (project, status)",
-      "CREATE INDEX idx_tasks_assignee ON tasks (assignee)",
-      "CREATE INDEX idx_tasks_due_date ON tasks (due_date)",
-      "CREATE INDEX idx_tasks_position ON tasks (project, status, position)"
-    ],
+    "indexes": [],
     "listRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
     "viewRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
     "createRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
