@@ -52,8 +52,24 @@ func TestIsDefaultSecret(t *testing.T) {
 		{"simple-easy-tasks-development-jwt-secret-key-32chars-minimum-length-required", true},
 		{"secret", true},
 		{"jwt-secret", true},
+		// New .env.example patterns
+		{"your-super-secret-jwt-key-with-at-least-32-characters", true},
+		{"your-super-secret-password-reset-key-with-at-least-32-characters", true},
+		{"your-super-secret", true},
+		{"super-secret", true},
+		{"super-secret-key", true},
+		{"super-secret-jwt-key", true},
+		{"changeme", true},
+		{"changeme123", true},
+		{"placeholder", true},
+		{"example-secret", true},
+		{"example-key", true},
+		{"sample-secret", true},
+		{"sample-key", true},
+		// Non-default secrets
 		{"random-secure-secret-that-is-not-default", false},
 		{"", false},
+		{"actual-secure-random-key-with-32-chars-or-more", false},
 	}
 
 	for _, test := range tests {

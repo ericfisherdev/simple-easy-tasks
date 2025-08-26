@@ -218,7 +218,7 @@ func (r *pocketbaseTaskRepository) ExistsByID(_ context.Context, id string) (boo
 
 	_, err := r.app.FindRecordById("tasks", id)
 	if err != nil {
-		if err.Error() == sqlNoRowsError {
+		if IsNoRows(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check task existence by ID %s: %w", id, err)

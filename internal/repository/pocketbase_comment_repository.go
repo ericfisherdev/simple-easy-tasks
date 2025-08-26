@@ -212,19 +212,19 @@ func (r *pocketbaseCommentRepository) ListReplies(_ context.Context, parentID st
 }
 
 // GetThread retrieves a comment thread.
-func (r *pocketbaseCommentRepository) GetThread(_ context.Context, rootCommentID string) ([]*domain.Comment, error) {
+func (r *pocketbaseCommentRepository) GetThread(ctx context.Context, rootCommentID string) ([]*domain.Comment, error) {
 	if rootCommentID == "" {
 		return nil, fmt.Errorf("root comment ID cannot be empty")
 	}
 
 	// Get the root comment first
-	rootComment, err := r.GetByID(context.Background(), rootCommentID)
+	rootComment, err := r.GetByID(ctx, rootCommentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get root comment: %w", err)
 	}
 
 	// Get all replies
-	replies, err := r.ListReplies(context.Background(), rootCommentID)
+	replies, err := r.ListReplies(ctx, rootCommentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get replies: %w", err)
 	}
@@ -289,7 +289,7 @@ func (r *pocketbaseCommentRepository) ExistsByID(_ context.Context, id string) (
 
 	_, err := r.app.FindRecordById("comments", id)
 	if err != nil {
-		if err.Error() == sqlNoRowsError {
+		if IsNoRows(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check comment existence by ID %s: %w", id, err)

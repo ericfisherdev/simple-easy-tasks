@@ -142,9 +142,6 @@ func setupRouter(
 		})
 		router.Use(rateLimitMiddleware)
 		rateLimitManager = manager
-
-		// Ensure graceful shutdown of rate limiter
-		defer rateLimitManager.Shutdown()
 	}
 
 	// Service container is now initialized and available for use

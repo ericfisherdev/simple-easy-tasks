@@ -36,6 +36,7 @@ func (r *pocketbaseProjectRepository) Create(_ context.Context, project *domain.
 	}
 
 	record := core.NewRecord(collection)
+
 	record.Set("title", project.Title)
 	record.Set("description", project.Description)
 	record.Set("slug", project.Slug)
@@ -43,8 +44,9 @@ func (r *pocketbaseProjectRepository) Create(_ context.Context, project *domain.
 	record.Set("color", project.Color)
 	record.Set("icon", project.Icon)
 	record.Set("status", string(project.Status))
-	record.Set("settings", project.Settings)
-	record.Set("members", project.MemberIDs)
+	// Temporarily comment out fields not in simplified schema
+	// record.Set("settings", project.Settings)
+	// record.Set("members", project.MemberIDs)
 
 	if !project.CreatedAt.IsZero() {
 		record.Set("created", project.CreatedAt)
@@ -164,7 +166,7 @@ func (r *pocketbaseProjectRepository) ListByOwner(
 	}
 
 	records, err := r.app.FindRecordsByFilter(
-		"projects", "owner = {:ownerID}", "-created", limit, offset, dbx.Params{"ownerID": ownerID},
+		"projects", "owner = {:ownerID}", "", limit, offset, dbx.Params{"ownerID": ownerID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find projects by owner: %w", err)
@@ -182,7 +184,7 @@ func (r *pocketbaseProjectRepository) ListByMember(
 	}
 
 	records, err := r.app.FindRecordsByFilter(
-		"projects", "members ~ {:memberID}", "-created", limit, offset, dbx.Params{"memberID": memberID},
+		"projects", "members ~ {:memberID}", "", limit, offset, dbx.Params{"memberID": memberID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find projects by member: %w", err)
@@ -193,7 +195,7 @@ func (r *pocketbaseProjectRepository) ListByMember(
 
 // List retrieves projects with pagination from PocketBase.
 func (r *pocketbaseProjectRepository) List(_ context.Context, offset, limit int) ([]*domain.Project, error) {
-	records, err := r.app.FindRecordsByFilter("projects", "", "-created", limit, offset)
+	records, err := r.app.FindRecordsByFilter("projects", "", "", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
@@ -219,7 +221,7 @@ func (r *pocketbaseProjectRepository) ExistsBySlug(_ context.Context, slug strin
 
 	_, err := r.app.FindFirstRecordByFilter("projects", "slug = {:slug}", dbx.Params{"slug": slug})
 	if err != nil {
-		if err.Error() == sqlNoRowsError {
+		if IsNoRows(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check project existence by slug: %w", err)
@@ -240,7 +242,7 @@ func (r *pocketbaseProjectRepository) GetMemberProjects(
 	filter := "owner = {:userID} || members ~ {:userID} || " +
 		"(settings.is_private = false && settings.allow_guest_view = true)"
 	records, err := r.app.FindRecordsByFilter(
-		"projects", filter, "-created", limit, offset, dbx.Params{"userID": userID},
+		"projects", filter, "", limit, offset, dbx.Params{"userID": userID},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find member projects: %w", err)

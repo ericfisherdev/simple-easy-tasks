@@ -40,7 +40,10 @@ func (r *pocketbaseUserRepository) Create(_ context.Context, user *domain.User) 
 	record.Set("username", user.Username)
 	record.Set("name", user.Name)
 	record.Set("avatar", user.Avatar)
-	record.Set("role", string(user.Role))
+	// Set role field if it exists in the collection schema
+	if user.Role != "" {
+		record.Set("role", string(user.Role))
+	}
 	record.Set("preferences", user.Preferences)
 
 	// Set password using the auth record's SetPassword method
@@ -136,7 +139,10 @@ func (r *pocketbaseUserRepository) Update(_ context.Context, user *domain.User) 
 	record.Set("username", user.Username)
 	record.Set("name", user.Name)
 	record.Set("avatar", user.Avatar)
-	record.Set("role", string(user.Role))
+	// Set role field if it exists in the collection schema
+	if user.Role != "" {
+		record.Set("role", string(user.Role))
+	}
 	record.Set("preferences", user.Preferences)
 	record.Set("updated", time.Now())
 
@@ -202,7 +208,7 @@ func (r *pocketbaseUserRepository) ExistsByEmail(_ context.Context, email string
 
 	_, err := r.app.FindAuthRecordByEmail("users", email)
 	if err != nil {
-		if err.Error() == sqlNoRowsError {
+		if IsNoRows(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check user existence by email: %w", err)
@@ -219,7 +225,7 @@ func (r *pocketbaseUserRepository) ExistsByUsername(_ context.Context, username 
 
 	_, err := r.app.FindFirstRecordByFilter("users", "username = {:username}", dbx.Params{"username": username})
 	if err != nil {
-		if err.Error() == sqlNoRowsError {
+		if IsNoRows(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check user existence by username: %w", err)
@@ -235,6 +241,40 @@ func (r *pocketbaseUserRepository) recordToUser(record *core.Record) (*domain.Us
 		preferences = domain.UserPreferences{}
 	}
 
+	// Get role field with proper select field handling
+	// Use record.Get() for select fields as they may return different types than GetString()
+	roleRaw := record.Get("role")
+	roleValue := ""
+	
+	// Handle different types that PocketBase might return for select fields
+	switch v := roleRaw.(type) {
+	case string:
+		roleValue = v
+	case []string:
+		// For single-select fields, take the first value if array
+		if len(v) > 0 {
+			roleValue = v[0]
+		}
+	case []interface{}:
+		// Handle interface slice (common with JSON deserialization)
+		if len(v) > 0 {
+			if str, ok := v[0].(string); ok {
+				roleValue = str
+			}
+		}
+	case nil:
+		// Field doesn't exist or is null - use default
+		roleValue = ""
+	default:
+		// Try to convert unknown types to string as fallback
+		roleValue = fmt.Sprintf("%v", v)
+	}
+	
+	// If role field doesn't exist or is empty, use default role
+	if roleValue == "" {
+		roleValue = string(domain.RegularUserRole)
+	}
+
 	user := &domain.User{
 		ID:           record.Id,
 		Email:        record.GetString("email"),
@@ -242,7 +282,7 @@ func (r *pocketbaseUserRepository) recordToUser(record *core.Record) (*domain.Us
 		Name:         record.GetString("name"),
 		PasswordHash: record.GetString("password"),
 		Avatar:       record.GetString("avatar"),
-		Role:         domain.UserRole(record.GetString("role")),
+		Role:         domain.UserRole(roleValue),
 		Preferences:  preferences,
 		CreatedAt:    record.GetDateTime("created").Time(),
 		UpdatedAt:    record.GetDateTime("updated").Time(),

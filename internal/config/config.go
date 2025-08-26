@@ -48,6 +48,7 @@ type SecurityConfig interface {
 	GetJWTSecret() string
 	GetJWTExpiration() time.Duration
 	GetRefreshTokenExpiration() time.Duration
+	GetPasswordResetSecret() string
 }
 
 // RateLimitConfig interface for rate limiting configuration.
@@ -66,6 +67,7 @@ type AppConfig struct {
 	serverPort                 string
 	databaseURL                string
 	jwtSecret                  string
+	passwordResetSecret        string
 	environment                string
 	logLevel                   string
 	redisAddr                  string
@@ -94,6 +96,7 @@ func NewConfig() *AppConfig {
 		serverPort:                 getEnvString("SERVER_PORT", "8080"),
 		databaseURL:                getEnvString("DATABASE_URL", "pb_data/database.db"),
 		jwtSecret:                  jwtSecret,
+		passwordResetSecret:        getPasswordResetSecret(environment),
 		environment:                environment,
 		logLevel:                   getEnvString("LOG_LEVEL", "info"),
 		readTimeout:                getEnvDuration("READ_TIMEOUT", "15s"),
@@ -178,6 +181,11 @@ func (c *AppConfig) GetRefreshTokenExpiration() time.Duration {
 	return c.refreshTokenExpiration
 }
 
+// GetPasswordResetSecret returns the password reset token secret configuration.
+func (c *AppConfig) GetPasswordResetSecret() string {
+	return c.passwordResetSecret
+}
+
 // GetRateLimitEnabled returns whether rate limiting is enabled.
 func (c *AppConfig) GetRateLimitEnabled() bool {
 	return c.rateLimitEnabled
@@ -215,42 +223,85 @@ func (c *AppConfig) GetRedisDB() int {
 
 // Validate checks if the configuration is valid.
 func (c *AppConfig) Validate() error {
+	if err := c.validateBasicConfig(); err != nil {
+		return err
+	}
+	if err := c.validateSecurityConfig(); err != nil {
+		return err
+	}
+	if err := c.validateRedisConfig(); err != nil {
+		return err
+	}
+	if err := c.validateRateLimitConfig(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateBasicConfig validates basic application configuration.
+func (c *AppConfig) validateBasicConfig() error {
 	if c.serverPort == "" {
 		return fmt.Errorf("server port cannot be empty")
 	}
-
-	if c.jwtSecret == "" {
-		return fmt.Errorf("JWT secret cannot be empty")
-	}
-
-	if len(c.jwtSecret) < 32 {
-		return fmt.Errorf("JWT secret must be at least 32 characters long")
-	}
-
-	// Reject default/predictable secrets in production
-	if c.IsProduction() && isDefaultSecret(c.jwtSecret) {
-		return fmt.Errorf("production environments cannot use default JWT secrets - set JWT_SECRET environment variable")
-	}
-
 	if c.environment != EnvDevelopment && c.environment != EnvStaging && c.environment != EnvProduction {
 		return fmt.Errorf("environment must be one of: %s, %s, %s", EnvDevelopment, EnvStaging, EnvProduction)
 	}
+	return nil
+}
 
-	// Validate Redis configuration if enabled
-	if c.redisEnabled {
-		if c.redisAddr == "" {
-			return fmt.Errorf("redis address cannot be empty when Redis is enabled")
-		}
+// validateSecurityConfig validates security-related configuration.
+func (c *AppConfig) validateSecurityConfig() error {
+	if err := c.validateJWTSecret(); err != nil {
+		return err
 	}
+	return c.validatePasswordResetSecret()
+}
 
-	// Validate rate limiting configuration
+// validateJWTSecret validates JWT secret configuration.
+func (c *AppConfig) validateJWTSecret() error {
+	if c.jwtSecret == "" {
+		return fmt.Errorf("JWT secret cannot be empty")
+	}
+	if len(c.jwtSecret) < 32 {
+		return fmt.Errorf("JWT secret must be at least 32 characters long")
+	}
+	if c.IsProduction() && isDefaultSecret(c.jwtSecret) {
+		return fmt.Errorf("production environments cannot use default JWT secrets - set JWT_SECRET environment variable")
+	}
+	return nil
+}
+
+// validatePasswordResetSecret validates password reset secret configuration.
+func (c *AppConfig) validatePasswordResetSecret() error {
+	if c.passwordResetSecret == "" {
+		return fmt.Errorf("password reset secret cannot be empty")
+	}
+	if len(c.passwordResetSecret) < 32 {
+		return fmt.Errorf("password reset secret must be at least 32 characters long")
+	}
+	if c.IsProduction() && isDefaultSecret(c.passwordResetSecret) {
+		return fmt.Errorf("production environments cannot use default password reset secrets - " +
+			"set PASSWORD_RESET_SECRET environment variable")
+	}
+	return nil
+}
+
+// validateRedisConfig validates Redis configuration.
+func (c *AppConfig) validateRedisConfig() error {
+	if c.redisEnabled && c.redisAddr == "" {
+		return fmt.Errorf("redis address cannot be empty when Redis is enabled")
+	}
+	return nil
+}
+
+// validateRateLimitConfig validates rate limiting configuration.
+func (c *AppConfig) validateRateLimitConfig() error {
 	if c.rateLimitRequestsPerMinute <= 0 {
 		return fmt.Errorf("rate limit requests per minute must be positive")
 	}
 	if c.rateLimitCacheCapacity <= 0 {
 		return fmt.Errorf("rate limit cache capacity must be positive")
 	}
-
 	return nil
 }
 
@@ -316,6 +367,30 @@ func generateSecureJWTSecret() string {
 	return base64.URLEncoding.EncodeToString(bytes)
 }
 
+// getPasswordResetSecret gets the password reset secret with proper security validation.
+func getPasswordResetSecret(environment string) string {
+	if secret := os.Getenv("PASSWORD_RESET_SECRET"); secret != "" {
+		return secret
+	}
+
+	// In production, require PASSWORD_RESET_SECRET to be explicitly set
+	if environment == EnvProduction {
+		panic("PASSWORD_RESET_SECRET environment variable is required in production")
+	}
+
+	// For non-production environments, generate a cryptographically secure random secret
+	return generateSecurePasswordResetSecret()
+}
+
+// generateSecurePasswordResetSecret generates a cryptographically secure random password reset secret.
+func generateSecurePasswordResetSecret() string {
+	bytes := make([]byte, 32) // 256 bits
+	if _, err := rand.Read(bytes); err != nil {
+		panic(fmt.Sprintf("failed to generate secure password reset secret: %v", err))
+	}
+	return base64.URLEncoding.EncodeToString(bytes)
+}
+
 // isDefaultSecret checks if a secret is a known default/predictable value.
 func isDefaultSecret(secret string) bool {
 	defaultSecrets := []string{
@@ -326,6 +401,20 @@ func isDefaultSecret(secret string) bool {
 		"default-secret",
 		"development-secret",
 		"test-secret",
+		// Common .env.example patterns
+		"your-super-secret-jwt-key-with-at-least-32-characters",
+		"your-super-secret-password-reset-key-with-at-least-32-characters",
+		"your-super-secret",
+		"super-secret",
+		"super-secret-key",
+		"super-secret-jwt-key",
+		"changeme",
+		"changeme123",
+		"placeholder",
+		"example-secret",
+		"example-key",
+		"sample-secret",
+		"sample-key",
 	}
 
 	for _, defaultSecret := range defaultSecrets {

@@ -3,6 +3,9 @@ package repository
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,12 +16,23 @@ import (
 )
 
 type pocketbasePasswordResetTokenRepository struct {
-	app core.App
+	app    core.App
+	secret string
 }
 
 // NewPocketBasePasswordResetTokenRepository creates a new PocketBase password reset token repository.
-func NewPocketBasePasswordResetTokenRepository(app core.App) domain.PasswordResetTokenRepository {
-	return &pocketbasePasswordResetTokenRepository{app: app}
+func NewPocketBasePasswordResetTokenRepository(app core.App, secret string) domain.PasswordResetTokenRepository {
+	return &pocketbasePasswordResetTokenRepository{
+		app:    app,
+		secret: secret,
+	}
+}
+
+// hashResetToken computes HMAC-SHA256 hash of the raw token using the repository's secret.
+func (r *pocketbasePasswordResetTokenRepository) hashResetToken(rawToken string) string {
+	h := hmac.New(sha256.New, []byte(r.secret))
+	h.Write([]byte(rawToken))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // Create stores a new password reset token.
@@ -34,7 +48,7 @@ func (r *pocketbasePasswordResetTokenRepository) Create(_ context.Context, token
 	}
 
 	record.Set("id", token.ID)
-	record.Set("token", token.Token)
+	record.Set("token", r.hashResetToken(token.Token))
 	record.Set("user_id", token.UserID)
 	record.Set("expires_at", token.ExpiresAt)
 	record.Set("used", token.Used)
@@ -61,10 +75,10 @@ func (r *pocketbasePasswordResetTokenRepository) GetByToken(
 	record, err := r.app.FindFirstRecordByFilter(
 		"password_reset_tokens",
 		"token = {:token}",
-		dbx.Params{"token": tokenValue},
+		dbx.Params{"token": r.hashResetToken(tokenValue)},
 	)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if IsNoRows(err) {
 			return nil, domain.NewNotFoundError("TOKEN_NOT_FOUND", "Password reset token not found")
 		}
 		return nil, domain.NewInternalError("TOKEN_QUERY_FAILED", "Failed to query password reset token", err)
@@ -80,7 +94,7 @@ func (r *pocketbasePasswordResetTokenRepository) Update(_ context.Context, token
 		return domain.NewNotFoundError("TOKEN_NOT_FOUND", "Password reset token not found")
 	}
 
-	record.Set("token", token.Token)
+	// Only update fields that can actually change - token hash should never be updated
 	record.Set("user_id", token.UserID)
 	record.Set("expires_at", token.ExpiresAt)
 	record.Set("used", token.Used)
@@ -101,7 +115,7 @@ func (r *pocketbasePasswordResetTokenRepository) Update(_ context.Context, token
 func (r *pocketbasePasswordResetTokenRepository) Delete(_ context.Context, tokenID string) error {
 	record, err := r.app.FindRecordById("password_reset_tokens", tokenID)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if IsNoRows(err) {
 			return nil // Already deleted
 		}
 		return domain.NewInternalError("TOKEN_QUERY_FAILED", "Failed to find password reset token", err)
@@ -175,7 +189,7 @@ func (r *pocketbasePasswordResetTokenRepository) recordToToken(record *core.Reco
 		CreatedAt: record.GetDateTime("created").Time(),
 		UpdatedAt: record.GetDateTime("updated").Time(),
 		ID:        record.Id,
-		Token:     record.GetString("token"),
+		Token:     "", // Token hash is stored in DB, but we don't need the raw value for domain operations
 		UserID:    record.GetString("user_id"),
 		Used:      record.GetBool("used"),
 	}

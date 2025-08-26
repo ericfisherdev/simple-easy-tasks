@@ -1,7 +1,11 @@
 package repository
 
-// Common constants used across repository implementations
-const (
-	// sqlNoRowsError is the error message returned by SQL when no rows are found
-	sqlNoRowsError = "sql: no rows in result set"
+import (
+	"database/sql"
+	"errors"
 )
+
+// IsNoRows checks if the error is a "no rows" error from SQL
+func IsNoRows(err error) bool {
+	return errors.Is(err, sql.ErrNoRows)
+}

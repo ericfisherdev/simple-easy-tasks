@@ -301,25 +301,34 @@ func (t *Task) UpdateProgress(progress int) error {
 
 			// Optionally, we could add the failed transition to task metadata
 			// for later analysis or manual intervention
-			if t.CustomFields == nil {
-				t.CustomFields = json.RawMessage("{}")
+			
+			// Parse existing CustomFields or create empty map
+			var existingData map[string]interface{}
+			if len(t.CustomFields) > 0 {
+				// Try to unmarshal existing data
+				if unmarshalErr := json.Unmarshal(t.CustomFields, &existingData); unmarshalErr != nil {
+					// If unmarshal fails, start with empty map
+					existingData = make(map[string]interface{})
+				}
+			} else {
+				existingData = make(map[string]interface{})
 			}
 
-			// Add transition failure metadata
-			transitionFailure := map[string]interface{}{
-				"failed_auto_transition": map[string]interface{}{
-					"timestamp":        time.Now().UTC(),
-					"from_status":      string(t.Status),
-					"to_status":        string(StatusComplete),
-					"trigger":          "progress_completion",
-					"error":            err.Error(),
-					"progress_at_time": progress,
-				},
+			// Add transition failure metadata to existing data
+			existingData["failed_auto_transition"] = map[string]interface{}{
+				"timestamp":        time.Now().UTC(),
+				"from_status":      string(t.Status),
+				"to_status":        string(StatusComplete),
+				"trigger":          "progress_completion",
+				"error":            err.Error(),
+				"progress_at_time": progress,
 			}
 
-			if customData, err := json.Marshal(transitionFailure); err == nil {
-				t.CustomFields = customData
+			// Marshal the merged data back to CustomFields
+			if mergedData, err := json.Marshal(existingData); err == nil {
+				t.CustomFields = mergedData
 			}
+			// If marshal fails, preserve the original CustomFields
 		}
 	}
 	return nil

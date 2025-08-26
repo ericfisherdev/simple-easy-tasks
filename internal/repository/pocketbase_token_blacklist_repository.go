@@ -51,7 +51,7 @@ func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(_ context.Contex
 		},
 	)
 	if err != nil {
-		if err.Error() == sqlNoRowsError {
+		if IsNoRows(err) {
 			return false, nil
 		}
 		return false, domain.NewInternalError("BLACKLIST_CHECK_FAILED", "Failed to check token blacklist", err)

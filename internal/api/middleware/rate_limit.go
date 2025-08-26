@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -264,18 +265,27 @@ func NewRateLimitManager(ctx context.Context, config RateLimitConfig) *RateLimit
 
 	// Setup Redis rate limiter if enabled
 	if config.UseRedis {
-		redisClient := redis.NewClient(&redis.Options{
-			Addr:     config.RedisAddr,
-			Password: config.RedisPassword,
-			DB:       config.RedisDB,
-		})
+		// Check if Redis address is provided
+		if config.RedisAddr == "" {
+			log.Printf("Warning: Redis enabled but no address provided, falling back to in-memory rate limiter")
+		} else {
+			redisClient := redis.NewClient(&redis.Options{
+				Addr:     config.RedisAddr,
+				Password: config.RedisPassword,
+				DB:       config.RedisDB,
+			})
 
-		// Test Redis connection
-		if err := redisClient.Ping(ctx).Err(); err != nil {
-			panic(fmt.Sprintf("failed to connect to Redis: %v", err))
+			// Test Redis connection
+			if err := redisClient.Ping(ctx).Err(); err != nil {
+				// Log error and fall back to in-memory limiter
+				log.Printf("Warning: Failed to connect to Redis (%v), falling back to in-memory rate limiter", err)
+				// Close the client to clean up resources
+				_ = redisClient.Close()
+			} else {
+				// Redis connection successful, use Redis rate limiter
+				manager.redisRateLimiter = NewRedisRateLimiter(redisClient, "rate_limit", config.RequestsPerMinute)
+			}
 		}
-
-		manager.redisRateLimiter = NewRedisRateLimiter(redisClient, "rate_limit", config.RequestsPerMinute)
 	}
 
 	// Start cleanup goroutine for age-based cleanup (only needed for in-memory cache)
@@ -306,7 +316,12 @@ func (rm *RateLimitManager) Allow(ctx context.Context, key string) (bool, error)
 // GetLimiter gets or creates a rate limiter for the given key (in-memory only).
 func (rm *RateLimitManager) GetLimiter(key string) *RateLimiter {
 	return rm.cache.Get(key, func() *RateLimiter {
-		return NewRateLimiter(rm.config.RequestsPerMinute, time.Minute/time.Duration(rm.config.RequestsPerMinute))
+		// Normalize requests per minute to avoid division by zero
+		rpm := rm.config.RequestsPerMinute
+		if rpm <= 0 {
+			rpm = 1 // Default to 1 request per minute if invalid
+		}
+		return NewRateLimiter(rpm, time.Minute/time.Duration(rpm))
 	})
 }
 
