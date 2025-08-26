@@ -444,7 +444,11 @@ func (m *MockTaskRepository) Delete(_ context.Context, id string) error {
 }
 
 // GetByProject retrieves tasks for a specific project with advanced filtering.
-func (m *MockTaskRepository) GetByProject(_ context.Context, projectID string, filters repository.TaskFilters) ([]*domain.Task, error) {
+func (m *MockTaskRepository) GetByProject(
+	_ context.Context,
+	projectID string,
+	filters repository.TaskFilters,
+) ([]*domain.Task, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -480,14 +484,14 @@ func (m *MockTaskRepository) GetByProject(_ context.Context, projectID string, f
 	return tasks, nil
 }
 
-// ListByProject retrieves tasks for a specific project (legacy method).
-func (m *MockTaskRepository) ListByProject(_ context.Context, projectID string, offset, limit int) ([]*domain.Task, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
+// filterTasksWithPagination is a helper method for filtering and paginating tasks.
+func (m *MockTaskRepository) filterTasksWithPagination(
+	filterFunc func(*domain.Task) bool,
+	offset, limit int,
+) ([]*domain.Task, error) {
 	var tasks []*domain.Task
 	for _, task := range m.Tasks {
-		if task.ProjectID == projectID {
+		if filterFunc(task) {
 			tasks = append(tasks, task)
 		}
 	}
@@ -505,8 +509,26 @@ func (m *MockTaskRepository) ListByProject(_ context.Context, projectID string, 
 	return tasks[start:end], nil
 }
 
+// ListByProject retrieves tasks for a specific project (legacy method).
+func (m *MockTaskRepository) ListByProject(
+	_ context.Context,
+	projectID string,
+	offset, limit int,
+) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.filterTasksWithPagination(func(task *domain.Task) bool {
+		return task.ProjectID == projectID
+	}, offset, limit)
+}
+
 // ListByAssignee retrieves tasks assigned to a specific user.
-func (m *MockTaskRepository) ListByAssignee(_ context.Context, assigneeID string, offset, limit int) ([]*domain.Task, error) {
+func (m *MockTaskRepository) ListByAssignee(
+	_ context.Context,
+	assigneeID string,
+	offset, limit int,
+) ([]*domain.Task, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -531,7 +553,11 @@ func (m *MockTaskRepository) ListByAssignee(_ context.Context, assigneeID string
 }
 
 // ListByStatus retrieves tasks by status.
-func (m *MockTaskRepository) ListByStatus(_ context.Context, status domain.TaskStatus, offset, limit int) ([]*domain.Task, error) {
+func (m *MockTaskRepository) ListByStatus(
+	_ context.Context,
+	status domain.TaskStatus,
+	offset, limit int,
+) ([]*domain.Task, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -556,32 +582,26 @@ func (m *MockTaskRepository) ListByStatus(_ context.Context, status domain.TaskS
 }
 
 // ListByCreator retrieves tasks created by a specific user.
-func (m *MockTaskRepository) ListByCreator(_ context.Context, creatorID string, offset, limit int) ([]*domain.Task, error) {
+func (m *MockTaskRepository) ListByCreator(
+	_ context.Context,
+	creatorID string,
+	offset, limit int,
+) ([]*domain.Task, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var tasks []*domain.Task
-	for _, task := range m.Tasks {
-		if task.ReporterID == creatorID {
-			tasks = append(tasks, task)
-		}
-	}
-
-	// Apply pagination
-	start := offset
-	end := offset + limit
-	if start > len(tasks) {
-		return []*domain.Task{}, nil
-	}
-	if end > len(tasks) {
-		end = len(tasks)
-	}
-
-	return tasks[start:end], nil
+	return m.filterTasksWithPagination(func(task *domain.Task) bool {
+		return task.ReporterID == creatorID
+	}, offset, limit)
 }
 
 // Search searches tasks by title, description or content.
-func (m *MockTaskRepository) Search(_ context.Context, query string, projectID string, offset, limit int) ([]*domain.Task, error) {
+func (m *MockTaskRepository) Search(
+	_ context.Context,
+	query string,
+	projectID string,
+	offset, limit int,
+) ([]*domain.Task, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -650,7 +670,10 @@ func (m *MockTaskRepository) GetDependencies(_ context.Context, taskID string) (
 }
 
 // GetTasksByFilter retrieves tasks using advanced filters.
-func (m *MockTaskRepository) GetTasksByFilter(_ context.Context, filters repository.TaskFilters) ([]*domain.Task, error) {
+func (m *MockTaskRepository) GetTasksByFilter(
+	_ context.Context,
+	filters repository.TaskFilters,
+) ([]*domain.Task, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 

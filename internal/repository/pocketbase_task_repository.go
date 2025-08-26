@@ -445,7 +445,12 @@ func (r *pocketbaseTaskRepository) GetTasksByFilter(ctx context.Context, filters
 }
 
 // Move moves a task to a new status and position
-func (r *pocketbaseTaskRepository) Move(_ context.Context, taskID string, newStatus domain.TaskStatus, position int) error {
+func (r *pocketbaseTaskRepository) Move(
+	_ context.Context,
+	taskID string,
+	newStatus domain.TaskStatus,
+	position int,
+) error {
 	if taskID == "" {
 		return fmt.Errorf("task ID cannot be empty")
 	}
@@ -486,7 +491,11 @@ func (r *pocketbaseTaskRepository) Move(_ context.Context, taskID string, newSta
 }
 
 // BulkUpdateStatus updates multiple tasks with the same status
-func (r *pocketbaseTaskRepository) BulkUpdateStatus(_ context.Context, taskIDs []string, newStatus domain.TaskStatus) error {
+func (r *pocketbaseTaskRepository) BulkUpdateStatus(
+	_ context.Context,
+	taskIDs []string,
+	newStatus domain.TaskStatus,
+) error {
 	if len(taskIDs) == 0 {
 		return nil // Nothing to update
 	}
