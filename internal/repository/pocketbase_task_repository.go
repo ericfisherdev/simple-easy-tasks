@@ -366,6 +366,170 @@ func (r *pocketbaseTaskRepository) UnarchiveTask(ctx context.Context, id string)
 	return r.updateArchiveStatus(ctx, id, false)
 }
 
+// GetByProject retrieves tasks for a specific project with advanced filtering
+func (r *pocketbaseTaskRepository) GetByProject(
+	ctx context.Context, 
+	projectID string, 
+	filters TaskFilters,
+) ([]*domain.Task, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("project ID cannot be empty")
+	}
+	
+	// Set project ID in filters and delegate to GetTasksByFilter
+	filters.AssigneeID = nil // Reset to avoid conflicts
+	baseFilter := "project = {:projectID}"
+	params := dbx.Params{"projectID": projectID}
+	
+	return r.getTasksWithFiltersAndParams(ctx, baseFilter, params, filters)
+}
+
+// GetSubtasks retrieves subtasks for a parent task
+func (r *pocketbaseTaskRepository) GetSubtasks(_ context.Context, parentID string) ([]*domain.Task, error) {
+	if parentID == "" {
+		return nil, fmt.Errorf("parent task ID cannot be empty")
+	}
+
+	filter := "parent_task = {:parentID}"
+	params := dbx.Params{"parentID": parentID}
+
+	records, err := r.app.FindRecordsByFilter(
+		"tasks", filter, "position, -created", 100, 0, params,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subtasks for parent %s: %w", parentID, err)
+	}
+
+	return r.recordsToTasks(records)
+}
+
+// GetDependencies retrieves dependency tasks for a task
+func (r *pocketbaseTaskRepository) GetDependencies(ctx context.Context, taskID string) ([]*domain.Task, error) {
+	if taskID == "" {
+		return nil, fmt.Errorf("task ID cannot be empty")
+	}
+
+	// First get the task to extract its dependencies
+	task, err := r.GetByID(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task %s: %w", taskID, err)
+	}
+
+	if len(task.Dependencies) == 0 {
+		return []*domain.Task{}, nil
+	}
+
+	// Build filter to get all dependency tasks
+	var filterParts []string
+	params := dbx.Params{}
+	for i, depID := range task.Dependencies {
+		paramKey := fmt.Sprintf("dep%d", i)
+		filterParts = append(filterParts, fmt.Sprintf("id = {:%s}", paramKey))
+		params[paramKey] = depID
+	}
+
+	filter := strings.Join(filterParts, " || ")
+	records, err := r.app.FindRecordsByFilter(
+		"tasks", filter, "position, -created", len(task.Dependencies), 0, params,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dependencies for task %s: %w", taskID, err)
+	}
+
+	return r.recordsToTasks(records)
+}
+
+// GetTasksByFilter retrieves tasks using advanced filters
+func (r *pocketbaseTaskRepository) GetTasksByFilter(ctx context.Context, filters TaskFilters) ([]*domain.Task, error) {
+	return r.getTasksWithFiltersAndParams(ctx, "", dbx.Params{}, filters)
+}
+
+// Move moves a task to a new status and position
+func (r *pocketbaseTaskRepository) Move(_ context.Context, taskID string, newStatus domain.TaskStatus, position int) error {
+	if taskID == "" {
+		return fmt.Errorf("task ID cannot be empty")
+	}
+	if !newStatus.IsValid() {
+		return fmt.Errorf("invalid task status: %s", newStatus)
+	}
+	if position < 0 {
+		return fmt.Errorf("position cannot be negative")
+	}
+
+	// Get the task first
+	record, err := r.app.FindRecordById("tasks", taskID)
+	if err != nil {
+		return fmt.Errorf("failed to find task for move: %w", err)
+	}
+
+	// Convert to domain task to validate transition
+	task, err := r.recordToTask(record)
+	if err != nil {
+		return fmt.Errorf("failed to convert record to task: %w", err)
+	}
+
+	// Validate status transition using domain logic
+	if !task.CanTransitionTo(newStatus) {
+		return fmt.Errorf("cannot transition from %s to %s", task.Status, newStatus)
+	}
+
+	// Update the status and position
+	record.Set("status", string(newStatus))
+	record.Set("position", position)
+	record.Set("updated", time.Now().UTC())
+
+	if err := r.app.Save(record); err != nil {
+		return fmt.Errorf("failed to move task: %w", err)
+	}
+
+	return nil
+}
+
+// BulkUpdateStatus updates multiple tasks with the same status
+func (r *pocketbaseTaskRepository) BulkUpdateStatus(_ context.Context, taskIDs []string, newStatus domain.TaskStatus) error {
+	if len(taskIDs) == 0 {
+		return nil // Nothing to update
+	}
+	if !newStatus.IsValid() {
+		return fmt.Errorf("invalid task status: %s", newStatus)
+	}
+
+	// Validate all task IDs first
+	for i, id := range taskIDs {
+		if id == "" {
+			return fmt.Errorf("task ID %d is empty", i)
+		}
+	}
+
+	// Process updates individually (could be optimized with transactions)
+	for i, taskID := range taskIDs {
+		record, err := r.app.FindRecordById("tasks", taskID)
+		if err != nil {
+			return fmt.Errorf("failed to find task %d (ID: %s): %w", i, taskID, err)
+		}
+
+		// Validate transition using domain logic
+		task, err := r.recordToTask(record)
+		if err != nil {
+			return fmt.Errorf("failed to convert task %d to domain object: %w", i, err)
+		}
+
+		if !task.CanTransitionTo(newStatus) {
+			return fmt.Errorf("task %d (ID: %s) cannot transition from %s to %s", 
+				i, taskID, task.Status, newStatus)
+		}
+
+		record.Set("status", string(newStatus))
+		record.Set("updated", time.Now().UTC())
+
+		if err := r.app.Save(record); err != nil {
+			return fmt.Errorf("failed to update task %d (ID: %s): %w", i, taskID, err)
+		}
+	}
+
+	return nil
+}
+
 // updateArchiveStatus handles archiving/unarchiving tasks
 func (r *pocketbaseTaskRepository) updateArchiveStatus(_ context.Context, id string, archive bool) error {
 	if id == "" {
@@ -602,4 +766,169 @@ func (r *pocketbaseTaskRepository) updateTaskFromRecord(task *domain.Task, recor
 	if updatedTime := record.GetDateTime("updated"); !updatedTime.IsZero() {
 		task.UpdatedAt = updatedTime.Time()
 	}
+}
+
+// getTasksWithFiltersAndParams implements the core filtering logic
+func (r *pocketbaseTaskRepository) getTasksWithFiltersAndParams(
+	_ context.Context, 
+	baseFilter string, 
+	baseParams dbx.Params, 
+	filters TaskFilters,
+) ([]*domain.Task, error) {
+	filterParts := []string{}
+	params := dbx.Params{}
+	
+	// Copy base params
+	for k, v := range baseParams {
+		params[k] = v
+	}
+	
+	// Add base filter if provided
+	if baseFilter != "" {
+		filterParts = append(filterParts, baseFilter)
+	}
+	
+	// Status filter
+	if len(filters.Status) > 0 {
+		statusParts := []string{}
+		for i, status := range filters.Status {
+			paramKey := fmt.Sprintf("status%d", i)
+			statusParts = append(statusParts, fmt.Sprintf("status = {:%s}", paramKey))
+			params[paramKey] = string(status)
+		}
+		filterParts = append(filterParts, fmt.Sprintf("(%s)", strings.Join(statusParts, " || ")))
+	}
+	
+	// Priority filter
+	if len(filters.Priority) > 0 {
+		priorityParts := []string{}
+		for i, priority := range filters.Priority {
+			paramKey := fmt.Sprintf("priority%d", i)
+			priorityParts = append(priorityParts, fmt.Sprintf("priority = {:%s}", paramKey))
+			params[paramKey] = string(priority)
+		}
+		filterParts = append(filterParts, fmt.Sprintf("(%s)", strings.Join(priorityParts, " || ")))
+	}
+	
+	// Assignee filter
+	if filters.AssigneeID != nil {
+		if *filters.AssigneeID == "" {
+			// Filter for unassigned tasks
+			filterParts = append(filterParts, "assignee = ''")
+		} else {
+			filterParts = append(filterParts, "assignee = {:assigneeID}")
+			params["assigneeID"] = *filters.AssigneeID
+		}
+	}
+	
+	// Reporter filter
+	if filters.ReporterID != nil {
+		filterParts = append(filterParts, "reporter = {:reporterID}")
+		params["reporterID"] = *filters.ReporterID
+	}
+	
+	// Tags filter (if task has any of the specified tags)
+	if len(filters.Tags) > 0 {
+		tagParts := []string{}
+		for i, tag := range filters.Tags {
+			paramKey := fmt.Sprintf("tag%d", i)
+			tagParts = append(tagParts, fmt.Sprintf("tags ~ {:%s}", paramKey))
+			params[paramKey] = tag
+		}
+		filterParts = append(filterParts, fmt.Sprintf("(%s)", strings.Join(tagParts, " || ")))
+	}
+	
+	// Date filters
+	if filters.DueBefore != nil {
+		filterParts = append(filterParts, "due_date < {:dueBefore}")
+		params["dueBefore"] = filters.DueBefore.Format("2006-01-02 15:04:05")
+	}
+	if filters.DueAfter != nil {
+		filterParts = append(filterParts, "due_date > {:dueAfter}")
+		params["dueAfter"] = filters.DueAfter.Format("2006-01-02 15:04:05")
+	}
+	
+	// Search filter
+	if filters.Search != "" {
+		searchTerm := "%" + strings.ReplaceAll(filters.Search, "%", "\\%") + "%"
+		filterParts = append(filterParts, "(title ~ {:searchTerm} || description ~ {:searchTerm})")
+		params["searchTerm"] = searchTerm
+	}
+	
+	// Archived filter
+	if filters.Archived != nil {
+		filterParts = append(filterParts, "archived = {:archived}")
+		params["archived"] = *filters.Archived
+	}
+	
+	// Parent task filters
+	if filters.HasParent != nil {
+		if *filters.HasParent {
+			filterParts = append(filterParts, "parent_task != ''")
+		} else {
+			filterParts = append(filterParts, "parent_task = ''")
+		}
+	}
+	if filters.ParentID != nil {
+		filterParts = append(filterParts, "parent_task = {:parentID}")
+		params["parentID"] = *filters.ParentID
+	}
+	
+	// Build final filter
+	finalFilter := ""
+	if len(filterParts) > 0 {
+		finalFilter = strings.Join(filterParts, " && ")
+	}
+	
+	// Build sort order
+	sortOrder := r.buildSortOrder(filters.SortBy, filters.SortOrder)
+	
+	// Apply limits and offsets
+	limit := filters.Limit
+	if limit <= 0 || limit > 1000 {
+		limit = 100 // Default limit
+	}
+	offset := filters.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	
+	// Execute query
+	records, err := r.app.FindRecordsByFilter("tasks", finalFilter, sortOrder, limit, offset, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute filtered task query: %w", err)
+	}
+	
+	return r.recordsToTasks(records)
+}
+
+// buildSortOrder constructs the sort order string for PocketBase queries
+func (r *pocketbaseTaskRepository) buildSortOrder(sortBy, sortOrder string) string {
+	// Default sort order - use position only to avoid issues with timestamp fields
+	if sortBy == "" {
+		return "position"
+	}
+	
+	// Validate sort field
+	validSortFields := map[string]string{
+		SortByCreated:  "created",
+		SortByUpdated:  "updated", 
+		SortByTitle:    "title",
+		SortByStatus:   "status",
+		SortByPriority: "priority",
+		SortByDueDate:  "due_date",
+		SortByPosition: "position",
+		SortByProgress: "progress",
+	}
+	
+	field, exists := validSortFields[sortBy]
+	if !exists {
+		return "position" // Fallback to default
+	}
+	
+	// Apply sort order
+	if sortOrder == SortOrderDesc {
+		return "-" + field
+	}
+	return field
 }

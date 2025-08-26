@@ -4,6 +4,8 @@ package testutil
 //nolint:gofumpt
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 
 	"simple-easy-tasks/internal/domain"
@@ -353,8 +355,485 @@ func (m *MockProjectRepository) AddProject(project *domain.Project) {
 	m.projects[project.ID] = project
 }
 
+// MockTaskRepository implements TaskRepository for testing enhanced functionality.
+type MockTaskRepository struct {
+	Tasks                      map[string]*domain.Task
+	SubtasksByParent          map[string][]*domain.Task
+	DependenciesByTask        map[string][]*domain.Task
+	MoveCallLog               map[string]bool
+	SubtasksDuplicated        map[string]bool
+	ForceCreateError          bool
+	ForceGetSubtasksError     bool
+	ForceGetDependenciesError bool
+	ForceMoveError            bool
+	mu                        sync.RWMutex
+}
+
+// NewMockTaskRepository creates a new mock task repository.
+func NewMockTaskRepository() *MockTaskRepository {
+	return &MockTaskRepository{
+		Tasks:                make(map[string]*domain.Task),
+		SubtasksByParent:     make(map[string][]*domain.Task),
+		DependenciesByTask:   make(map[string][]*domain.Task),
+		MoveCallLog:          make(map[string]bool),
+		SubtasksDuplicated:   make(map[string]bool),
+	}
+}
+
+// AddTask adds a task to mock repository for testing.
+func (m *MockTaskRepository) AddTask(task *domain.Task) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Tasks[task.ID] = task
+}
+
+// Create creates a new task.
+func (m *MockTaskRepository) Create(_ context.Context, task *domain.Task) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.ForceCreateError {
+		return domain.NewInternalError("MOCK_CREATE_ERROR", "Forced create error for testing", nil)
+	}
+
+	// Generate ID if not set
+	if task.ID == "" {
+		task.ID = fmt.Sprintf("task-%d", len(m.Tasks)+1)
+	}
+
+	m.Tasks[task.ID] = task
+	return nil
+}
+
+// GetByID retrieves a task by ID.
+func (m *MockTaskRepository) GetByID(_ context.Context, id string) (*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	task, exists := m.Tasks[id]
+	if !exists {
+		return nil, domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
+	}
+	return task, nil
+}
+
+// Update updates an existing task.
+func (m *MockTaskRepository) Update(_ context.Context, task *domain.Task) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exists := m.Tasks[task.ID]; !exists {
+		return domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
+	}
+
+	m.Tasks[task.ID] = task
+	return nil
+}
+
+// Delete deletes a task by ID.
+func (m *MockTaskRepository) Delete(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exists := m.Tasks[id]; !exists {
+		return domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
+	}
+
+	delete(m.Tasks, id)
+	return nil
+}
+
+// GetByProject retrieves tasks for a specific project with advanced filtering.
+func (m *MockTaskRepository) GetByProject(_ context.Context, projectID string, filters repository.TaskFilters) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var tasks []*domain.Task
+	for _, task := range m.Tasks {
+		if task.ProjectID != projectID {
+			continue
+		}
+
+		// Apply filters
+		if len(filters.Status) > 0 {
+			statusMatch := false
+			for _, status := range filters.Status {
+				if task.Status == status {
+					statusMatch = true
+					break
+				}
+			}
+			if !statusMatch {
+				continue
+			}
+		}
+
+		if filters.AssigneeID != nil {
+			if task.AssigneeID == nil || *task.AssigneeID != *filters.AssigneeID {
+				continue
+			}
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
+}
+
+// ListByProject retrieves tasks for a specific project (legacy method).
+func (m *MockTaskRepository) ListByProject(_ context.Context, projectID string, offset, limit int) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var tasks []*domain.Task
+	for _, task := range m.Tasks {
+		if task.ProjectID == projectID {
+			tasks = append(tasks, task)
+		}
+	}
+
+	// Apply pagination
+	start := offset
+	end := offset + limit
+	if start > len(tasks) {
+		return []*domain.Task{}, nil
+	}
+	if end > len(tasks) {
+		end = len(tasks)
+	}
+
+	return tasks[start:end], nil
+}
+
+// ListByAssignee retrieves tasks assigned to a specific user.
+func (m *MockTaskRepository) ListByAssignee(_ context.Context, assigneeID string, offset, limit int) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var tasks []*domain.Task
+	for _, task := range m.Tasks {
+		if task.AssigneeID != nil && *task.AssigneeID == assigneeID {
+			tasks = append(tasks, task)
+		}
+	}
+
+	// Apply pagination
+	start := offset
+	end := offset + limit
+	if start > len(tasks) {
+		return []*domain.Task{}, nil
+	}
+	if end > len(tasks) {
+		end = len(tasks)
+	}
+
+	return tasks[start:end], nil
+}
+
+// ListByStatus retrieves tasks by status.
+func (m *MockTaskRepository) ListByStatus(_ context.Context, status domain.TaskStatus, offset, limit int) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var tasks []*domain.Task
+	for _, task := range m.Tasks {
+		if task.Status == status {
+			tasks = append(tasks, task)
+		}
+	}
+
+	// Apply pagination
+	start := offset
+	end := offset + limit
+	if start > len(tasks) {
+		return []*domain.Task{}, nil
+	}
+	if end > len(tasks) {
+		end = len(tasks)
+	}
+
+	return tasks[start:end], nil
+}
+
+// ListByCreator retrieves tasks created by a specific user.
+func (m *MockTaskRepository) ListByCreator(_ context.Context, creatorID string, offset, limit int) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var tasks []*domain.Task
+	for _, task := range m.Tasks {
+		if task.ReporterID == creatorID {
+			tasks = append(tasks, task)
+		}
+	}
+
+	// Apply pagination
+	start := offset
+	end := offset + limit
+	if start > len(tasks) {
+		return []*domain.Task{}, nil
+	}
+	if end > len(tasks) {
+		end = len(tasks)
+	}
+
+	return tasks[start:end], nil
+}
+
+// Search searches tasks by title, description or content.
+func (m *MockTaskRepository) Search(_ context.Context, query string, projectID string, offset, limit int) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var tasks []*domain.Task
+	queryLower := strings.ToLower(query)
+
+	for _, task := range m.Tasks {
+		if projectID != "" && task.ProjectID != projectID {
+			continue
+		}
+
+		if strings.Contains(strings.ToLower(task.Title), queryLower) ||
+			strings.Contains(strings.ToLower(task.Description), queryLower) {
+			tasks = append(tasks, task)
+		}
+	}
+
+	// Apply pagination
+	start := offset
+	end := offset + limit
+	if start > len(tasks) {
+		return []*domain.Task{}, nil
+	}
+	if end > len(tasks) {
+		end = len(tasks)
+	}
+
+	return tasks[start:end], nil
+}
+
+// GetSubtasks retrieves subtasks for a parent task.
+func (m *MockTaskRepository) GetSubtasks(_ context.Context, parentID string) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.ForceGetSubtasksError {
+		return nil, domain.NewInternalError("MOCK_SUBTASK_ERROR", "Forced subtask error for testing", nil)
+	}
+
+	subtasks, exists := m.SubtasksByParent[parentID]
+	if !exists {
+		return []*domain.Task{}, nil
+	}
+
+	// Track that subtasks were retrieved for duplication testing
+	m.SubtasksDuplicated[parentID] = len(subtasks) > 0
+
+	return subtasks, nil
+}
+
+// GetDependencies retrieves dependency tasks for a task.
+func (m *MockTaskRepository) GetDependencies(_ context.Context, taskID string) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.ForceGetDependenciesError {
+		return nil, domain.NewInternalError("MOCK_DEPENDENCY_ERROR", "Forced dependency error for testing", nil)
+	}
+
+	dependencies, exists := m.DependenciesByTask[taskID]
+	if !exists {
+		return []*domain.Task{}, nil
+	}
+
+	return dependencies, nil
+}
+
+// GetTasksByFilter retrieves tasks using advanced filters.
+func (m *MockTaskRepository) GetTasksByFilter(_ context.Context, filters repository.TaskFilters) ([]*domain.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var tasks []*domain.Task
+	for _, task := range m.Tasks {
+		// Apply all filters
+		if len(filters.Status) > 0 {
+			statusMatch := false
+			for _, status := range filters.Status {
+				if task.Status == status {
+					statusMatch = true
+					break
+				}
+			}
+			if !statusMatch {
+				continue
+			}
+		}
+
+		if filters.AssigneeID != nil {
+			if task.AssigneeID == nil || *task.AssigneeID != *filters.AssigneeID {
+				continue
+			}
+		}
+
+		if filters.ReporterID != nil && task.ReporterID != *filters.ReporterID {
+			continue
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
+}
+
+// Count returns the total number of tasks matching criteria.
+func (m *MockTaskRepository) Count(_ context.Context) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return len(m.Tasks), nil
+}
+
+// CountByProject returns the number of tasks in a project.
+func (m *MockTaskRepository) CountByProject(_ context.Context, projectID string) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	count := 0
+	for _, task := range m.Tasks {
+		if task.ProjectID == projectID {
+			count++
+		}
+	}
+	return count, nil
+}
+
+// CountByAssignee returns the number of tasks assigned to a user.
+func (m *MockTaskRepository) CountByAssignee(_ context.Context, assigneeID string) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	count := 0
+	for _, task := range m.Tasks {
+		if task.AssigneeID != nil && *task.AssigneeID == assigneeID {
+			count++
+		}
+	}
+	return count, nil
+}
+
+// CountByStatus returns the number of tasks with a specific status.
+func (m *MockTaskRepository) CountByStatus(_ context.Context, status domain.TaskStatus) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	count := 0
+	for _, task := range m.Tasks {
+		if task.Status == status {
+			count++
+		}
+	}
+	return count, nil
+}
+
+// ExistsByID checks if a task exists by ID.
+func (m *MockTaskRepository) ExistsByID(_ context.Context, id string) (bool, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	_, exists := m.Tasks[id]
+	return exists, nil
+}
+
+// Move moves a task to a new status and position.
+func (m *MockTaskRepository) Move(_ context.Context, taskID string, newStatus domain.TaskStatus, position int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.ForceMoveError {
+		return domain.NewInternalError("MOCK_MOVE_ERROR", "Forced move error for testing", nil)
+	}
+
+	task, exists := m.Tasks[taskID]
+	if !exists {
+		return domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
+	}
+
+	task.Status = newStatus
+	task.Position = position
+	m.MoveCallLog[taskID] = true
+
+	return nil
+}
+
+// BulkUpdate updates multiple tasks.
+func (m *MockTaskRepository) BulkUpdate(_ context.Context, tasks []*domain.Task) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, task := range tasks {
+		if _, exists := m.Tasks[task.ID]; exists {
+			m.Tasks[task.ID] = task
+		}
+	}
+	return nil
+}
+
+// BulkDelete deletes multiple tasks.
+func (m *MockTaskRepository) BulkDelete(_ context.Context, ids []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, id := range ids {
+		delete(m.Tasks, id)
+	}
+	return nil
+}
+
+// BulkUpdateStatus updates multiple tasks with the same status.
+func (m *MockTaskRepository) BulkUpdateStatus(_ context.Context, taskIDs []string, newStatus domain.TaskStatus) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, taskID := range taskIDs {
+		if task, exists := m.Tasks[taskID]; exists {
+			task.Status = newStatus
+		}
+	}
+	return nil
+}
+
+// ArchiveTask archives a task instead of deleting it.
+func (m *MockTaskRepository) ArchiveTask(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	task, exists := m.Tasks[id]
+	if !exists {
+		return domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
+	}
+
+	task.Archive()
+	return nil
+}
+
+// UnarchiveTask unarchives a task.
+func (m *MockTaskRepository) UnarchiveTask(_ context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	task, exists := m.Tasks[id]
+	if !exists {
+		return domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
+	}
+
+	task.Unarchive()
+	return nil
+}
+
 // Ensure interfaces are implemented
 var (
 	_ repository.UserRepository    = (*MockUserRepository)(nil)
 	_ repository.ProjectRepository = (*MockProjectRepository)(nil)
+	_ repository.TaskRepository    = (*MockTaskRepository)(nil)
 )
