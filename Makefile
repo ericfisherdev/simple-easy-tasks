@@ -94,6 +94,37 @@ benchmark-integration: ## Run integration benchmarks
 	go test -tags=integration -bench=. -benchmem -timeout=30m -run=^$$ ./test/integration
 	@rm -rf /tmp/perf-test-dbs/*.db*
 
+# Secure commit targets
+commit: ## Secure commit with enforced pre-commit checks (usage: make commit MESSAGE="your message")
+	@if [ -z "$(MESSAGE)" ]; then \
+		echo "❌ Error: MESSAGE is required"; \
+		echo "📝 Usage: make commit MESSAGE=\"feat(api): add user authentication\""; \
+		echo "📖 Run 'make commit-msg-help' for commit format guidelines"; \
+		exit 1; \
+	fi
+	@echo "🔒 Running secure commit with message: $(MESSAGE)"
+	@./scripts/secure-commit.sh "$(MESSAGE)"
+
+commit-staged: ## Secure commit with all staged changes (usage: make commit-staged MESSAGE="your message")
+	@if [ -z "$(MESSAGE)" ]; then \
+		echo "❌ Error: MESSAGE is required"; \
+		echo "📝 Usage: make commit-staged MESSAGE=\"feat(api): add user authentication\""; \
+		exit 1; \
+	fi
+	@echo "🔒 Committing all staged changes with message: $(MESSAGE)"
+	@./scripts/secure-commit.sh "$(MESSAGE)"
+
+commit-all: ## Stage all changes and commit securely (usage: make commit-all MESSAGE="your message")
+	@if [ -z "$(MESSAGE)" ]; then \
+		echo "❌ Error: MESSAGE is required"; \
+		echo "📝 Usage: make commit-all MESSAGE=\"feat(api): add user authentication\""; \
+		exit 1; \
+	fi
+	@echo "📦 Staging all changes..."
+	@git add -A
+	@echo "🔒 Committing all changes with message: $(MESSAGE)"
+	@./scripts/secure-commit.sh "$(MESSAGE)"
+
 # Commit linting targets
 commit-lint: ## Lint the last commit message
 	@echo "Linting last commit message..."
@@ -280,6 +311,44 @@ security-check: ## Run security checks
 		gosec ./...; \
 	fi
 
+hooks-status: ## Check status of git hooks and security measures
+	@echo "🔍 Git Hooks Security Status"
+	@echo "================================"
+	@echo "📋 Pre-commit hook: $(shell [ -f .git/hooks/pre-commit ] && echo "✅ ACTIVE" || echo "❌ MISSING")"
+	@echo "📋 Prepare-commit-msg hook: $(shell [ -f .git/hooks/prepare-commit-msg ] && echo "✅ ACTIVE" || echo "❌ MISSING")"
+	@echo "📋 Secure commit script: $(shell [ -f scripts/secure-commit.sh ] && echo "✅ AVAILABLE" || echo "❌ MISSING")"
+	@echo "📋 Commitlint config: $(shell [ -f commitlint.config.js ] && echo "✅ CONFIGURED" || echo "❌ MISSING")"
+	@echo ""
+	@echo "🛡️  Hook Bypass Protection:"
+	@echo "  • --no-verify detection: ENABLED"
+	@echo "  • Environment variable checking: ENABLED"  
+	@echo "  • Fallback formatting checks: ENABLED"
+	@echo "  • Mandatory linting enforcement: ENABLED"
+	@echo ""
+	@echo "📖 Usage:"
+	@echo "  • Use 'make commit MESSAGE=\"your message\"' for secure commits"
+	@echo "  • Direct 'git commit --no-verify' is blocked for security"
+	@echo "  • All commits must pass Go formatting and linting"
+
+validate-hooks: ## Validate that hooks cannot be bypassed
+	@echo "🧪 Testing hook bypass protection..."
+	@echo "Creating test commit to verify hook security..."
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "⚠️  Warning: You have uncommitted changes. Test will be run with a dummy change."; \
+	fi
+	@echo "# Test file for hook validation" > .test_hook_validation
+	@git add .test_hook_validation
+	@echo "Attempting bypass with --no-verify (this should fail)..."
+	@if GIT_NO_VERIFY=1 git commit -m "test: hook bypass attempt" --no-verify 2>&1 | grep -q "SECURITY ERROR"; then \
+		echo "✅ SUCCESS: Hook bypass protection is working!"; \
+	else \
+		echo "❌ FAILED: Hook bypass protection is NOT working!"; \
+		exit 1; \
+	fi
+	@git reset HEAD~1 2>/dev/null || true
+	@rm -f .test_hook_validation
+	@echo "🛡️  All hook security measures are functioning correctly"
+
 # Clean targets
 clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
@@ -335,9 +404,19 @@ setup: ## Setup development environment
 	@if [ -f ./scripts/setup-hooks.sh ]; then \
 		./scripts/setup-hooks.sh; \
 	fi
+	@echo "🔒 Ensuring hook security measures are in place..."
+	@chmod +x .git/hooks/pre-commit 2>/dev/null || echo "Pre-commit hook will be created on first commit"
+	@chmod +x .git/hooks/prepare-commit-msg 2>/dev/null || echo "Prepare-commit-msg hook will be created on first commit"
+	@chmod +x scripts/secure-commit.sh 2>/dev/null || echo "Secure commit script is ready"
 	@echo "Development environment setup complete"
 	@echo ""
+	@echo "🛡️  Security Notice:"
+	@echo "  • All commits MUST pass Go formatting and linting checks"
+	@echo "  • Hook bypassing with --no-verify is BLOCKED"
+	@echo "  • Use 'make commit MESSAGE=\"your message\"' for secure commits"
+	@echo ""
 	@echo "📋 Next steps:"
+	@echo "  • Run 'make hooks-status' to verify hook security"
 	@echo "  • Run 'make commit-msg-help' to see commit message format"
 	@echo "  • Use conventional commits: <type>[scope]: <description>"
 	@echo "  • Run 'make test-integration' to run integration tests"

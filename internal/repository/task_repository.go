@@ -93,21 +93,21 @@ type TaskCommandRepository interface {
 
 // TaskFilters provides advanced filtering options for task queries
 type TaskFilters struct {
-	Status     []domain.TaskStatus   `json:"status,omitempty"`
-	Priority   []domain.TaskPriority `json:"priority,omitempty"`
-	Tags       []string              `json:"tags,omitempty"`
-	Search     string                `json:"search,omitempty"`
-	SortBy     string                `json:"sort_by,omitempty"`
-	SortOrder  string                `json:"sort_order,omitempty"`
-	Limit      int                   `json:"limit,omitempty"`
-	Offset     int                   `json:"offset,omitempty"`
-	AssigneeID *string               `json:"assignee_id,omitempty"`
-	ReporterID *string               `json:"reporter_id,omitempty"`
-	DueBefore  *time.Time            `json:"due_before,omitempty"`
-	DueAfter   *time.Time            `json:"due_after,omitempty"`
-	Archived   *bool                 `json:"archived,omitempty"`
-	HasParent  *bool                 `json:"has_parent,omitempty"`
-	ParentID   *string               `json:"parent_id,omitempty"`
+	Status     []domain.TaskStatus   `json:"status,omitempty"`      // 24 bytes
+	Priority   []domain.TaskPriority `json:"priority,omitempty"`    // 24 bytes
+	Tags       []string              `json:"tags,omitempty"`        // 24 bytes
+	Search     string                `json:"search,omitempty"`      // 16 bytes
+	SortBy     string                `json:"sort_by,omitempty"`     // 16 bytes
+	SortOrder  string                `json:"sort_order,omitempty"`  // 16 bytes
+	DueBefore  *time.Time            `json:"due_before,omitempty"`  // 8 bytes
+	DueAfter   *time.Time            `json:"due_after,omitempty"`   // 8 bytes
+	AssigneeID *string               `json:"assignee_id,omitempty"` // 8 bytes
+	ReporterID *string               `json:"reporter_id,omitempty"` // 8 bytes
+	ParentID   *string               `json:"parent_id,omitempty"`   // 8 bytes
+	Archived   *bool                 `json:"archived,omitempty"`    // 8 bytes
+	HasParent  *bool                 `json:"has_parent,omitempty"`  // 8 bytes
+	Limit      int                   `json:"limit,omitempty"`       // 8 bytes
+	Offset     int                   `json:"offset,omitempty"`      // 8 bytes
 }
 
 // TaskUpdate represents a single task update operation for bulk updates
