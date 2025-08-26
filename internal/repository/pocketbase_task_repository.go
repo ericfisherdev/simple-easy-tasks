@@ -280,9 +280,7 @@ func (r *pocketbaseTaskRepository) Update(_ context.Context, task *domain.Task) 
 	}
 
 	// Update the task with the persisted timestamps
-	if updatedTime := record.GetDateTime("updated"); !updatedTime.IsZero() {
-		task.UpdatedAt = updatedTime.Time()
-	}
+	task.UpdatedAt = record.GetDateTime("updated").Time()
 
 	return nil
 }
@@ -569,7 +567,11 @@ func (r *pocketbaseTaskRepository) updateArchiveStatus(_ context.Context, id str
 
 	// Update record with archived values
 	record.Set("archived", task.Archived)
-	record.Set("archived_at", task.ArchivedAt)
+	if task.ArchivedAt != nil {
+		record.Set("archived_at", *task.ArchivedAt)
+	} else {
+		record.Set("archived_at", nil)
+	}
 	record.Set("updated", task.UpdatedAt)
 
 	if err := r.app.Save(record); err != nil {
@@ -778,12 +780,8 @@ func (r *pocketbaseTaskRepository) setJSONAndArrayFields(record *core.Record, ta
 // updateTaskFromRecord updates a task with values from a PocketBase record
 func (r *pocketbaseTaskRepository) updateTaskFromRecord(task *domain.Task, record *core.Record) {
 	task.ID = record.Id
-	if createdTime := record.GetDateTime("created"); !createdTime.IsZero() {
-		task.CreatedAt = createdTime.Time()
-	}
-	if updatedTime := record.GetDateTime("updated"); !updatedTime.IsZero() {
-		task.UpdatedAt = updatedTime.Time()
-	}
+	task.CreatedAt = record.GetDateTime("created").Time()
+	task.UpdatedAt = record.GetDateTime("updated").Time()
 }
 
 // getTasksWithFiltersAndParams implements the core filtering logic
@@ -954,10 +952,10 @@ func (r *pocketbaseTaskRepository) buildSortOrder(sortBy, sortOrder string) stri
 		return "position"
 	}
 
-	// Validate sort field
+	// Validate sort field - using standard field names since @ prefixes are removed
 	validSortFields := map[string]string{
-		SortByCreated:  "created",
-		SortByUpdated:  "updated",
+		SortByCreated:  "created", // PocketBase timestamp field
+		SortByUpdated:  "updated", // PocketBase timestamp field
 		SortByTitle:    "title",
 		SortByStatus:   "status",
 		SortByPriority: "priority",
