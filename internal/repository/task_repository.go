@@ -93,21 +93,21 @@ type TaskCommandRepository interface {
 
 // TaskFilters provides advanced filtering options for task queries
 type TaskFilters struct {
-	Status      []domain.TaskStatus      `json:"status,omitempty"`
-	Priority    []domain.TaskPriority    `json:"priority,omitempty"`
-	Tags        []string                 `json:"tags,omitempty"`
-	Search      string                   `json:"search,omitempty"`
-	SortBy      string                   `json:"sort_by,omitempty"`
-	SortOrder   string                   `json:"sort_order,omitempty"`
-	Limit       int                      `json:"limit,omitempty"`
-	Offset      int                      `json:"offset,omitempty"`
-	AssigneeID  *string                  `json:"assignee_id,omitempty"`
-	ReporterID  *string                  `json:"reporter_id,omitempty"`
-	DueBefore   *time.Time               `json:"due_before,omitempty"`
-	DueAfter    *time.Time               `json:"due_after,omitempty"`
-	Archived    *bool                    `json:"archived,omitempty"`
-	HasParent   *bool                    `json:"has_parent,omitempty"`
-	ParentID    *string                  `json:"parent_id,omitempty"`
+	Status     []domain.TaskStatus   `json:"status,omitempty"`
+	Priority   []domain.TaskPriority `json:"priority,omitempty"`
+	Tags       []string              `json:"tags,omitempty"`
+	Search     string                `json:"search,omitempty"`
+	SortBy     string                `json:"sort_by,omitempty"`
+	SortOrder  string                `json:"sort_order,omitempty"`
+	Limit      int                   `json:"limit,omitempty"`
+	Offset     int                   `json:"offset,omitempty"`
+	AssigneeID *string               `json:"assignee_id,omitempty"`
+	ReporterID *string               `json:"reporter_id,omitempty"`
+	DueBefore  *time.Time            `json:"due_before,omitempty"`
+	DueAfter   *time.Time            `json:"due_after,omitempty"`
+	Archived   *bool                 `json:"archived,omitempty"`
+	HasParent  *bool                 `json:"has_parent,omitempty"`
+	ParentID   *string               `json:"parent_id,omitempty"`
 }
 
 // TaskUpdate represents a single task update operation for bulk updates
@@ -124,12 +124,12 @@ const (
 
 // Valid sort fields for tasks
 const (
-	SortByCreated    = "created"
-	SortByUpdated    = "updated"
-	SortByTitle      = "title"
-	SortByStatus     = "status"
-	SortByPriority   = "priority"
-	SortByDueDate    = "due_date"
-	SortByPosition   = "position"
-	SortByProgress   = "progress"
+	SortByCreated  = "created"
+	SortByUpdated  = "updated"
+	SortByTitle    = "title"
+	SortByStatus   = "status"
+	SortByPriority = "priority"
+	SortByDueDate  = "due_date"
+	SortByPosition = "position"
+	SortByProgress = "progress"
 )

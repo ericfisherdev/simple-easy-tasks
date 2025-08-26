@@ -142,7 +142,7 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string, currentU
 	if err != nil {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "Unable to verify admin permissions")
 	}
-	
+
 	if currentUser.Role != domain.AdminRole {
 		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "Only administrators can access user information by email")
 	}

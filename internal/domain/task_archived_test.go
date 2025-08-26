@@ -8,7 +8,7 @@ import (
 func TestTask_Archive(t *testing.T) {
 	// Create a new task
 	task := NewTask("Test Task", "Test Description", "project1", "user1")
-	
+
 	// Verify initial state
 	if task.Archived {
 		t.Error("Expected task to not be archived initially")
@@ -38,7 +38,7 @@ func TestTask_Unarchive(t *testing.T) {
 	// Create and archive a task
 	task := NewTask("Test Task", "Test Description", "project1", "user1")
 	task.Archive()
-	
+
 	// Verify it's archived
 	if !task.Archived {
 		t.Fatal("Expected task to be archived after Archive()")
@@ -59,7 +59,7 @@ func TestTask_Unarchive(t *testing.T) {
 func TestTask_IsArchived(t *testing.T) {
 	// Create a new task
 	task := NewTask("Test Task", "Test Description", "project1", "user1")
-	
+
 	// Test initial state
 	if task.IsArchived() {
 		t.Error("Expected IsArchived() to return false for new task")

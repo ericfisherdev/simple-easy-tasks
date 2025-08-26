@@ -42,9 +42,9 @@ type TaskService interface {
 
 	// GetProjectTasksFiltered gets tasks for a project with advanced filtering
 	GetProjectTasksFiltered(
-		ctx context.Context, 
-		projectID string, 
-		filters repository.TaskFilters, 
+		ctx context.Context,
+		projectID string,
+		filters repository.TaskFilters,
 		userID string,
 	) ([]*domain.Task, error)
 
@@ -63,20 +63,20 @@ type TaskService interface {
 
 // MoveTaskRequest represents a request to move a task between columns/statuses
 type MoveTaskRequest struct {
-	TaskID       string              `json:"task_id" binding:"required"`
-	ProjectID    string              `json:"project_id" binding:"required"`
-	NewStatus    domain.TaskStatus   `json:"new_status" binding:"required"`
-	NewPosition  int                 `json:"new_position" binding:"min=0"`
+	TaskID      string            `json:"task_id" binding:"required"`
+	ProjectID   string            `json:"project_id" binding:"required"`
+	NewStatus   domain.TaskStatus `json:"new_status" binding:"required"`
+	NewPosition int               `json:"new_position" binding:"min=0"`
 }
 
 // DuplicationOptions controls how a task is duplicated
 type DuplicationOptions struct {
-	NewTitle          string `json:"new_title,omitempty"`
-	IncludeSubtasks   bool   `json:"include_subtasks"`
-	IncludeComments   bool   `json:"include_comments"`
+	NewTitle           string `json:"new_title,omitempty"`
+	IncludeSubtasks    bool   `json:"include_subtasks"`
+	IncludeComments    bool   `json:"include_comments"`
 	IncludeAttachments bool   `json:"include_attachments"`
-	ResetProgress     bool   `json:"reset_progress"`
-	ResetTimeSpent    bool   `json:"reset_time_spent"`
+	ResetProgress      bool   `json:"reset_progress"`
+	ResetTimeSpent     bool   `json:"reset_time_spent"`
 }
 
 // taskService implements TaskService interface.
@@ -516,9 +516,9 @@ func (s *taskService) MoveTask(ctx context.Context, req MoveTaskRequest, userID 
 
 // GetProjectTasksFiltered gets tasks for a project with advanced filtering
 func (s *taskService) GetProjectTasksFiltered(
-	ctx context.Context, 
-	projectID string, 
-	filters repository.TaskFilters, 
+	ctx context.Context,
+	projectID string,
+	filters repository.TaskFilters,
 	userID string,
 ) ([]*domain.Task, error) {
 	if projectID == "" {
@@ -588,9 +588,9 @@ func (s *taskService) GetTaskDependencies(ctx context.Context, taskID string, us
 
 // DuplicateTask creates a copy of an existing task
 func (s *taskService) DuplicateTask(
-	ctx context.Context, 
-	taskID string, 
-	options DuplicationOptions, 
+	ctx context.Context,
+	taskID string,
+	options DuplicationOptions,
 	userID string,
 ) (*domain.Task, error) {
 	if taskID == "" {
@@ -626,9 +626,9 @@ func (s *taskService) DuplicateTask(
 
 // CreateFromTemplate creates a task from a predefined template
 func (s *taskService) CreateFromTemplate(
-	ctx context.Context, 
-	templateID string, 
-	projectID string, 
+	ctx context.Context,
+	templateID string,
+	projectID string,
 	userID string,
 ) (*domain.Task, error) {
 	if templateID == "" {
@@ -722,7 +722,7 @@ func (s *taskService) createTaskFromTemplate(template *domain.Task, projectID st
 	// Copy tags properly
 	tags := make([]string, len(template.Tags))
 	copy(tags, template.Tags)
-	
+
 	return &domain.Task{
 		Title:          template.Title,
 		Description:    template.Description,
@@ -740,10 +740,10 @@ func (s *taskService) createTaskFromTemplate(template *domain.Task, projectID st
 
 // duplicateSubtasks recursively duplicates subtasks
 func (s *taskService) duplicateSubtasks(
-	ctx context.Context, 
-	originalParentID string, 
-	newParentID string, 
-	options DuplicationOptions, 
+	ctx context.Context,
+	originalParentID string,
+	newParentID string,
+	options DuplicationOptions,
 	userID string,
 ) error {
 	subtasks, err := s.taskRepo.GetSubtasks(ctx, originalParentID)

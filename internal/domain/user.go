@@ -85,7 +85,7 @@ func (u *User) Validate() error {
 	if u.Role == "" {
 		u.Role = RegularUserRole
 	}
-	
+
 	if err := ValidateEnum("role", string(u.Role), "INVALID_ROLE", "Role must be 'admin' or 'user'",
 		string(AdminRole), string(RegularUserRole)); err != nil {
 		return err

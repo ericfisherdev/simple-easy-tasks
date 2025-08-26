@@ -109,7 +109,7 @@ func TestTaskRepository_EnhancedFeatures_Integration(t *testing.T) {
 		tasks, err = taskRepo.GetByProject(context.Background(), project1.ID, filters)
 		require.NoError(t, err)
 		assert.Len(t, tasks, 2)
-		
+
 		statuses := make([]domain.TaskStatus, len(tasks))
 		for i, task := range tasks {
 			statuses[i] = task.Status
@@ -156,7 +156,7 @@ func TestTaskRepository_EnhancedFeatures_Integration(t *testing.T) {
 		tasks, err = taskRepo.GetByProject(context.Background(), project1.ID, filters)
 		require.NoError(t, err)
 		assert.Len(t, tasks, 2)
-		
+
 		priorities := make([]domain.TaskPriority, len(tasks))
 		for i, task := range tasks {
 			priorities[i] = task.Priority
@@ -294,7 +294,7 @@ func TestTaskRepository_EnhancedFeatures_Integration(t *testing.T) {
 		tasks, err := taskRepo.GetByProject(context.Background(), project1.ID, filters)
 		require.NoError(t, err)
 		assert.Len(t, tasks, 2) // Soon due and later due tasks
-		
+
 		// Test filtering by due after (should find all future tasks)
 		afterNow := now.Add(1 * time.Hour)
 		filters = repository.TaskFilters{
@@ -429,7 +429,7 @@ func TestTaskRepository_EnhancedFeatures_Integration(t *testing.T) {
 			WithTaskTitle("Documentation Update"),
 			WithTaskStatus(domain.StatusTodo),
 			WithTaskPriority(domain.PriorityLow), // Different priority
-			WithTaskAssignee(assignee2.ID),      // Different assignee
+			WithTaskAssignee(assignee2.ID),       // Different assignee
 		)
 		nonMatchingTask2.Tags = []string{"documentation"}
 		require.NoError(t, taskRepo.Create(context.Background(), nonMatchingTask2))

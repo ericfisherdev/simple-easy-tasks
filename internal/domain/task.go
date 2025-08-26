@@ -303,7 +303,7 @@ func (t *Task) UpdateProgress(progress int) error {
 
 			// Optionally, we could add the failed transition to task metadata
 			// for later analysis or manual intervention
-			
+
 			// Parse existing CustomFields or create empty map
 			var existingData map[string]interface{}
 			if len(t.CustomFields) > 0 {

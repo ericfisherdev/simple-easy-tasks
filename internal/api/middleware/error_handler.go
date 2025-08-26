@@ -158,7 +158,7 @@ func handleGenericError(c *gin.Context, err error, _ string, _ ErrorHandlerConfi
 		"An unexpected error occurred",
 		err,
 	)
-	
+
 	sanitizedErrorResponse(c, genericErr)
 }
 

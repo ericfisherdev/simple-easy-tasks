@@ -357,7 +357,7 @@ func (m *MockProjectRepository) AddProject(project *domain.Project) {
 
 // MockTaskRepository implements TaskRepository for testing enhanced functionality.
 type MockTaskRepository struct {
-	Tasks                      map[string]*domain.Task
+	Tasks                     map[string]*domain.Task
 	SubtasksByParent          map[string][]*domain.Task
 	DependenciesByTask        map[string][]*domain.Task
 	MoveCallLog               map[string]bool
@@ -372,11 +372,11 @@ type MockTaskRepository struct {
 // NewMockTaskRepository creates a new mock task repository.
 func NewMockTaskRepository() *MockTaskRepository {
 	return &MockTaskRepository{
-		Tasks:                make(map[string]*domain.Task),
-		SubtasksByParent:     make(map[string][]*domain.Task),
-		DependenciesByTask:   make(map[string][]*domain.Task),
-		MoveCallLog:          make(map[string]bool),
-		SubtasksDuplicated:   make(map[string]bool),
+		Tasks:              make(map[string]*domain.Task),
+		SubtasksByParent:   make(map[string][]*domain.Task),
+		DependenciesByTask: make(map[string][]*domain.Task),
+		MoveCallLog:        make(map[string]bool),
+		SubtasksDuplicated: make(map[string]bool),
 	}
 }
 

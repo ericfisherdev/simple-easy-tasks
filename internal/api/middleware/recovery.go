@@ -7,7 +7,7 @@ import (
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
-	
+
 	"simple-easy-tasks/internal/domain"
 )
 
@@ -41,11 +41,11 @@ func RecoveryMiddleware(config RecoveryConfig) gin.HandlerFunc {
 
 		// Create a panic error and use SanitizedErrorResponse for proper error handling
 		panicErr := domain.NewInternalError(
-			"PANIC_RECOVERED", 
-			fmt.Sprintf("Panic recovered: %v", recovered), 
+			"PANIC_RECOVERED",
+			fmt.Sprintf("Panic recovered: %v", recovered),
 			fmt.Errorf("panic: %v", recovered),
 		)
-		
+
 		sanitizedErrorResponse(c, panicErr)
 	})
 }
