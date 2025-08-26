@@ -159,7 +159,11 @@ func (s *commentService) UpdateComment(
 
 	// Apply updates
 	if req.Content != nil {
-		comment.Content = *req.Content
+		// Only mark as edited if content actually changes
+		if *req.Content != comment.Content {
+			comment.Content = *req.Content
+			comment.IsEdited = true
+		}
 	}
 
 	// Validate updated comment

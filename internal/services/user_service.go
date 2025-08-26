@@ -19,7 +19,7 @@ type UserService interface {
 	ListUsers(ctx context.Context, offset, limit int) ([]*domain.User, error)
 
 	// GetUserByEmail gets a user by email (admin only)
-	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	GetUserByEmail(ctx context.Context, email string, currentUserID string) (*domain.User, error)
 
 	// GetUserByUsername gets a user by username
 	GetUserByUsername(ctx context.Context, username string) (*domain.User, error)
@@ -128,9 +128,23 @@ func (s *userService) ListUsers(ctx context.Context, offset, limit int) ([]*doma
 }
 
 // GetUserByEmail gets a user by email (admin only).
-func (s *userService) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (s *userService) GetUserByEmail(ctx context.Context, email string, currentUserID string) (*domain.User, error) {
 	if email == "" {
 		return nil, domain.NewValidationError("INVALID_EMAIL", "Email cannot be empty", nil)
+	}
+
+	if currentUserID == "" {
+		return nil, domain.NewValidationError("INVALID_USER_ID", "Current user ID cannot be empty", nil)
+	}
+
+	// Check admin permissions
+	currentUser, err := s.userRepo.GetByID(ctx, currentUserID)
+	if err != nil {
+		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "Unable to verify admin permissions")
+	}
+	
+	if currentUser.Role != domain.AdminRole {
+		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "Only administrators can access user information by email")
 	}
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
