@@ -598,17 +598,32 @@ func (r *pocketbaseTaskRepository) recordToTask(record *core.Record) (*domain.Ta
 		Progress:    record.GetInt("progress"),
 		CreatedAt:   record.GetDateTime("created").Time(),
 		UpdatedAt:   record.GetDateTime("updated").Time(),
+		Archived:    record.GetBool("archived"),
 	}
 
-	// Handle optional string fields
+	r.populateOptionalFields(task, record)
+	r.populateDateFields(task, record)
+	r.populateJSONFields(task, record)
+	r.populateArrayFields(task, record)
+
+	return task, nil
+}
+
+// populateOptionalFields populates optional string and numeric fields
+func (r *pocketbaseTaskRepository) populateOptionalFields(task *domain.Task, record *core.Record) {
 	if assignee := record.GetString("assignee"); assignee != "" {
 		task.AssigneeID = &assignee
 	}
 	if parentTask := record.GetString("parent_task"); parentTask != "" {
 		task.ParentTaskID = &parentTask
 	}
+	if effortEstimate := record.GetFloat("effort_estimate"); effortEstimate > 0 {
+		task.EffortEstimate = &effortEstimate
+	}
+}
 
-	// Handle optional date fields
+// populateDateFields populates optional date fields
+func (r *pocketbaseTaskRepository) populateDateFields(task *domain.Task, record *core.Record) {
 	if dueDate := record.GetDateTime("due_date"); !dueDate.IsZero() {
 		dueDateTime := dueDate.Time()
 		task.DueDate = &dueDateTime
@@ -621,16 +636,10 @@ func (r *pocketbaseTaskRepository) recordToTask(record *core.Record) (*domain.Ta
 		archivedDateTime := archivedAt.Time()
 		task.ArchivedAt = &archivedDateTime
 	}
+}
 
-	// Handle archived field
-	task.Archived = record.GetBool("archived")
-
-	// Handle optional numeric fields
-	if effortEstimate := record.GetFloat("effort_estimate"); effortEstimate > 0 {
-		task.EffortEstimate = &effortEstimate
-	}
-
-	// Handle JSON fields
+// populateJSONFields populates JSON byte fields
+func (r *pocketbaseTaskRepository) populateJSONFields(task *domain.Task, record *core.Record) {
 	if columnPosition := record.GetString("column_position"); columnPosition != "" {
 		task.ColumnPosition = []byte(columnPosition)
 	}
@@ -640,8 +649,10 @@ func (r *pocketbaseTaskRepository) recordToTask(record *core.Record) (*domain.Ta
 	if customFields := record.GetString("custom_fields"); customFields != "" {
 		task.CustomFields = []byte(customFields)
 	}
+}
 
-	// Handle array fields (if stored as JSON)
+// populateArrayFields populates array fields from JSON
+func (r *pocketbaseTaskRepository) populateArrayFields(task *domain.Task, record *core.Record) {
 	var dependencies []string
 	if err := record.UnmarshalJSONField("dependencies", &dependencies); err == nil && len(dependencies) > 0 {
 		task.Dependencies = dependencies
@@ -656,8 +667,6 @@ func (r *pocketbaseTaskRepository) recordToTask(record *core.Record) (*domain.Ta
 	if err := record.UnmarshalJSONField("attachments", &attachments); err == nil && len(attachments) > 0 {
 		task.Attachments = attachments
 	}
-
-	return task, nil
 }
 
 // recordsToTasks converts PocketBase records to domain.Task slice.
@@ -797,118 +806,145 @@ func (r *pocketbaseTaskRepository) getTasksWithFiltersAndParams(
 		filterParts = append(filterParts, baseFilter)
 	}
 
-	// Status filter
-	if len(filters.Status) > 0 {
-		statusParts := []string{}
-		for i, status := range filters.Status {
-			paramKey := fmt.Sprintf("status%d", i)
-			statusParts = append(statusParts, fmt.Sprintf("status = {:%s}", paramKey))
-			params[paramKey] = string(status)
-		}
-		filterParts = append(filterParts, fmt.Sprintf("(%s)", strings.Join(statusParts, " || ")))
-	}
+	// Apply all filter types
+	r.applyStatusFilters(filters, &filterParts, params)
+	r.applyPriorityFilters(filters, &filterParts, params)
+	r.applyUserFilters(filters, &filterParts, params)
+	r.applyTagFilters(filters, &filterParts, params)
+	r.applyDateFilters(filters, &filterParts, params)
+	r.applySearchFilters(filters, &filterParts, params)
+	r.applyParentFilters(filters, &filterParts, params)
+	r.applyArchivedFilter(filters, &filterParts, params)
 
-	// Priority filter
-	if len(filters.Priority) > 0 {
-		priorityParts := []string{}
-		for i, priority := range filters.Priority {
-			paramKey := fmt.Sprintf("priority%d", i)
-			priorityParts = append(priorityParts, fmt.Sprintf("priority = {:%s}", paramKey))
-			params[paramKey] = string(priority)
-		}
-		filterParts = append(filterParts, fmt.Sprintf("(%s)", strings.Join(priorityParts, " || ")))
-	}
-
-	// Assignee filter
-	if filters.AssigneeID != nil {
-		if *filters.AssigneeID == "" {
-			// Filter for unassigned tasks
-			filterParts = append(filterParts, "assignee = ''")
-		} else {
-			filterParts = append(filterParts, "assignee = {:assigneeID}")
-			params["assigneeID"] = *filters.AssigneeID
-		}
-	}
-
-	// Reporter filter
-	if filters.ReporterID != nil {
-		filterParts = append(filterParts, "reporter = {:reporterID}")
-		params["reporterID"] = *filters.ReporterID
-	}
-
-	// Tags filter (if task has any of the specified tags)
-	if len(filters.Tags) > 0 {
-		tagParts := []string{}
-		for i, tag := range filters.Tags {
-			paramKey := fmt.Sprintf("tag%d", i)
-			tagParts = append(tagParts, fmt.Sprintf("tags ~ {:%s}", paramKey))
-			params[paramKey] = tag
-		}
-		filterParts = append(filterParts, fmt.Sprintf("(%s)", strings.Join(tagParts, " || ")))
-	}
-
-	// Date filters
-	if filters.DueBefore != nil {
-		filterParts = append(filterParts, "due_date < {:dueBefore}")
-		params["dueBefore"] = filters.DueBefore.Format("2006-01-02 15:04:05")
-	}
-	if filters.DueAfter != nil {
-		filterParts = append(filterParts, "due_date > {:dueAfter}")
-		params["dueAfter"] = filters.DueAfter.Format("2006-01-02 15:04:05")
-	}
-
-	// Search filter
-	if filters.Search != "" {
-		searchTerm := "%" + strings.ReplaceAll(filters.Search, "%", "\\%") + "%"
-		filterParts = append(filterParts, "(title ~ {:searchTerm} || description ~ {:searchTerm})")
-		params["searchTerm"] = searchTerm
-	}
-
-	// Archived filter
-	if filters.Archived != nil {
-		filterParts = append(filterParts, "archived = {:archived}")
-		params["archived"] = *filters.Archived
-	}
-
-	// Parent task filters
-	if filters.HasParent != nil {
-		if *filters.HasParent {
-			filterParts = append(filterParts, "parent_task != ''")
-		} else {
-			filterParts = append(filterParts, "parent_task = ''")
-		}
-	}
-	if filters.ParentID != nil {
-		filterParts = append(filterParts, "parent_task = {:parentID}")
-		params["parentID"] = *filters.ParentID
-	}
-
-	// Build final filter
+	// Build final filter and execute query
 	finalFilter := ""
 	if len(filterParts) > 0 {
 		finalFilter = strings.Join(filterParts, " && ")
 	}
 
-	// Build sort order
 	sortOrder := r.buildSortOrder(filters.SortBy, filters.SortOrder)
+	limit, offset := r.normalizeLimitAndOffset(filters.Limit, filters.Offset)
 
-	// Apply limits and offsets
-	limit := filters.Limit
-	if limit <= 0 || limit > 1000 {
-		limit = 100 // Default limit
-	}
-	offset := filters.Offset
-	if offset < 0 {
-		offset = 0
-	}
-
-	// Execute query
 	records, err := r.app.FindRecordsByFilter("tasks", finalFilter, sortOrder, limit, offset, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute filtered task query: %w", err)
 	}
 
 	return r.recordsToTasks(records)
+}
+
+// applyStatusFilters adds status filters to the query
+func (r *pocketbaseTaskRepository) applyStatusFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if len(filters.Status) == 0 {
+		return
+	}
+	statusParts := []string{}
+	for i, status := range filters.Status {
+		paramKey := fmt.Sprintf("status%d", i)
+		statusParts = append(statusParts, fmt.Sprintf("status = {:%s}", paramKey))
+		params[paramKey] = string(status)
+	}
+	*filterParts = append(*filterParts, fmt.Sprintf("(%s)", strings.Join(statusParts, " || ")))
+}
+
+// applyPriorityFilters adds priority filters to the query
+func (r *pocketbaseTaskRepository) applyPriorityFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if len(filters.Priority) == 0 {
+		return
+	}
+	priorityParts := []string{}
+	for i, priority := range filters.Priority {
+		paramKey := fmt.Sprintf("priority%d", i)
+		priorityParts = append(priorityParts, fmt.Sprintf("priority = {:%s}", paramKey))
+		params[paramKey] = string(priority)
+	}
+	*filterParts = append(*filterParts, fmt.Sprintf("(%s)", strings.Join(priorityParts, " || ")))
+}
+
+// applyUserFilters adds assignee and reporter filters to the query
+func (r *pocketbaseTaskRepository) applyUserFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.AssigneeID != nil {
+		if *filters.AssigneeID == "" {
+			*filterParts = append(*filterParts, "assignee = ''")
+		} else {
+			*filterParts = append(*filterParts, "assignee = {:assigneeID}")
+			params["assigneeID"] = *filters.AssigneeID
+		}
+	}
+	if filters.ReporterID != nil {
+		*filterParts = append(*filterParts, "reporter = {:reporterID}")
+		params["reporterID"] = *filters.ReporterID
+	}
+}
+
+// applyTagFilters adds tag filters to the query
+func (r *pocketbaseTaskRepository) applyTagFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if len(filters.Tags) == 0 {
+		return
+	}
+	tagParts := []string{}
+	for i, tag := range filters.Tags {
+		paramKey := fmt.Sprintf("tag%d", i)
+		tagParts = append(tagParts, fmt.Sprintf("tags ~ {:%s}", paramKey))
+		params[paramKey] = tag
+	}
+	*filterParts = append(*filterParts, fmt.Sprintf("(%s)", strings.Join(tagParts, " || ")))
+}
+
+// applyDateFilters adds date filters to the query
+func (r *pocketbaseTaskRepository) applyDateFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.DueBefore != nil {
+		*filterParts = append(*filterParts, "due_date < {:dueBefore}")
+		params["dueBefore"] = filters.DueBefore.Format("2006-01-02 15:04:05")
+	}
+	if filters.DueAfter != nil {
+		*filterParts = append(*filterParts, "due_date > {:dueAfter}")
+		params["dueAfter"] = filters.DueAfter.Format("2006-01-02 15:04:05")
+	}
+}
+
+// applySearchFilters adds search filters to the query
+func (r *pocketbaseTaskRepository) applySearchFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.Search == "" {
+		return
+	}
+	searchTerm := "%" + strings.ReplaceAll(filters.Search, "%", "\\%") + "%"
+	*filterParts = append(*filterParts, "(title ~ {:searchTerm} || description ~ {:searchTerm})")
+	params["searchTerm"] = searchTerm
+}
+
+// applyParentFilters adds parent task filters to the query
+func (r *pocketbaseTaskRepository) applyParentFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.HasParent != nil {
+		if *filters.HasParent {
+			*filterParts = append(*filterParts, "parent_task != ''")
+		} else {
+			*filterParts = append(*filterParts, "parent_task = ''")
+		}
+	}
+	if filters.ParentID != nil {
+		*filterParts = append(*filterParts, "parent_task = {:parentID}")
+		params["parentID"] = *filters.ParentID
+	}
+}
+
+// applyArchivedFilter adds archived filter to the query
+func (r *pocketbaseTaskRepository) applyArchivedFilter(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.Archived != nil {
+		*filterParts = append(*filterParts, "archived = {:archived}")
+		params["archived"] = *filters.Archived
+	}
+}
+
+// normalizeLimitAndOffset normalizes limit and offset values
+func (r *pocketbaseTaskRepository) normalizeLimitAndOffset(limit, offset int) (int, int) {
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return limit, offset
 }
 
 // buildSortOrder constructs the sort order string for PocketBase queries
