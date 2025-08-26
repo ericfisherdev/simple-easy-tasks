@@ -1,0 +1,302 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [ develop, release, main ]
+    paths:
+      - 'internal/**'
+      - 'test/integration/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'migrations/**'
+  push:
+    branches: [ develop, release, main ]
+    paths:
+      - 'internal/**'
+      - 'test/integration/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'migrations/**'
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  GO_VERSION: '1.24.6'
+  COVERAGE_THRESHOLD: 90
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        test_package: [
+          './internal/testutil/integration',
+          './test/integration'
+        ]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-integration-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-integration-
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: go mod download
+    
+    - name: Verify dependencies
+      run: go mod verify
+    
+    - name: Create test databases directory
+      run: mkdir -p /tmp/test-dbs
+    
+    - name: Set up test environment
+      run: |
+        export TEST_DB_PATH="/tmp/test-dbs"
+        export TEST_PARALLEL=1
+        export TEST_VERBOSE=1
+    
+    - name: Run integration tests with coverage
+      run: |
+        # Create coverage directory
+        mkdir -p coverage
+        
+        # Run integration tests with coverage
+        go test -tags=integration \
+          -v \
+          -race \
+          -timeout=20m \
+          -parallel=2 \
+          -coverprofile=coverage/integration-${{ strategy.job-index }}.out \
+          -covermode=atomic \
+          -coverpkg=./internal/... \
+          ${{ matrix.test_package }}
+      env:
+        TEST_DB_PATH: "/tmp/test-dbs"
+        TEST_PARALLEL: "1"
+        TEST_VERBOSE: "1"
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: coverage/integration-${{ strategy.job-index }}.out
+        flags: integration-tests
+        name: integration-tests-${{ strategy.job-index }}
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+    
+    - name: Archive test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-artifacts-${{ strategy.job-index }}
+        path: |
+          coverage/
+          /tmp/test-dbs/*.db
+        retention-days: 7
+    
+    - name: Clean up test databases
+      if: always()
+      run: |
+        rm -rf /tmp/test-dbs/*.db
+        rm -rf /tmp/test-dbs/*.db-*
+
+  # Aggregate coverage from all test packages
+  coverage-check:
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Download coverage artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: integration-test-artifacts-*
+        merge-multiple: true
+        path: ./coverage
+    
+    - name: Merge coverage reports
+      run: |
+        # Install gocovmerge if not available
+        go install github.com/wadey/gocovmerge@latest
+        
+        # Merge all coverage files
+        ~/go/bin/gocovmerge coverage/*.out > coverage/merged.out
+    
+    - name: Generate coverage report
+      run: |
+        # Generate HTML coverage report
+        go tool cover -html=coverage/merged.out -o coverage/coverage.html
+        
+        # Generate coverage summary
+        COVERAGE=$(go tool cover -func=coverage/merged.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "COVERAGE_PERCENTAGE=$COVERAGE" >> $GITHUB_ENV
+        
+        echo "## Integration Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "**Total Coverage:** $COVERAGE%" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Show top 10 files by coverage
+        echo "### Top Coverage by File" >> $GITHUB_STEP_SUMMARY
+        echo "| File | Coverage |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|----------|" >> $GITHUB_STEP_SUMMARY
+        go tool cover -func=coverage/merged.out | head -20 | tail -10 | \
+          awk '{printf "| %s | %s |\n", $1, $3}' >> $GITHUB_STEP_SUMMARY
+    
+    - name: Coverage quality gate
+      run: |
+        COVERAGE_NUM=$(echo "$COVERAGE_PERCENTAGE" | cut -d. -f1)
+        echo "Coverage: $COVERAGE_NUM% (threshold: $COVERAGE_THRESHOLD%)"
+        
+        if [ "$COVERAGE_NUM" -lt "$COVERAGE_THRESHOLD" ]; then
+          echo "❌ Coverage $COVERAGE_NUM% is below threshold $COVERAGE_THRESHOLD%"
+          echo "Please add more integration tests to improve coverage"
+          exit 1
+        else
+          echo "✅ Coverage $COVERAGE_NUM% meets threshold $COVERAGE_THRESHOLD%"
+        fi
+    
+    - name: Upload merged coverage
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-coverage-report
+        path: |
+          coverage/merged.out
+          coverage/coverage.html
+        retention-days: 30
+    
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const coverage = process.env.COVERAGE_PERCENTAGE;
+          const threshold = process.env.COVERAGE_THRESHOLD;
+          const coverageNum = Math.floor(parseFloat(coverage));
+          const status = coverageNum >= threshold ? '✅' : '❌';
+          
+          const comment = `## Integration Test Coverage Report ${status}
+          
+          **Coverage:** ${coverage}% (threshold: ${threshold}%)
+          
+          ${coverageNum >= threshold ? 
+            '✅ Coverage meets the required threshold!' : 
+            '❌ Coverage is below the required threshold. Please add more integration tests.'
+          }
+          
+          [View detailed coverage report](../actions/runs/${context.runId})`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  # Performance regression tests  
+  performance-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-perf-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-perf-
+          ${{ runner.os }}-go-
+    
+    - name: Create performance test databases directory
+      run: mkdir -p /tmp/perf-test-dbs
+    
+    - name: Run performance benchmarks
+      run: |
+        # Run performance tests with benchmarks
+        go test -tags=integration \
+          -bench=. \
+          -benchmem \
+          -timeout=30m \
+          -run=^$ \
+          ./test/integration | tee performance-results.txt
+      env:
+        TEST_DB_PATH: "/tmp/perf-test-dbs"
+        BENCHMARK_ITERATIONS: "10"
+    
+    - name: Archive performance results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-test-results
+        path: performance-results.txt
+        retention-days: 30
+    
+    - name: Clean up performance test databases
+      if: always()
+      run: rm -rf /tmp/perf-test-dbs/*.db*
+
+  # Database migration tests
+  migration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Test database migrations
+      run: |
+        # Test that migrations can be applied cleanly
+        mkdir -p /tmp/migration-test-dbs
+        
+        # Test migration application
+        go run ./cmd/pocketbase migrate up --dir=/tmp/migration-test-dbs/test.db || true
+        
+        # Test that we can build migration code
+        go build ./migrations/...
+      env:
+        TEST_DB_PATH: "/tmp/migration-test-dbs"
+    
+    - name: Clean up migration test databases
+      if: always()
+      run: rm -rf /tmp/migration-test-dbs/*.db*

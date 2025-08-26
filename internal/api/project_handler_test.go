@@ -299,11 +299,16 @@ func setupProjectTestRouter(_ *testing.T) *gin.Engine {
 		user: testUser,
 	}
 
+	// Create mock project service with test data
+	mockProjectService := &MockProjectService{
+		projects: []*domain.Project{testProject},
+	}
+
 	// Create middleware
 	authMiddleware := middleware.NewAuthMiddleware(mockAuthService)
 
-	// Setup routes
-	projectHandler := api.NewProjectHandler(projectRepo)
+	// Setup routes with mock project service
+	projectHandler := api.NewProjectHandler(mockProjectService, projectRepo)
 
 	apiGroup := router.Group("/api")
 	projectHandler.RegisterRoutes(apiGroup, authMiddleware)
@@ -345,6 +350,65 @@ func (m *MockAuthService) ForgotPassword(_ context.Context, _ string) error {
 
 func (m *MockAuthService) ResetPassword(_ context.Context, _, _ string) error {
 	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
+func (m *MockAuthService) InvalidateAllUserTokens(_ context.Context, _ string) error {
+	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
+// MockProjectService is a mock implementation of ProjectService for testing.
+type MockProjectService struct {
+	projects []*domain.Project
+}
+
+func (m *MockProjectService) CreateProject(
+	_ context.Context,
+	_ domain.CreateProjectRequest,
+	_ string,
+) (*domain.Project, error) {
+	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
+func (m *MockProjectService) GetProject(_ context.Context, projectID string, _ string) (*domain.Project, error) {
+	for _, p := range m.projects {
+		if p.ID == projectID {
+			return p, nil
+		}
+	}
+	return nil, domain.NewNotFoundError("PROJECT_NOT_FOUND", "Project not found")
+}
+
+func (m *MockProjectService) GetProjectBySlug(_ context.Context, _ string, _ string) (*domain.Project, error) {
+	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
+func (m *MockProjectService) UpdateProject(
+	_ context.Context,
+	_ string,
+	_ domain.UpdateProjectRequest,
+	_ string,
+) (*domain.Project, error) {
+	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
+func (m *MockProjectService) DeleteProject(_ context.Context, _ string, _ string) error {
+	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
+func (m *MockProjectService) ListUserProjects(_ context.Context, _ string, _, _ int) ([]*domain.Project, error) {
+	return m.projects, nil
+}
+
+func (m *MockProjectService) AddMember(_ context.Context, _ string, _ string, _ string) error {
+	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
+func (m *MockProjectService) RemoveMember(_ context.Context, _ string, _ string, _ string) error {
+	return domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
+}
+
+func (m *MockProjectService) ListMembers(_ context.Context, _ string, _ string) ([]*domain.User, error) {
+	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 
 // Helper function to check if string contains substring

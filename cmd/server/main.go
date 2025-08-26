@@ -15,11 +15,13 @@ import (
 	"simple-easy-tasks/internal/api"
 	"simple-easy-tasks/internal/api/middleware"
 	"simple-easy-tasks/internal/config"
+	"simple-easy-tasks/internal/container"
 
 	// Import migrations to register them with PocketBase
 	_ "simple-easy-tasks/migrations"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 func main() {
@@ -45,12 +47,18 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	// For now, create a simple setup without full DI container
-	// This will be enhanced in later phases
-	// TODO: Implement proper service container initialization
+	// Initialize service container
+	// Note: In a full PocketBase integration, we'd pass the PocketBase app instance here
+	// For now, we'll create a nil app until full PocketBase integration
+	var app core.App // nil for now
+	serviceContainer, err := setupServiceContainer(cfg, app)
+	if err != nil {
+		return fmt.Errorf("failed to setup service container: %w", err)
+	}
 
-	// Setup Gin router
-	router := setupRouter(cfg)
+	// Setup Gin router with services
+	router, rateLimitManager := setupRouter(ctx, cfg, serviceContainer)
+	defer rateLimitManager.Shutdown()
 
 	// Create HTTP server
 	server := &http.Server{
@@ -90,8 +98,23 @@ func run(ctx context.Context) error {
 	return nil
 }
 
+// setupServiceContainer initializes the DI container with all services.
+func setupServiceContainer(cfg *config.AppConfig, app core.App) (container.Container, error) {
+	// Initialize the DI container with real services
+	serviceContainer, err := container.InitializeServices(cfg, app)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize services: %w", err)
+	}
+
+	return serviceContainer, nil
+}
+
 // setupRouter configures the Gin router with all middleware and routes.
-func setupRouter(cfg config.Config) *gin.Engine {
+func setupRouter(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	serviceContainer container.Container,
+) (*gin.Engine, *middleware.RateLimitManager) {
 	// Set Gin mode based on environment
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.DebugMode)
@@ -106,11 +129,28 @@ func setupRouter(cfg config.Config) *gin.Engine {
 	router.Use(middleware.DefaultRecoveryMiddleware())
 	router.Use(middleware.DefaultCORSMiddleware())
 
-	// Rate limiting middleware (100 requests per minute per IP)
-	router.Use(middleware.DefaultRateLimitMiddleware(100))
+	// Rate limiting middleware with configuration-driven settings
+	var rateLimitManager *middleware.RateLimitManager
+	if cfg.GetRateLimitEnabled() {
+		rateLimitMiddleware, manager := middleware.RateLimitMiddleware(ctx, middleware.RateLimitConfig{
+			RequestsPerMinute: cfg.GetRateLimitRequestsPerMinute(),
+			CacheCapacity:     cfg.GetRateLimitCacheCapacity(),
+			UseRedis:          cfg.GetRedisEnabled(),
+			RedisAddr:         cfg.GetRedisAddr(),
+			RedisPassword:     cfg.GetRedisPassword(),
+			RedisDB:           cfg.GetRedisDB(),
+			KeyGenerator: func(c *gin.Context) string {
+				return c.ClientIP()
+			},
+		})
+		router.Use(rateLimitMiddleware)
+		rateLimitManager = manager
+	}
 
-	// TODO: Initialize actual services from DI container
-	// For now, we'll have basic routes without full service implementation
+	// Service container is now initialized and available for use
+	// Future handlers can resolve services from the container
+	// Note: serviceContainer parameter will be used when handlers are updated to use DI
+	_ = serviceContainer
 
 	// Root route
 	router.GET("/", rootHandler)
@@ -118,14 +158,45 @@ func setupRouter(cfg config.Config) *gin.Engine {
 	// Add ping endpoint for simple health checks
 	router.GET("/ping", api.PingHandler)
 
-	// Basic health endpoint (without full health service)
+	// Enhanced health endpoint with service container status
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":      "ok",
 			"timestamp":   fmt.Sprintf("%d", time.Now().Unix()),
 			"environment": cfg.GetEnvironment(),
 			"version":     "1.0.0",
+			"services": gin.H{
+				"container":    "initialized",
+				"architecture": "service-oriented",
+				"di_pattern":   "enabled",
+			},
 		})
+	})
+
+	// Add metrics endpoint for monitoring
+	router.GET("/metrics", func(c *gin.Context) {
+		metrics := gin.H{
+			"timestamp": time.Now().Unix(),
+			"system": gin.H{
+				"environment": cfg.GetEnvironment(),
+				"version":     "1.0.0",
+			},
+		}
+
+		if rateLimitManager != nil {
+			stats := rateLimitManager.Stats()
+			metrics["rate_limiting"] = gin.H{
+				"enabled":       cfg.GetRateLimitEnabled(),
+				"redis_enabled": cfg.GetRedisEnabled(),
+				"cache_stats":   stats,
+			}
+		} else {
+			metrics["rate_limiting"] = gin.H{
+				"enabled": false,
+			}
+		}
+
+		c.JSON(http.StatusOK, metrics)
 	})
 
 	// API base endpoint
@@ -144,7 +215,7 @@ func setupRouter(cfg config.Config) *gin.Engine {
 		})
 	})
 
-	return router
+	return router, rateLimitManager
 }
 
 // rootHandler handles the root path and returns a simple HTML page.

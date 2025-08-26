@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+	"unicode/utf8"
+)
 
 // ProjectStatus represents the status of a project.
 type ProjectStatus string
@@ -118,4 +122,35 @@ type UpdateProjectRequest struct {
 	Icon        *string          `json:"icon,omitempty"`
 	Settings    *ProjectSettings `json:"settings,omitempty"`
 	Status      *ProjectStatus   `json:"status,omitempty"`
+}
+
+// Validate validates the create project request.
+func (r *CreateProjectRequest) Validate() *Error {
+	// Trim whitespace from title and slug before validation
+	r.Title = strings.TrimSpace(r.Title)
+	r.Slug = strings.TrimSpace(r.Slug)
+
+	// Validate title
+	if err := ValidateRequired("title", r.Title, "TITLE_REQUIRED", "Project title is required"); err != nil {
+		return err
+	}
+	if utf8.RuneCountInString(r.Title) > 200 {
+		return NewValidationError("TITLE_TOO_LONG", "Project title must be 200 characters or less", map[string]interface{}{
+			"field":      "title",
+			"max_length": 200,
+		})
+	}
+
+	// Validate slug
+	if err := ValidateRequired("slug", r.Slug, "SLUG_REQUIRED", "Project slug is required"); err != nil {
+		return err
+	}
+	if utf8.RuneCountInString(r.Slug) > 200 {
+		return NewValidationError("SLUG_TOO_LONG", "Project slug must be 200 characters or less", map[string]interface{}{
+			"field":      "slug",
+			"max_length": 200,
+		})
+	}
+
+	return nil
 }

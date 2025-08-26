@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"runtime/debug"
 	"strings"
 
 	"simple-easy-tasks/internal/domain"
@@ -152,25 +151,15 @@ func handleBindingError(c *gin.Context, err error, requestID string) {
 }
 
 // handleGenericError handles generic/unknown errors.
-func handleGenericError(c *gin.Context, err error, requestID string, config ErrorHandlerConfig) {
-	errorResponse := gin.H{
-		"success": false,
-		"error": gin.H{
-			"type":       "INTERNAL_ERROR",
-			"code":       "UNEXPECTED_ERROR",
-			"message":    "An unexpected error occurred",
-			"request_id": requestID,
-		},
-	}
-
-	if config.IncludeStackTrace {
-		if errorMap, ok := errorResponse["error"].(gin.H); ok {
-			errorMap["details"] = err.Error()
-			errorMap["stack_trace"] = string(debug.Stack())
-		}
-	}
-
-	c.JSON(http.StatusInternalServerError, errorResponse)
+func handleGenericError(c *gin.Context, err error, _ string, _ ErrorHandlerConfig) {
+	// Create a proper domain error and use SanitizedErrorResponse
+	genericErr := domain.NewInternalError(
+		"UNEXPECTED_ERROR",
+		"An unexpected error occurred",
+		err,
+	)
+	
+	sanitizedErrorResponse(c, genericErr)
 }
 
 // mapDomainErrorToHTTPStatus maps domain error types to HTTP status codes.

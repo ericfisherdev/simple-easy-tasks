@@ -1,0 +1,34 @@
+{
+  "name": "simple-easy-tasks",
+  "version": "1.0.0",
+  "description": "Simple Easy Tasks - A task management application",
+  "private": true,
+  "scripts": {
+    "commitlint": "commitlint --from HEAD~1 --to HEAD --verbose",
+    "commitlint-ci": "commitlint --from ${{ github.event.pull_request.base.sha || 'HEAD~1' }} --to HEAD --verbose",
+    "prepare": "husky install",
+    "lint-commits": "commitlint --from=origin/develop --to=HEAD",
+    "validate-commit": "commitlint --edit"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^18.6.1",
+    "@commitlint/config-conventional": "^18.6.3",
+    "husky": "^8.0.3"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/simple-easy-tasks.git"
+  },
+  "keywords": [
+    "task-management",
+    "golang",
+    "pocketbase",
+    "rest-api"
+  ],
+  "author": "Simple Easy Tasks Team",
+  "license": "MIT"
+}

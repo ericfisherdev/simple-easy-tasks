@@ -3,6 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
@@ -70,6 +71,7 @@ type Task struct {
 	ParentTaskID   *string         `json:"parent_task_id,omitempty" db:"parent_task"`
 	DueDate        *time.Time      `json:"due_date,omitempty" db:"due_date"`
 	StartDate      *time.Time      `json:"start_date,omitempty" db:"start_date"`
+	ArchivedAt     *time.Time      `json:"archived_at,omitempty" db:"archived_at"`
 	Description    string          `json:"description" db:"description"`
 	Priority       TaskPriority    `json:"priority" db:"priority"`
 	Title          string          `json:"title" db:"title"`
@@ -86,6 +88,7 @@ type Task struct {
 	TimeSpent      float64         `json:"time_spent" db:"time_spent"`
 	Progress       int             `json:"progress" db:"progress"`
 	Position       int             `json:"position" db:"position"`
+	Archived       bool            `json:"archived" db:"archived"`
 }
 
 // NewTask creates a new task with default values
@@ -212,12 +215,55 @@ func (t *Task) CanTransitionTo(newStatus TaskStatus) bool {
 
 // UpdateStatus transitions the task to a new status if allowed
 func (t *Task) UpdateStatus(newStatus TaskStatus) error {
-	if !t.CanTransitionTo(newStatus) {
-		return NewConflictError("invalid_transition",
-			fmt.Sprintf("Cannot transition from %s to %s", t.Status, newStatus))
+	if !newStatus.IsValid() {
+		return NewValidationError("status", "Invalid status provided", map[string]interface{}{
+			"provided_status": string(newStatus),
+			"valid_statuses": []string{
+				string(StatusBacklog), string(StatusTodo), string(StatusDeveloping),
+				string(StatusReview), string(StatusComplete),
+			},
+		})
 	}
+
+	if !t.CanTransitionTo(newStatus) {
+		transitions := map[TaskStatus][]TaskStatus{
+			StatusBacklog:    {StatusTodo, StatusDeveloping},
+			StatusTodo:       {StatusBacklog, StatusDeveloping},
+			StatusDeveloping: {StatusTodo, StatusReview, StatusBacklog},
+			StatusReview:     {StatusDeveloping, StatusComplete, StatusTodo},
+			StatusComplete:   {StatusReview, StatusTodo},
+		}
+
+		allowedStatuses, exists := transitions[t.Status]
+		var allowedStatusStrings []string
+		if exists {
+			for _, status := range allowedStatuses {
+				allowedStatusStrings = append(allowedStatusStrings, string(status))
+			}
+		}
+
+		conflictErr := NewConflictError("invalid_transition",
+			fmt.Sprintf("Cannot transition from %s to %s", t.Status, newStatus))
+		conflictErr.Details = map[string]interface{}{
+			"current_status":      string(t.Status),
+			"requested_status":    string(newStatus),
+			"allowed_transitions": allowedStatusStrings,
+		}
+		return conflictErr
+	}
+
+	previousStatus := t.Status
 	t.Status = newStatus
 	t.UpdatedAt = time.Now().UTC()
+
+	// Log successful transition for audit trail
+	slog.Debug("Task status transition completed",
+		"task_id", t.ID,
+		"from_status", string(previousStatus),
+		"to_status", string(newStatus),
+		"timestamp", t.UpdatedAt,
+	)
+
 	return nil
 }
 
@@ -242,10 +288,50 @@ func (t *Task) UpdateProgress(progress int) error {
 	t.Progress = progress
 	t.UpdatedAt = time.Now().UTC()
 
-	// If progress reaches 100%, attempt status transition as best-effort
+	// If progress reaches 100%, attempt automatic status transition with proper error handling
 	if progress == ProgressFull && t.Status != StatusComplete {
-		// Ignore transition errors to avoid surprising callers after progress update
-		_ = t.UpdateStatus(StatusComplete)
+		if err := t.UpdateStatus(StatusComplete); err != nil {
+			// Log the transition failure but don't fail the progress update
+			// This maintains backward compatibility while providing visibility
+			slog.Warn("Automatic status transition failed after progress completion",
+				"task_id", t.ID,
+				"current_status", string(t.Status),
+				"attempted_status", string(StatusComplete),
+				"error", err.Error(),
+				"progress", progress,
+			)
+
+			// Optionally, we could add the failed transition to task metadata
+			// for later analysis or manual intervention
+			
+			// Parse existing CustomFields or create empty map
+			var existingData map[string]interface{}
+			if len(t.CustomFields) > 0 {
+				// Try to unmarshal existing data
+				if unmarshalErr := json.Unmarshal(t.CustomFields, &existingData); unmarshalErr != nil {
+					// If unmarshal fails, start with empty map
+					existingData = make(map[string]interface{})
+				}
+			} else {
+				existingData = make(map[string]interface{})
+			}
+
+			// Add transition failure metadata to existing data
+			existingData["failed_auto_transition"] = map[string]interface{}{
+				"timestamp":        time.Now().UTC(),
+				"from_status":      string(t.Status),
+				"to_status":        string(StatusComplete),
+				"trigger":          "progress_completion",
+				"error":            err.Error(),
+				"progress_at_time": progress,
+			}
+
+			// Marshal the merged data back to CustomFields
+			if mergedData, err := json.Marshal(existingData); err == nil {
+				t.CustomFields = mergedData
+			}
+			// If marshal fails, preserve the original CustomFields
+		}
 	}
 	return nil
 }
@@ -285,6 +371,26 @@ func (t *Task) IsOverdue() bool {
 		return false
 	}
 	return t.DueDate.Before(time.Now()) && t.Status != StatusComplete
+}
+
+// Archive archives the task by setting archived flag and timestamp
+func (t *Task) Archive() {
+	now := time.Now().UTC()
+	t.Archived = true
+	t.ArchivedAt = &now
+	t.UpdatedAt = now
+}
+
+// Unarchive unarchives the task by clearing archived flag and timestamp
+func (t *Task) Unarchive() {
+	t.Archived = false
+	t.ArchivedAt = nil
+	t.UpdatedAt = time.Now().UTC()
+}
+
+// IsArchived returns whether the task is archived
+func (t *Task) IsArchived() bool {
+	return t.Archived
 }
 
 // GetColumnPositionMap retrieves the column positions as a map
@@ -339,4 +445,41 @@ func (t *Task) SetCustomFields(fields map[string]interface{}) error {
 	t.CustomFields = data
 	t.UpdatedAt = time.Now().UTC()
 	return nil
+}
+
+// CreateTaskRequest represents the data needed to create a new task.
+type CreateTaskRequest struct {
+	DueDate     *time.Time             `json:"due_date,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Title       string                 `json:"title" binding:"required,min=1,max=200"`
+	Description string                 `json:"description,omitempty"`
+	ProjectID   string                 `json:"project_id" binding:"required"`
+	AssigneeID  string                 `json:"assignee_id,omitempty"`
+	Priority    TaskPriority           `json:"priority,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
+}
+
+// Validate validates the create task request.
+func (r *CreateTaskRequest) Validate() error {
+	if err := ValidateRequired("title", r.Title, "INVALID_TITLE", "Task title is required"); err != nil {
+		return err
+	}
+
+	if err := ValidateRequired("project_id", r.ProjectID, "INVALID_PROJECT_ID", "Project ID is required"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateTaskRequest represents the data that can be updated for a task.
+type UpdateTaskRequest struct {
+	Title       *string                `json:"title,omitempty"`
+	Description *string                `json:"description,omitempty"`
+	AssigneeID  *string                `json:"assignee_id,omitempty"`
+	Status      *TaskStatus            `json:"status,omitempty"`
+	Priority    *TaskPriority          `json:"priority,omitempty"`
+	DueDate     *time.Time             `json:"due_date,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
 }

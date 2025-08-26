@@ -7,6 +7,8 @@ import (
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
+	
+	"simple-easy-tasks/internal/domain"
 )
 
 // RecoveryConfig holds configuration for the recovery middleware.
@@ -37,26 +39,14 @@ func RecoveryMiddleware(config RecoveryConfig) gin.HandlerFunc {
 			fmt.Printf("[PANIC RECOVERY] Request ID: %s\nPanic: %v\nStack:\n%s\n", requestID, recovered, stack)
 		}
 
-		// Prepare error response
-		errorResponse := gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":       "INTERNAL_ERROR",
-				"code":       "PANIC_RECOVERED",
-				"message":    "An unexpected error occurred",
-				"request_id": requestID,
-			},
-		}
-
-		// Include stack trace in development
-		if config.IncludeStackInResponse {
-			if errorMap, ok := errorResponse["error"].(map[string]interface{}); ok {
-				errorMap["stack"] = string(stack)
-				errorMap["panic"] = fmt.Sprintf("%v", recovered)
-			}
-		}
-
-		c.JSON(http.StatusInternalServerError, errorResponse)
+		// Create a panic error and use SanitizedErrorResponse for proper error handling
+		panicErr := domain.NewInternalError(
+			"PANIC_RECOVERED", 
+			fmt.Sprintf("Panic recovered: %v", recovered), 
+			fmt.Errorf("panic: %v", recovered),
+		)
+		
+		sanitizedErrorResponse(c, panicErr)
 	})
 }
 

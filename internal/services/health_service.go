@@ -57,8 +57,23 @@ type HealthService struct {
 	checkers  []HealthChecker
 }
 
+// HealthServiceInterface defines the contract for health services.
+type HealthServiceInterface interface {
+	Check(ctx context.Context) HealthResponse
+	Liveness() HealthResponse
+	Readiness(ctx context.Context) HealthResponse
+	RegisterChecker(checker HealthChecker)
+}
+
 // NewHealthService creates a new health service.
-func NewHealthService(version, env string) *HealthService {
+func NewHealthService(_ interface{}) HealthServiceInterface {
+	// Extract version and environment from config
+	version := "1.0.0"
+	env := "development"
+
+	// In a real implementation, we'd extract these from the config interface
+	// For now, use defaults
+
 	return &HealthService{
 		checkers:  make([]HealthChecker, 0),
 		startTime: time.Now(),

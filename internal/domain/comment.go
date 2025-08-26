@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+// CommentType represents the type of comment.
+type CommentType string
+
+const (
+	// CommentTypeRegular is a regular comment.
+	CommentTypeRegular CommentType = "regular"
+	// CommentTypeSystemMessage is a system-generated message.
+	CommentTypeSystemMessage CommentType = "system"
+	// CommentTypeStatusUpdate is a status update comment.
+	CommentTypeStatusUpdate CommentType = "status_update"
+	// CommentTypeAssignmentChange is an assignment change comment.
+	CommentTypeAssignmentChange CommentType = "assignment_change"
+)
+
 // Comment represents a user comment on a task
 type Comment struct {
 	// 8-byte aligned fields first
@@ -13,11 +27,12 @@ type Comment struct {
 	UpdatedAt       time.Time `json:"updated_at" db:"updated"`
 
 	// String and slice fields
-	ID          string   `json:"id" db:"id"`
-	Content     string   `json:"content" db:"content"`
-	TaskID      string   `json:"task_id" db:"task"`
-	AuthorID    string   `json:"author_id" db:"author"`
-	Attachments []string `json:"attachments" db:"-"`
+	ID          string      `json:"id" db:"id"`
+	Content     string      `json:"content" db:"content"`
+	TaskID      string      `json:"task_id" db:"task"`
+	AuthorID    string      `json:"author_id" db:"author"`
+	Type        CommentType `json:"type" db:"type"`
+	Attachments []string    `json:"attachments" db:"-"`
 
 	// 1-byte aligned fields
 	IsEdited bool `json:"is_edited" db:"is_edited"`
@@ -30,6 +45,7 @@ func NewComment(content, taskID, authorID string) *Comment {
 		Content:   content,
 		TaskID:    taskID,
 		AuthorID:  authorID,
+		Type:      CommentTypeRegular,
 		IsEdited:  false,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -124,4 +140,32 @@ func (c *Comment) RemoveAttachment(attachmentID string) error {
 // IsReply checks if this comment is a reply to another comment
 func (c *Comment) IsReply() bool {
 	return c.ParentCommentID != nil
+}
+
+// CreateCommentRequest represents the data needed to create a new comment.
+type CreateCommentRequest struct {
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	TaskID   string                 `json:"task_id" binding:"required"`
+	ParentID string                 `json:"parent_id,omitempty"`
+	Content  string                 `json:"content" binding:"required,min=1"`
+	Type     CommentType            `json:"type,omitempty"`
+}
+
+// Validate validates the create comment request.
+func (r *CreateCommentRequest) Validate() error {
+	if err := ValidateRequired("task_id", r.TaskID, "INVALID_TASK_ID", "Task ID is required"); err != nil {
+		return err
+	}
+
+	if err := ValidateRequired("content", r.Content, "INVALID_CONTENT", "Comment content is required"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateCommentRequest represents the data that can be updated for a comment.
+type UpdateCommentRequest struct {
+	Content  *string                `json:"content,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }

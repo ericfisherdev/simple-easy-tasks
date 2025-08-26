@@ -42,15 +42,11 @@ func (h *AuthHandler) RegisterRoutes(router *gin.RouterGroup, authMiddleware *mi
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req domain.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "VALIDATION_ERROR",
-				"code":    "INVALID_REQUEST",
-				"message": "Invalid request format",
-				"details": err.Error(),
-			},
+		// Create a sanitized validation error instead of exposing raw binding errors
+		validationErr := domain.NewValidationError("INVALID_REQUEST", "Invalid request format", map[string]interface{}{
+			"field": "request_body",
 		})
+		SanitizedErrorResponse(c, validationErr)
 		return
 	}
 
@@ -78,15 +74,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req domain.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "VALIDATION_ERROR",
-				"code":    "INVALID_REQUEST",
-				"message": "Invalid request format",
-				"details": err.Error(),
-			},
+		// Create a sanitized validation error instead of exposing raw binding errors
+		validationErr := domain.NewValidationError("INVALID_REQUEST", "Invalid request format", map[string]interface{}{
+			"field": "request_body",
 		})
+		SanitizedErrorResponse(c, validationErr)
 		return
 	}
 
@@ -117,14 +109,14 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		if cookie, err := c.Cookie("refresh_token"); err == nil {
 			reqData.RefreshToken = cookie
 		} else {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"error": map[string]interface{}{
-					"type":    "VALIDATION_ERROR",
-					"code":    "MISSING_REFRESH_TOKEN",
-					"message": "Refresh token is required",
+			validationErr := domain.NewValidationError(
+				"MISSING_REFRESH_TOKEN",
+				"Refresh token is required",
+				map[string]interface{}{
+					"field": "refresh_token",
 				},
-			})
+			)
+			SanitizedErrorResponse(c, validationErr)
 			return
 		}
 	}
@@ -153,14 +145,8 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 func (h *AuthHandler) Logout(c *gin.Context) {
 	user, exists := middleware.GetUserFromContext(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "AUTHENTICATION_ERROR",
-				"code":    "USER_NOT_FOUND",
-				"message": "User not found in context",
-			},
-		})
+		authErr := domain.NewAuthenticationError("USER_NOT_FOUND", "User not found in context")
+		SanitizedErrorResponse(c, authErr)
 		return
 	}
 
@@ -183,14 +169,8 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 func (h *AuthHandler) GetProfile(c *gin.Context) {
 	user, exists := middleware.GetUserFromContext(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "AUTHENTICATION_ERROR",
-				"code":    "USER_NOT_FOUND",
-				"message": "User not found in context",
-			},
-		})
+		authErr := domain.NewAuthenticationError("USER_NOT_FOUND", "User not found in context")
+		SanitizedErrorResponse(c, authErr)
 		return
 	}
 
@@ -209,15 +189,11 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "VALIDATION_ERROR",
-				"code":    "INVALID_REQUEST",
-				"message": "Invalid request format",
-				"details": err.Error(),
-			},
+		// Create a sanitized validation error instead of exposing raw binding errors
+		validationErr := domain.NewValidationError("INVALID_REQUEST", "Invalid request format", map[string]interface{}{
+			"field": "request_body",
 		})
+		SanitizedErrorResponse(c, validationErr)
 		return
 	}
 
@@ -242,15 +218,11 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "VALIDATION_ERROR",
-				"code":    "INVALID_REQUEST",
-				"message": "Invalid request format",
-				"details": err.Error(),
-			},
+		// Create a sanitized validation error instead of exposing raw binding errors
+		validationErr := domain.NewValidationError("INVALID_REQUEST", "Invalid request format", map[string]interface{}{
+			"field": "request_body",
 		})
+		SanitizedErrorResponse(c, validationErr)
 		return
 	}
 

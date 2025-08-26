@@ -1,56 +1,54 @@
 // Package api provides shared utilities for API handlers.
+//
+// Error Handling:
+// All handlers should use SanitizedErrorResponse for consistent error handling,
+// security sanitization, and structured logging. This prevents internal message
+// leakage and ensures proper error tracking across the application.
+//
+// Usage:
+//   api.SanitizedErrorResponse(c, err)
+//
+// Avoid direct c.JSON calls with error payloads - use SanitizedErrorResponse instead.
 package api
 
 //nolint:gofumpt
 import (
+	"log/slog"
 	"net/http"
-
-	"simple-easy-tasks/internal/domain"
+	"os"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
-// ErrorResponse handles domain errors consistently across all handlers.
+var (
+	defaultSanitizer *ErrorSanitizer
+	sanitizerOnce    sync.Once
+)
+
+// getDefaultSanitizer creates a singleton error sanitizer with structured logging
+func getDefaultSanitizer() *ErrorSanitizer {
+	sanitizerOnce.Do(func() {
+		// Create structured logger for error handling
+		logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelError,
+		}))
+		defaultSanitizer = NewErrorSanitizer(logger)
+	})
+	return defaultSanitizer
+}
+
+// ErrorResponse handles domain errors with improved security and logging.
+// Deprecated: Use SanitizedErrorResponse for better security.
+// This function is kept for backward compatibility but should be replaced.
 func ErrorResponse(c *gin.Context, err error) {
-	if domainErr, ok := err.(*domain.Error); ok {
-		statusCode := http.StatusInternalServerError
+	// Use the new sanitized error response for better security
+	getDefaultSanitizer().SanitizedErrorResponse(c, err)
+}
 
-		switch domainErr.Type {
-		case domain.ValidationError:
-			statusCode = http.StatusBadRequest
-		case domain.NotFoundError:
-			statusCode = http.StatusNotFound
-		case domain.ConflictError:
-			statusCode = http.StatusConflict
-		case domain.AuthenticationError:
-			statusCode = http.StatusUnauthorized
-		case domain.AuthorizationError:
-			statusCode = http.StatusForbidden
-		case domain.InternalError:
-			statusCode = http.StatusInternalServerError
-		case domain.ExternalServiceError:
-			statusCode = http.StatusBadGateway
-		}
-
-		c.JSON(statusCode, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    domainErr.Type,
-				"code":    domainErr.Code,
-				"message": domainErr.Message,
-				"details": domainErr.Details,
-			},
-		})
-	} else {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error": map[string]interface{}{
-				"type":    "INTERNAL_ERROR",
-				"code":    "UNKNOWN_ERROR",
-				"message": "An unexpected error occurred",
-			},
-		})
-	}
+// SanitizedErrorResponse handles errors with security-focused sanitization and structured logging
+func SanitizedErrorResponse(c *gin.Context, err error) {
+	getDefaultSanitizer().SanitizedErrorResponse(c, err)
 }
 
 // SuccessResponse returns a standardized success response.
