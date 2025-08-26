@@ -1,0 +1,204 @@
+name: Commit Message Lint
+
+on:
+  pull_request:
+    branches: [ develop, release, main ]
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [ develop, release, main ]
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        # Fetch full history for proper commit range detection
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Lint commit messages (PR)
+      if: github.event_name == 'pull_request'
+      run: |
+        # Get the base and head SHA for PR
+        BASE_SHA=${{ github.event.pull_request.base.sha }}
+        HEAD_SHA=${{ github.event.pull_request.head.sha }}
+        
+        echo "Linting commits from $BASE_SHA to $HEAD_SHA"
+        
+        # Lint all commits in the PR
+        npx commitlint --from $BASE_SHA --to $HEAD_SHA --verbose
+
+    - name: Lint commit messages (Push)
+      if: github.event_name == 'push'
+      run: |
+        # For push events, check the last commit
+        echo "Linting last commit: ${{ github.sha }}"
+        npx commitlint --from HEAD~1 --to HEAD --verbose
+
+    - name: Validate commit message format
+      if: always()
+      run: |
+        echo "ℹ️ Commit Message Guidelines:"
+        echo ""
+        echo "📋 Format: <type>[optional scope]: <description>"
+        echo ""
+        echo "🏷️ Types:"
+        echo "  • feat:     ✨ A new feature"
+        echo "  • fix:      🐛 A bug fix" 
+        echo "  • docs:     📚 Documentation only changes"
+        echo "  • style:    💄 Code style changes (formatting, etc)"
+        echo "  • refactor: ♻️  Code change that neither fixes a bug nor adds a feature"
+        echo "  • perf:     ⚡ Performance improvements"
+        echo "  • test:     🧪 Adding missing tests or correcting existing tests"
+        echo "  • build:    📦 Changes affecting build system or dependencies"
+        echo "  • ci:       👷 Changes to CI configuration files and scripts"
+        echo "  • chore:    🔧 Other changes that don't modify src or test files"
+        echo "  • revert:   ⏪ Reverts a previous commit"
+        echo ""
+        echo "🔍 Scopes (optional):"
+        echo "  • api, handlers, middleware, auth, validation"
+        echo "  • db, repository, migrations, collections"
+        echo "  • domain, services, models"
+        echo "  • config, container, logging, monitoring"
+        echo "  • tests, integration, unit, e2e"
+        echo "  • ci, docker, deployment, scripts"
+        echo "  • docs, readme, changelog"
+        echo "  • tasks, projects, users, comments"
+        echo ""
+        echo "✅ Examples:"
+        echo "  • feat(api): add user authentication endpoint"
+        echo "  • fix(db): resolve connection pool exhaustion"
+        echo "  • docs: update API documentation"
+        echo "  • test(integration): add user repository tests"
+        echo "  • ci: add commitlint workflow"
+
+  # Validate PR title follows conventional commits (optional)
+  validate-pr-title:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Validate PR title
+      run: |
+        PR_TITLE="${{ github.event.pull_request.title }}"
+        echo "Validating PR title: $PR_TITLE"
+        
+        # Use commitlint to validate PR title
+        echo "$PR_TITLE" | npx commitlint --verbose
+
+    - name: Comment on PR if title is invalid
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const comment = `## ❌ PR Title Validation Failed
+          
+          Your PR title does not follow the Conventional Commits format.
+          
+          **Current title:** \`${{ github.event.pull_request.title }}\`
+          
+          **Expected format:** \`<type>[optional scope]: <description>\`
+          
+          **Examples:**
+          - \`feat(api): add user authentication endpoint\`
+          - \`fix(db): resolve connection pool exhaustion\`
+          - \`docs: update API documentation\`
+          - \`test(integration): add user repository tests\`
+          
+          Please update your PR title to follow this format.
+          
+          📖 [Learn more about Conventional Commits](https://conventionalcommits.org/)`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  # Security check for commit content
+  security-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check for sensitive information in commits
+      run: |
+        echo "🔍 Scanning commits for sensitive information..."
+        
+        # Define patterns to search for
+        SENSITIVE_PATTERNS=(
+          "password.*="
+          "secret.*="
+          "token.*="
+          "key.*="
+          "api[_-]?key"
+          "access[_-]?token"
+          "auth[_-]?token"
+          "private[_-]?key"
+          "-----BEGIN.*PRIVATE KEY-----"
+          "-----BEGIN.*RSA PRIVATE KEY-----"
+          "ssh-rsa"
+          "ssh-ed25519"
+        )
+        
+        # Check commit messages and diffs
+        RANGE="HEAD~10..HEAD"
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+        fi
+        
+        echo "Checking commit range: $RANGE"
+        
+        VIOLATIONS=0
+        for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+          if git log --all --grep="$pattern" --perl-regexp --regexp-ignore-case $RANGE; then
+            echo "⚠️  Found potential sensitive data in commit message: $pattern"
+            VIOLATIONS=$((VIOLATIONS + 1))
+          fi
+          
+          if git diff $RANGE | grep -iE "$pattern"; then
+            echo "⚠️  Found potential sensitive data in commit diff: $pattern"
+            VIOLATIONS=$((VIOLATIONS + 1))
+          fi
+        done
+        
+        if [ $VIOLATIONS -gt 0 ]; then
+          echo ""
+          echo "❌ Found $VIOLATIONS potential security violations!"
+          echo "Please review your commits and remove any sensitive information."
+          echo "Consider using environment variables or secure secret management."
+          exit 1
+        else
+          echo "✅ No sensitive information detected in commits."
+        fi

@@ -5,23 +5,30 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/pocketbase/dbx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"simple-easy-tasks/internal/config"
+	"simple-easy-tasks/internal/container"
 	"simple-easy-tasks/internal/domain"
 	"simple-easy-tasks/internal/repository"
+	"simple-easy-tasks/internal/services"
 )
 
 // DatabaseTestSuite provides comprehensive testing infrastructure for database integration tests
 type DatabaseTestSuite struct {
-	DB      *TestDatabase
-	Factory *TestDataFactory
-	Repos   *RepositorySet
-	Assert  *AssertDatabaseState
-	ctx     context.Context
+	DB        *TestDatabase
+	Factory   *TestDataFactory
+	Repos     *RepositorySet
+	Services  *ServiceSet
+	Container container.Container
+	Assert    *AssertDatabaseState
+	ctx       context.Context
+	UseDI     bool
 }
 
 // RepositorySet holds all repository instances for testing
@@ -32,20 +39,140 @@ type RepositorySet struct {
 	Comments repository.CommentRepository
 }
 
+// ServiceSet holds all service instances for testing
+type ServiceSet struct {
+	Auth    services.AuthService
+	User    services.UserService
+	Project services.ProjectService
+	Task    services.TaskService
+	Comment services.CommentService
+	Health  services.HealthServiceInterface
+}
+
+// TestSuiteOptions configures test suite behavior
+type TestSuiteOptions struct {
+	// UseDependencyInjection enables DI container and service layer testing
+	UseDependencyInjection bool
+}
+
 // SetupDatabaseTest creates an isolated database test environment
+// Maintains backward compatibility with existing tests
 func SetupDatabaseTest(t *testing.T) *DatabaseTestSuite {
+	return SetupDatabaseTestWithOptions(t, nil)
+}
+
+// SetupDatabaseTestWithOptions creates an isolated database test environment with configuration options
+func SetupDatabaseTestWithOptions(t *testing.T, options *TestSuiteOptions) *DatabaseTestSuite {
+	if options == nil {
+		options = &TestSuiteOptions{UseDependencyInjection: false}
+	}
 	// Create test database
 	testDB := NewTestDatabase(t)
 
 	// Create data factory
 	factory := NewTestDataFactory(testDB)
 
-	// Initialize repositories with the test database
-	repos := &RepositorySet{
-		Users:    repository.NewPocketBaseUserRepository(testDB.App()),
-		Projects: repository.NewPocketBaseProjectRepository(testDB.App()),
-		Tasks:    repository.NewPocketBaseTaskRepository(testDB.App()),
-		Comments: repository.NewPocketBaseCommentRepository(testDB.App()),
+	var repos *RepositorySet
+	var serviceSet *ServiceSet
+	var diContainer container.Container
+
+	if options.UseDependencyInjection {
+		// Setup DI container and services
+		diContainer = container.NewContainer()
+		cfg := config.NewConfig()
+
+		// Register all services with the DI container
+		err := container.RegisterServices(diContainer, cfg, testDB.App())
+		if err != nil {
+			t.Fatalf("Failed to register services with DI container: %v", err)
+		}
+
+		// Resolve services from container
+		serviceSet = &ServiceSet{}
+
+		// Auth Service
+		if authService, err := container.ResolveAuthService(diContainer); err != nil {
+			t.Fatalf("Failed to resolve auth service: %v", err)
+		} else {
+			serviceSet.Auth = authService
+		}
+
+		// User Service
+		if userService, err := container.ResolveUserService(diContainer); err != nil {
+			t.Fatalf("Failed to resolve user service: %v", err)
+		} else {
+			serviceSet.User = userService
+		}
+
+		// Project Service
+		if projectService, err := container.ResolveProjectService(diContainer); err != nil {
+			t.Fatalf("Failed to resolve project service: %v", err)
+		} else {
+			serviceSet.Project = projectService
+		}
+
+		// Task Service
+		if taskService, err := container.ResolveTaskService(diContainer); err != nil {
+			t.Fatalf("Failed to resolve task service: %v", err)
+		} else {
+			serviceSet.Task = taskService
+		}
+
+		// Comment Service
+		if commentService, err := container.ResolveCommentService(diContainer); err != nil {
+			t.Fatalf("Failed to resolve comment service: %v", err)
+		} else {
+			serviceSet.Comment = commentService
+		}
+
+		// Health Service
+		if healthService, err := container.ResolveHealthService(diContainer); err != nil {
+			t.Fatalf("Failed to resolve health service: %v", err)
+		} else {
+			serviceSet.Health = healthService
+		}
+
+		// Also resolve repositories from container for backward compatibility
+		repos = &RepositorySet{}
+		if userRepo, err := diContainer.Resolve(container.UserRepositoryService); err != nil {
+			t.Fatalf("Failed to resolve user repository: %v", err)
+		} else if typedRepo, ok := userRepo.(repository.UserRepository); !ok {
+			t.Fatalf("Failed to cast user repository")
+		} else {
+			repos.Users = typedRepo
+		}
+
+		if projectRepo, err := diContainer.Resolve(container.ProjectRepositoryService); err != nil {
+			t.Fatalf("Failed to resolve project repository: %v", err)
+		} else if typedRepo, ok := projectRepo.(repository.ProjectRepository); !ok {
+			t.Fatalf("Failed to cast project repository")
+		} else {
+			repos.Projects = typedRepo
+		}
+
+		if taskRepo, err := diContainer.Resolve(container.TaskRepositoryService); err != nil {
+			t.Fatalf("Failed to resolve task repository: %v", err)
+		} else if typedRepo, ok := taskRepo.(repository.TaskRepository); !ok {
+			t.Fatalf("Failed to cast task repository")
+		} else {
+			repos.Tasks = typedRepo
+		}
+
+		if commentRepo, err := diContainer.Resolve(container.CommentRepositoryService); err != nil {
+			t.Fatalf("Failed to resolve comment repository: %v", err)
+		} else if typedRepo, ok := commentRepo.(repository.CommentRepository); !ok {
+			t.Fatalf("Failed to cast comment repository")
+		} else {
+			repos.Comments = typedRepo
+		}
+	} else {
+		// Legacy mode: Initialize repositories directly
+		repos = &RepositorySet{
+			Users:    repository.NewPocketBaseUserRepository(testDB.App()),
+			Projects: repository.NewPocketBaseProjectRepository(testDB.App()),
+			Tasks:    repository.NewPocketBaseTaskRepository(testDB.App()),
+			Comments: repository.NewPocketBaseCommentRepository(testDB.App()),
+		}
 	}
 
 	// Create assertion helper
@@ -56,11 +183,14 @@ func SetupDatabaseTest(t *testing.T) *DatabaseTestSuite {
 
 	// Create test suite
 	suite := &DatabaseTestSuite{
-		DB:      testDB,
-		Factory: factory,
-		Repos:   repos,
-		Assert:  assertHelper,
-		ctx:     context.Background(),
+		DB:        testDB,
+		Factory:   factory,
+		Repos:     repos,
+		Services:  serviceSet,
+		Container: diContainer,
+		Assert:    assertHelper,
+		ctx:       context.Background(),
+		UseDI:     options.UseDependencyInjection,
 	}
 
 	// Register cleanup
@@ -82,6 +212,48 @@ func (s *DatabaseTestSuite) Cleanup() {
 // Reset clears all test data while preserving schema
 func (s *DatabaseTestSuite) Reset() error {
 	return s.DB.Reset()
+}
+
+// HasServices returns true if this suite is configured with DI services
+func (s *DatabaseTestSuite) HasServices() bool {
+	return s.UseDI && s.Services != nil
+}
+
+// RequireServices ensures this suite has services configured, fails the test if not
+func (s *DatabaseTestSuite) RequireServices(t *testing.T) {
+	if !s.HasServices() {
+		t.Fatal("Test requires DI services but suite was not configured with UseDependencyInjection=true")
+	}
+}
+
+// GetTaskService returns the task service, ensuring it's available
+func (s *DatabaseTestSuite) GetTaskService(t *testing.T) services.TaskService {
+	s.RequireServices(t)
+	return s.Services.Task
+}
+
+// GetProjectService returns the project service, ensuring it's available
+func (s *DatabaseTestSuite) GetProjectService(t *testing.T) services.ProjectService {
+	s.RequireServices(t)
+	return s.Services.Project
+}
+
+// GetUserService returns the user service, ensuring it's available
+func (s *DatabaseTestSuite) GetUserService(t *testing.T) services.UserService {
+	s.RequireServices(t)
+	return s.Services.User
+}
+
+// GetCommentService returns the comment service, ensuring it's available
+func (s *DatabaseTestSuite) GetCommentService(t *testing.T) services.CommentService {
+	s.RequireServices(t)
+	return s.Services.Comment
+}
+
+// GetAuthService returns the auth service, ensuring it's available
+func (s *DatabaseTestSuite) GetAuthService(t *testing.T) services.AuthService {
+	s.RequireServices(t)
+	return s.Services.Auth
 }
 
 // AssertDatabaseState provides database-specific assertions
@@ -227,6 +399,35 @@ func (a *AssertDatabaseState) ProjectHasOwner(projectID, ownerID string) {
 
 	record, err := a.db.App().FindRecordById(collection, projectID, nil)
 	require.NoError(a.t, err, "Failed to find project: %s", projectID)
+
+	// Debug: print all field values in the retrieved record
+	fmt.Printf("DEBUG: Retrieved project record %s:\n", projectID)
+	fmt.Printf("  Title: '%s'\n", record.GetString("title"))
+	fmt.Printf("  Slug: '%s'\n", record.GetString("slug"))
+	fmt.Printf("  Owner: '%s'\n", record.GetString("owner"))
+	fmt.Printf("  Status: '%s'\n", record.GetString("status"))
+	fmt.Printf("  Description: '%s'\n", record.GetString("description"))
+	fmt.Printf("  Color: '%s'\n", record.GetString("color"))
+	fmt.Printf("  Icon: '%s'\n", record.GetString("icon"))
+
+	// Debug: Check what columns actually exist in the projects table
+	// First, let's see what columns are in the table
+	rows, err := a.db.App().DB().NewQuery("PRAGMA table_info(projects)").Rows()
+	if err != nil {
+		fmt.Printf("DEBUG: Failed to get table info: %v\n", err)
+	} else {
+		fmt.Printf("DEBUG: Projects table columns:\n")
+		defer rows.Close()
+		for rows.Next() {
+			var cid int
+			var name, dataType string
+			var notNull, pk int
+			var defaultValue interface{}
+			if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err == nil {
+				fmt.Printf("  %d: %s (%s)\n", cid, name, dataType)
+			}
+		}
+	}
 
 	actualOwnerID := record.GetString("owner")
 	assert.Equal(a.t, ownerID, actualOwnerID, "Owner ID should match for project: %s", projectID)
@@ -406,4 +607,17 @@ func isRepositoryStub(repo interface{}) bool {
 		return err != nil && strings.Contains(err.Error(), "NOT_IMPLEMENTED")
 	}
 	return false
+}
+
+// SetupConcurrencyTestWithServices creates a concurrency test suite with DI services
+// This is the recommended setup for new concurrency tests
+func SetupConcurrencyTestWithServices(t *testing.T) *DatabaseTestSuite {
+	return SetupDatabaseTestWithOptions(t, &TestSuiteOptions{
+		UseDependencyInjection: true,
+	})
+}
+
+// SetupServiceTest creates a test suite specifically configured for service-layer testing
+func SetupServiceTest(t *testing.T) *DatabaseTestSuite {
+	return SetupConcurrencyTestWithServices(t)
 }

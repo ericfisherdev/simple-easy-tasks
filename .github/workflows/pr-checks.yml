@@ -66,11 +66,18 @@ jobs:
     - name: Build project
       run: go build ./...
     
-    - name: Run tests (if any exist)
+    - name: Run unit tests
       run: |
-        if [ -n "$(find . -name '*_test.go' -not -path './vendor/*')" ]; then
-          echo "Running tests..."
-          go test -v ./...
+        if [ -n "$(find . -name '*_test.go' -not -path './vendor/*' -not -path './test/integration/*' -not -path './internal/testutil/integration/*')" ]; then
+          echo "Running unit tests (excluding integration tests)..."
+          go test -v $(go list ./... | grep -v integration)
         else
-          echo "No test files found, skipping test execution"
+          echo "No unit test files found, skipping test execution"
         fi
+    
+    - name: Build integration tests to verify they compile
+      run: |
+        echo "Verifying integration tests compile..."
+        go test -tags=integration -c ./internal/testutil/integration
+        go test -tags=integration -c ./test/integration
+        rm -f integration.test integration*.test

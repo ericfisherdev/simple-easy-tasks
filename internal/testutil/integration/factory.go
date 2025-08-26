@@ -405,3 +405,61 @@ func (f *TestDataFactory) CreateCommentThread(task *domain.Task, author *domain.
 
 	return parentComment, replies
 }
+
+// TagOverride allows customization of tag creation
+type TagOverride func(*domain.Tag)
+
+// WithTagName sets a custom name
+func WithTagName(name string) TagOverride {
+	return func(t *domain.Tag) {
+		t.Name = name
+	}
+}
+
+// WithTagColor sets a custom color
+func WithTagColor(color string) TagOverride {
+	return func(t *domain.Tag) {
+		t.Color = color
+	}
+}
+
+// WithTagUsageCount sets a custom usage count
+func WithTagUsageCount(count int) TagOverride {
+	return func(t *domain.Tag) {
+		t.UsageCount = count
+	}
+}
+
+// WithTagID sets a custom ID
+func WithTagID(id string) TagOverride {
+	return func(t *domain.Tag) {
+		t.ID = id
+	}
+}
+
+// CreateTag creates a test tag with the given project and optional overrides
+func (f *TestDataFactory) CreateTag(project *domain.Project, overrides ...TagOverride) *domain.Tag {
+	id := f.nextID()
+	now := time.Now().UTC()
+
+	// Default tag colors for variety
+	colors := []string{"#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#F97316"}
+	defaultColor := colors[int(id)%len(colors)]
+
+	tag := &domain.Tag{
+		ID:         f.nextRecordID(),
+		Name:       fmt.Sprintf("tag-%d", id),
+		Color:      defaultColor,
+		ProjectID:  project.ID,
+		UsageCount: 0,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+
+	// Apply overrides
+	for _, override := range overrides {
+		override(tag)
+	}
+
+	return tag
+}

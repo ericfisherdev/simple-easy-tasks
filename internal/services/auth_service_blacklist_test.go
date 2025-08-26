@@ -11,9 +11,10 @@ import (
 
 // Test config implementation
 type testConfig struct {
-	jwtSecret         string
-	jwtExpiration     time.Duration
-	refreshExpiration time.Duration
+	jwtSecret           string
+	passwordResetSecret string
+	jwtExpiration       time.Duration
+	refreshExpiration   time.Duration
 }
 
 func (t *testConfig) GetJWTSecret() string {
@@ -29,6 +30,13 @@ func (t *testConfig) GetRefreshTokenExpiration() time.Duration {
 		return time.Hour * 24 * 7 // 7 days
 	}
 	return t.refreshExpiration
+}
+
+func (t *testConfig) GetPasswordResetSecret() string {
+	if t.passwordResetSecret == "" {
+		return "test-password-reset-secret-32-characters-long"
+	}
+	return t.passwordResetSecret
 }
 
 // Mock implementation of TokenBlacklistRepository for testing

@@ -13,6 +13,9 @@ import (
 )
 
 func TestRateLimitManager_MemoryUsage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping memory-heavy test in short mode")
+	}
 	gin.SetMode(gin.TestMode)
 
 	ctx, cancel := context.WithCancel(context.Background())

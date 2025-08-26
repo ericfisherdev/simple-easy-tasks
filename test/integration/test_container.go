@@ -11,6 +11,7 @@ import (
 	"simple-easy-tasks/internal/config"
 	"simple-easy-tasks/internal/container"
 	"simple-easy-tasks/internal/repository"
+	"simple-easy-tasks/internal/services"
 	testutil "simple-easy-tasks/internal/testutil/integration"
 )
 
@@ -110,6 +111,51 @@ func (tc *TestContainer) GetCommentRepository(t *testing.T) repository.CommentRe
 	}
 	
 	return commentRepo
+}
+
+// GetTaskService returns the task service from the DI container
+func (tc *TestContainer) GetTaskService(t *testing.T) services.TaskService {
+	service, err := container.ResolveTaskService(tc.Container)
+	if err != nil {
+		t.Fatalf("Failed to resolve task service: %v", err)
+	}
+	return service
+}
+
+// GetProjectService returns the project service from the DI container
+func (tc *TestContainer) GetProjectService(t *testing.T) services.ProjectService {
+	service, err := container.ResolveProjectService(tc.Container)
+	if err != nil {
+		t.Fatalf("Failed to resolve project service: %v", err)
+	}
+	return service
+}
+
+// GetUserService returns the user service from the DI container
+func (tc *TestContainer) GetUserService(t *testing.T) services.UserService {
+	service, err := container.ResolveUserService(tc.Container)
+	if err != nil {
+		t.Fatalf("Failed to resolve user service: %v", err)
+	}
+	return service
+}
+
+// GetCommentService returns the comment service from the DI container
+func (tc *TestContainer) GetCommentService(t *testing.T) services.CommentService {
+	service, err := container.ResolveCommentService(tc.Container)
+	if err != nil {
+		t.Fatalf("Failed to resolve comment service: %v", err)
+	}
+	return service
+}
+
+// GetAuthService returns the auth service from the DI container
+func (tc *TestContainer) GetAuthService(t *testing.T) services.AuthService {
+	service, err := container.ResolveAuthService(tc.Container)
+	if err != nil {
+		t.Fatalf("Failed to resolve auth service: %v", err)
+	}
+	return service
 }
 
 // ClearDatabase clears all data from the test database

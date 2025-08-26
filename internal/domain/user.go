@@ -81,13 +81,14 @@ func (u *User) Validate() error {
 		return err
 	}
 
-	// Role is optional for basic integration tests
-	// TODO: Validate role when role field is properly configured in collection
-	if u.Role != "" {
-		if err := ValidateEnum("role", string(u.Role), "INVALID_ROLE", "Role must be 'admin' or 'user'",
-			string(AdminRole), string(RegularUserRole)); err != nil {
-			return err
-		}
+	// Role validation - provide default if empty, then validate
+	if u.Role == "" {
+		u.Role = RegularUserRole
+	}
+	
+	if err := ValidateEnum("role", string(u.Role), "INVALID_ROLE", "Role must be 'admin' or 'user'",
+		string(AdminRole), string(RegularUserRole)); err != nil {
+		return err
 	}
 
 	return nil

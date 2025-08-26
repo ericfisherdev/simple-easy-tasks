@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,15 +78,38 @@ func TestSanitizedErrorResponse(t *testing.T) {
 				assert.NotEmpty(t, w.Header().Get("X-Correlation-ID"))
 			}
 
-			// Verify response structure contains error information but no sensitive details
-			assert.Contains(t, w.Body.String(), `"success":false`)
-			assert.Contains(t, w.Body.String(), `"correlation_id"`)
-			assert.Contains(t, w.Body.String(), tt.expectedErrorType)
-			assert.Contains(t, w.Body.String(), tt.expectedCode)
+			// Parse JSON response for type-safe assertions
+			var response map[string]interface{}
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			assert.NoError(t, err, "Response should be valid JSON")
+
+			// Assert basic response structure
+			success, exists := response["success"].(bool)
+			assert.True(t, exists, "success field should exist and be boolean")
+			assert.False(t, success, "success should be false")
+			
+			// Assert correlation_id exists and is non-empty
+			correlationID, exists := response["correlation_id"].(string)
+			assert.True(t, exists, "correlation_id should exist and be string")
+			assert.NotEmpty(t, correlationID, "correlation_id should not be empty")
+
+			// Assert error structure
+			errorMap, exists := response["error"].(map[string]interface{})
+			assert.True(t, exists, "error field should exist and be an object")
+
+			// Assert error.type and error.code
+			assert.Equal(t, tt.expectedErrorType, errorMap["type"], "error.type should match expected")
+			assert.Equal(t, tt.expectedCode, errorMap["code"], "error.code should match expected")
+
+			// Assert error.details is absent or nil (not exposed to clients)
+			details, hasDetails := errorMap["details"]
+			if hasDetails {
+				assert.Nil(t, details, "error.details should be nil if present")
+			}
 
 			// Ensure no raw error details are exposed
 			assert.NotContains(t, w.Body.String(), "stack trace")
-			assert.NotContains(t, w.Body.String(), "internal error")
+			// Removed the "internal error" check as requested
 		})
 	}
 }

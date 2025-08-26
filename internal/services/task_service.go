@@ -80,8 +80,8 @@ func (s *taskService) CreateTask(
 
 	// Check if assignee exists and has access to project
 	if req.AssigneeID != "" {
-		_, err := s.userRepo.GetByID(ctx, req.AssigneeID)
-		if err != nil {
+		_, assigneeErr := s.userRepo.GetByID(ctx, req.AssigneeID)
+		if assigneeErr != nil {
 			return nil, domain.NewNotFoundError("ASSIGNEE_NOT_FOUND", "Assignee not found")
 		}
 
@@ -96,6 +96,14 @@ func (s *taskService) CreateTask(
 		assigneePtr = &req.AssigneeID
 	}
 
+	// Get next position for task ordering (simple implementation)
+	// In a production system, you might want more sophisticated positioning
+	taskCount, err := s.taskRepo.CountByProject(ctx, req.ProjectID)
+	if err != nil {
+		return nil, domain.NewInternalError("TASK_COUNT_FAILED", "Failed to determine task position", err)
+	}
+	nextPosition := taskCount + 1
+
 	task := &domain.Task{
 		Title:       req.Title,
 		Description: req.Description,
@@ -106,6 +114,9 @@ func (s *taskService) CreateTask(
 		Priority:    req.Priority,
 		DueDate:     req.DueDate,
 		Tags:        req.Tags,
+		Position:    nextPosition,
+		Progress:    0,
+		TimeSpent:   0.0,
 	}
 
 	if err := s.taskRepo.Create(ctx, task); err != nil {

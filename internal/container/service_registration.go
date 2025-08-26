@@ -198,8 +198,13 @@ func registerRepositories(container Container, app core.App) error {
 	// Password Reset Token Repository
 	err = container.RegisterSingleton(
 		PasswordResetTokenRepositoryService,
-		func(_ context.Context, _ Container) (interface{}, error) {
-			return repository.NewPocketBasePasswordResetTokenRepository(app), nil
+		func(_ context.Context, c Container) (interface{}, error) {
+			cfgService, cfgErr := resolveAndCast[config.SecurityConfig](
+				context.Background(), c, ConfigService, "config service")
+			if cfgErr != nil {
+				return nil, cfgErr
+			}
+			return repository.NewPocketBasePasswordResetTokenRepository(app, cfgService.GetPasswordResetSecret()), nil
 		})
 	if err != nil {
 		return fmt.Errorf("failed to register password reset token repository: %w", err)

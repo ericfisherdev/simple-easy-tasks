@@ -186,6 +186,15 @@
           "max": 10,
           "pattern": ""
         }
+      },
+      {
+        "id": "settings_field",
+        "name": "settings",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
       }
     ],
     "indexes": [],
@@ -370,6 +379,75 @@
           "min": 0,
           "max": 999999
         }
+      },
+      {
+        "id": "start_date_field",
+        "name": "start_date",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "effort_estimate_field",
+        "name": "effort_estimate",
+        "type": "number",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": 0,
+          "max": null
+        }
+      },
+      {
+        "id": "tags_field",
+        "name": "tags",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "attachments_field",
+        "name": "attachments",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "custom_fields_field",
+        "name": "custom_fields",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "github_data_field",
+        "name": "github_data",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "column_position_field",
+        "name": "column_position",
+        "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
       }
     ],
     "indexes": [],
