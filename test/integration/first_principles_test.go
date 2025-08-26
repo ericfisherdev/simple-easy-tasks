@@ -46,7 +46,7 @@ func TestFIRSTPrinciples(t *testing.T) {
 			Email: "fast@test.example.com",
 			Name:  "Fast Test User",
 		}
-		_ = user.SetPassword("password123")
+		require.NoError(t, user.SetPassword("password123"))
 		
 		err := repo.Create(context.Background(), user)
 		require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestFIRSTPrinciples(t *testing.T) {
 			Email: "isolated@test.example.com", 
 			Name:  "Isolated Test User",
 		}
-		_ = user.SetPassword("password123")
+		require.NoError(t, user.SetPassword("password123"))
 		
 		err := repo.Create(context.Background(), user)
 		require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestFIRSTPrinciples(t *testing.T) {
 				Email: "repeatable@test.example.com",
 				Name:  "Repeatable Test User",
 			}
-			_ = user.SetPassword("password123")
+			require.NoError(t, user.SetPassword("password123"))
 			
 			// Should fail after first iteration due to unique constraint
 			err := repo.Create(context.Background(), user)
@@ -104,7 +104,7 @@ func TestFIRSTPrinciples(t *testing.T) {
 			Email: "selfverifying@test.example.com",
 			Name:  "Self Verifying Test User", 
 		}
-		_ = user.SetPassword("password123")
+		require.NoError(t, user.SetPassword("password123"))
 		
 		// Create user
 		err := repo.Create(context.Background(), user)

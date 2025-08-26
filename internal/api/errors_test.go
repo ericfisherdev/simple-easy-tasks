@@ -17,7 +17,7 @@ func TestSanitizedErrorResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		error              error
+		err                error
 		name               string
 		expectedErrorType  string
 		expectedCode       string
@@ -27,7 +27,7 @@ func TestSanitizedErrorResponse(t *testing.T) {
 	}{
 		{
 			name: "validation error should be sanitized",
-			error: domain.NewValidationError(
+			err: domain.NewValidationError(
 				"INVALID_FIELD",
 				"Field validation failed",
 				map[string]interface{}{"field": "email"},
@@ -40,7 +40,7 @@ func TestSanitizedErrorResponse(t *testing.T) {
 		},
 		{
 			name:               "authentication error should be sanitized",
-			error:              domain.NewAuthenticationError("INVALID_CREDENTIALS", "Invalid username or password"),
+			err:                domain.NewAuthenticationError("INVALID_CREDENTIALS", "Invalid username or password"),
 			expectedStatusCode: http.StatusUnauthorized,
 			expectedErrorType:  "AUTHENTICATION_ERROR",
 			expectedCode:       "INVALID_CREDENTIALS",
@@ -49,7 +49,7 @@ func TestSanitizedErrorResponse(t *testing.T) {
 		},
 		{
 			name:               "unknown error should be sanitized",
-			error:              assert.AnError,
+			err:                assert.AnError,
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedErrorType:  "INTERNAL_ERROR",
 			expectedCode:       "SYSTEM_ERROR",
@@ -67,7 +67,10 @@ func TestSanitizedErrorResponse(t *testing.T) {
 			req, _ := http.NewRequestWithContext(context.Background(), "GET", "/test", nil)
 			c.Request = req
 
-			SanitizedErrorResponse(c, tt.error)
+			SanitizedErrorResponse(c, tt.err)
+
+			// Content-Type should be JSON
+			assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
 
 			assert.Equal(t, tt.expectedStatusCode, w.Code)
 

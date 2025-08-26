@@ -165,15 +165,14 @@ func (r *pocketbaseTaskRepository) CountByProject(_ context.Context, projectID s
 		return 0, fmt.Errorf("project ID cannot be empty")
 	}
 
-	filter := "project = {:projectID}"
-	params := dbx.Params{"projectID": projectID}
+	expr := dbx.NewExp("project = {:projectID}", dbx.Params{"projectID": projectID})
 
-	records, err := r.app.FindRecordsByFilter("tasks", filter, "", 0, 0, params)
+	total, err := r.app.CountRecords("tasks", expr)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count tasks by project %s: %w", projectID, err)
 	}
 
-	return len(records), nil
+	return int(total), nil
 }
 
 // CountByAssignee returns the number of tasks assigned to a user.
@@ -182,15 +181,14 @@ func (r *pocketbaseTaskRepository) CountByAssignee(_ context.Context, assigneeID
 		return 0, fmt.Errorf("assignee ID cannot be empty")
 	}
 
-	filter := "assignee = {:assigneeID}"
-	params := dbx.Params{"assigneeID": assigneeID}
+	expr := dbx.NewExp("assignee = {:assigneeID}", dbx.Params{"assigneeID": assigneeID})
 
-	records, err := r.app.FindRecordsByFilter("tasks", filter, "", 0, 0, params)
+	total, err := r.app.CountRecords("tasks", expr)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count tasks by assignee %s: %w", assigneeID, err)
 	}
 
-	return len(records), nil
+	return int(total), nil
 }
 
 // CountByStatus returns the number of tasks with a specific status.
@@ -199,15 +197,14 @@ func (r *pocketbaseTaskRepository) CountByStatus(_ context.Context, status domai
 		return 0, fmt.Errorf("invalid task status: %s", status)
 	}
 
-	filter := "status = {:status}"
-	params := dbx.Params{"status": string(status)}
+	expr := dbx.NewExp("status = {:status}", dbx.Params{"status": string(status)})
 
-	records, err := r.app.FindRecordsByFilter("tasks", filter, "", 0, 0, params)
+	total, err := r.app.CountRecords("tasks", expr)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count tasks by status %s: %w", status, err)
 	}
 
-	return len(records), nil
+	return int(total), nil
 }
 
 // ExistsByID checks if a task exists by ID.
@@ -218,7 +215,7 @@ func (r *pocketbaseTaskRepository) ExistsByID(_ context.Context, id string) (boo
 
 	_, err := r.app.FindRecordById("tasks", id)
 	if err != nil {
-		if IsNoRows(err) {
+		if IsNotFound(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check task existence by ID %s: %w", id, err)
@@ -360,46 +357,54 @@ func (r *pocketbaseTaskRepository) BulkDelete(ctx context.Context, ids []string)
 }
 
 // ArchiveTask archives a task instead of deleting it.
-func (r *pocketbaseTaskRepository) ArchiveTask(_ context.Context, id string) error {
-	if id == "" {
-		return fmt.Errorf("task ID cannot be empty")
-	}
-
-	record, err := r.app.FindRecordById("tasks", id)
-	if err != nil {
-		return fmt.Errorf("failed to find task for archiving: %w", err)
-	}
-
-	// Set archived status (assuming archived field exists or using a custom field)
-	record.Set("archived", true)
-	record.Set("archived_at", time.Now().UTC())
-	record.Set("updated", time.Now().UTC())
-
-	if err := r.app.Save(record); err != nil {
-		return fmt.Errorf("failed to archive task: %w", err)
-	}
-
-	return nil
+func (r *pocketbaseTaskRepository) ArchiveTask(ctx context.Context, id string) error {
+	return r.updateArchiveStatus(ctx, id, true)
 }
 
 // UnarchiveTask unarchives a task.
-func (r *pocketbaseTaskRepository) UnarchiveTask(_ context.Context, id string) error {
+func (r *pocketbaseTaskRepository) UnarchiveTask(ctx context.Context, id string) error {
+	return r.updateArchiveStatus(ctx, id, false)
+}
+
+// updateArchiveStatus handles archiving/unarchiving tasks
+func (r *pocketbaseTaskRepository) updateArchiveStatus(_ context.Context, id string, archive bool) error {
 	if id == "" {
 		return fmt.Errorf("task ID cannot be empty")
 	}
 
 	record, err := r.app.FindRecordById("tasks", id)
 	if err != nil {
-		return fmt.Errorf("failed to find task for unarchiving: %w", err)
+		operation := "unarchiving"
+		if archive {
+			operation = "archiving"
+		}
+		return fmt.Errorf("failed to find task for %s: %w", operation, err)
 	}
 
-	// Remove archived status
-	record.Set("archived", false)
-	record.Set("archived_at", nil)
-	record.Set("updated", time.Now().UTC())
+	// Convert to domain task to use domain logic
+	task, err := r.recordToTask(record)
+	if err != nil {
+		return fmt.Errorf("failed to convert record to task: %w", err)
+	}
+
+	// Use domain method to archive/unarchive the task
+	if archive {
+		task.Archive()
+	} else {
+		task.Unarchive()
+	}
+
+	// Update record with archived values
+	record.Set("archived", task.Archived)
+	record.Set("archived_at", task.ArchivedAt)
+	record.Set("updated", task.UpdatedAt)
 
 	if err := r.app.Save(record); err != nil {
-		return fmt.Errorf("failed to unarchive task: %w", err)
+		operation := "unarchive"
+		if archive {
+			operation = "archive"
+		}
+		return fmt.Errorf("failed to %s task: %w", operation, err)
 	}
 
 	return nil
@@ -439,6 +444,13 @@ func (r *pocketbaseTaskRepository) recordToTask(record *core.Record) (*domain.Ta
 		startDateTime := startDate.Time()
 		task.StartDate = &startDateTime
 	}
+	if archivedAt := record.GetDateTime("archived_at"); !archivedAt.IsZero() {
+		archivedDateTime := archivedAt.Time()
+		task.ArchivedAt = &archivedDateTime
+	}
+
+	// Handle archived field
+	task.Archived = record.GetBool("archived")
 
 	// Handle optional numeric fields
 	if effortEstimate := record.GetFloat("effort_estimate"); effortEstimate > 0 {

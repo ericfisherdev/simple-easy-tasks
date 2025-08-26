@@ -33,15 +33,16 @@ func TestRateLimitManager_Lifecycle(t *testing.T) {
 
 	assert.NotNil(t, limiter1)
 	assert.NotNil(t, limiter2)
-	assert.Equal(t, 2, manager.cache.Len())
+	stats := manager.Stats()
+	assert.Equal(t, 2, stats.CacheSize)
 
 	// Wait for cleanup to potentially trigger
 	time.Sleep(300 * time.Millisecond)
 
 	// Limiters should be cleaned up due to inactivity
-	count := manager.cache.Len()
+	stats = manager.Stats()
 
-	assert.Equal(t, 0, count, "Inactive limiters should be cleaned up")
+	assert.Equal(t, 0, stats.CacheSize, "Inactive limiters should be cleaned up")
 
 	// Test graceful shutdown
 	manager.Shutdown()
@@ -90,16 +91,16 @@ func TestRateLimitMiddleware_MemoryLeak(t *testing.T) {
 	}
 
 	// Verify limiters were created
-	initialCount := manager.cache.Len()
-	assert.Equal(t, 50, initialCount)
+	initialStats := manager.Stats()
+	assert.Equal(t, 50, initialStats.CacheSize)
 
 	// Wait for cleanup cycles
 	time.Sleep(200 * time.Millisecond)
 
 	// Verify limiters were cleaned up
-	finalCount := manager.cache.Len()
+	finalStats := manager.Stats()
 
-	assert.Equal(t, 0, finalCount, "All inactive limiters should be cleaned up")
+	assert.Equal(t, 0, finalStats.CacheSize, "All inactive limiters should be cleaned up")
 }
 
 func TestRateLimitMiddleware_RateLimiting(t *testing.T) {

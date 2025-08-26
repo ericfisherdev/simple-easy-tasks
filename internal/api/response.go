@@ -1,4 +1,14 @@
 // Package api provides shared utilities for API handlers.
+//
+// Error Handling:
+// All handlers should use SanitizedErrorResponse for consistent error handling,
+// security sanitization, and structured logging. This prevents internal message
+// leakage and ensures proper error tracking across the application.
+//
+// Usage:
+//   api.SanitizedErrorResponse(c, err)
+//
+// Avoid direct c.JSON calls with error payloads - use SanitizedErrorResponse instead.
 package api
 
 //nolint:gofumpt

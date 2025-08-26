@@ -71,6 +71,7 @@ type Task struct {
 	ParentTaskID   *string         `json:"parent_task_id,omitempty" db:"parent_task"`
 	DueDate        *time.Time      `json:"due_date,omitempty" db:"due_date"`
 	StartDate      *time.Time      `json:"start_date,omitempty" db:"start_date"`
+	ArchivedAt     *time.Time      `json:"archived_at,omitempty" db:"archived_at"`
 	Description    string          `json:"description" db:"description"`
 	Priority       TaskPriority    `json:"priority" db:"priority"`
 	Title          string          `json:"title" db:"title"`
@@ -87,6 +88,7 @@ type Task struct {
 	TimeSpent      float64         `json:"time_spent" db:"time_spent"`
 	Progress       int             `json:"progress" db:"progress"`
 	Position       int             `json:"position" db:"position"`
+	Archived       bool            `json:"archived" db:"archived"`
 }
 
 // NewTask creates a new task with default values
@@ -369,6 +371,26 @@ func (t *Task) IsOverdue() bool {
 		return false
 	}
 	return t.DueDate.Before(time.Now()) && t.Status != StatusComplete
+}
+
+// Archive archives the task by setting archived flag and timestamp
+func (t *Task) Archive() {
+	now := time.Now().UTC()
+	t.Archived = true
+	t.ArchivedAt = &now
+	t.UpdatedAt = now
+}
+
+// Unarchive unarchives the task by clearing archived flag and timestamp
+func (t *Task) Unarchive() {
+	t.Archived = false
+	t.ArchivedAt = nil
+	t.UpdatedAt = time.Now().UTC()
+}
+
+// IsArchived returns whether the task is archived
+func (t *Task) IsArchived() bool {
+	return t.Archived
 }
 
 // GetColumnPositionMap retrieves the column positions as a map

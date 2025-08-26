@@ -448,6 +448,27 @@
         "required": false,
         "unique": false,
         "options": {}
+      },
+      {
+        "id": "archived_field",
+        "name": "archived",
+        "type": "bool",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "id": "archived_at_field",
+        "name": "archived_at",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
       }
     ],
     "indexes": [],

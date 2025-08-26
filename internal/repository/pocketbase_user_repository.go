@@ -220,7 +220,7 @@ func (r *pocketbaseUserRepository) ExistsByEmail(_ context.Context, email string
 
 	_, err := r.app.FindAuthRecordByEmail("users", email)
 	if err != nil {
-		if IsNoRows(err) {
+		if IsNotFound(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check user existence by email: %w", err)
@@ -237,7 +237,7 @@ func (r *pocketbaseUserRepository) ExistsByUsername(_ context.Context, username 
 
 	_, err := r.app.FindFirstRecordByFilter("users", "username = {:username}", dbx.Params{"username": username})
 	if err != nil {
-		if IsNoRows(err) {
+		if IsNotFound(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check user existence by username: %w", err)
@@ -257,7 +257,7 @@ func (r *pocketbaseUserRepository) recordToUser(record *core.Record) (*domain.Us
 	// Use record.Get() for select fields as they may return different types than GetString()
 	roleRaw := record.Get("role")
 	roleValue := ""
-	
+
 	// Handle different types that PocketBase might return for select fields
 	switch v := roleRaw.(type) {
 	case string:
@@ -281,17 +281,17 @@ func (r *pocketbaseUserRepository) recordToUser(record *core.Record) (*domain.Us
 		// Try to convert unknown types to string as fallback
 		roleValue = fmt.Sprintf("%v", v)
 	}
-	
+
 	// If role field doesn't exist or is empty, use default role
 	if roleValue == "" {
 		roleValue = string(domain.RegularUserRole)
 	}
 
 	user := &domain.User{
-		ID:           record.Id,
-		Email:        record.GetString("email"),
-		Username:     record.GetString("username"),
-		Name:         record.GetString("name"),
+		ID:       record.Id,
+		Email:    record.GetString("email"),
+		Username: record.GetString("username"),
+		Name:     record.GetString("name"),
 		// Note: Password hash should not be exposed in domain models for security
 		// Password operations should be handled exclusively by AuthService
 		PasswordHash: "", // Always empty - repository should not handle passwords

@@ -78,7 +78,7 @@ func (r *pocketbasePasswordResetTokenRepository) GetByToken(
 		dbx.Params{"token": r.hashResetToken(tokenValue)},
 	)
 	if err != nil {
-		if IsNoRows(err) {
+		if IsNotFound(err) {
 			return nil, domain.NewNotFoundError("TOKEN_NOT_FOUND", "Password reset token not found")
 		}
 		return nil, domain.NewInternalError("TOKEN_QUERY_FAILED", "Failed to query password reset token", err)
@@ -115,7 +115,7 @@ func (r *pocketbasePasswordResetTokenRepository) Update(_ context.Context, token
 func (r *pocketbasePasswordResetTokenRepository) Delete(_ context.Context, tokenID string) error {
 	record, err := r.app.FindRecordById("password_reset_tokens", tokenID)
 	if err != nil {
-		if IsNoRows(err) {
+		if IsNotFound(err) {
 			return nil // Already deleted
 		}
 		return domain.NewInternalError("TOKEN_QUERY_FAILED", "Failed to find password reset token", err)
@@ -137,7 +137,7 @@ func (r *pocketbasePasswordResetTokenRepository) CleanupExpiredTokens(_ context.
 		0,
 		0,
 		dbx.Params{
-			"now": time.Now().Format("2006-01-02 15:04:05.000Z"),
+			"now": time.Now().UTC(),
 		},
 	)
 	if err != nil {
@@ -164,7 +164,7 @@ func (r *pocketbasePasswordResetTokenRepository) InvalidateUserTokens(_ context.
 		0,
 		dbx.Params{
 			"userID": userID,
-			"now":    time.Now().Format("2006-01-02 15:04:05.000Z"),
+			"now":    time.Now().UTC(),
 		},
 	)
 	if err != nil {

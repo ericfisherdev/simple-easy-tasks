@@ -41,7 +41,6 @@ func (r *pocketbaseTokenBlacklistRepository) BlacklistToken(_ context.Context, t
 
 // IsTokenBlacklisted checks if a token is blacklisted.
 func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(_ context.Context, tokenID string) (bool, error) {
-
 	_, err := r.app.FindFirstRecordByFilter(
 		"blacklisted_tokens",
 		"token_id = {:tokenID} AND expires_at > {:now}",
@@ -51,7 +50,7 @@ func (r *pocketbaseTokenBlacklistRepository) IsTokenBlacklisted(_ context.Contex
 		},
 	)
 	if err != nil {
-		if IsNoRows(err) {
+		if IsNotFound(err) {
 			return false, nil
 		}
 		return false, domain.NewInternalError("BLACKLIST_CHECK_FAILED", "Failed to check token blacklist", err)

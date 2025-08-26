@@ -47,9 +47,8 @@ func (r *pocketbaseCommentRepository) Create(_ context.Context, comment *domain.
 	// Set optional parent comment
 	if comment.ParentCommentID != nil && *comment.ParentCommentID != "" {
 		record.Set("parent_comment", *comment.ParentCommentID)
-	} else {
-		record.Set("parent_comment", "")
 	}
+	// Note: When no parent ID, leave field unset to store null relation
 
 	// Set timestamps if provided
 	if !comment.CreatedAt.IsZero() {
@@ -117,7 +116,8 @@ func (r *pocketbaseCommentRepository) Update(_ context.Context, comment *domain.
 	if comment.ParentCommentID != nil && *comment.ParentCommentID != "" {
 		record.Set("parent_comment", *comment.ParentCommentID)
 	} else {
-		record.Set("parent_comment", "")
+		// Set to nil to clear the relation when parent is removed
+		record.Set("parent_comment", nil)
 	}
 
 	if err := r.app.Save(record); err != nil {
@@ -289,7 +289,7 @@ func (r *pocketbaseCommentRepository) ExistsByID(_ context.Context, id string) (
 
 	_, err := r.app.FindRecordById("comments", id)
 	if err != nil {
-		if IsNoRows(err) {
+		if IsNotFound(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check comment existence by ID %s: %w", id, err)

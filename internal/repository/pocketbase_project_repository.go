@@ -221,7 +221,7 @@ func (r *pocketbaseProjectRepository) ExistsBySlug(_ context.Context, slug strin
 
 	_, err := r.app.FindFirstRecordByFilter("projects", "slug = {:slug}", dbx.Params{"slug": slug})
 	if err != nil {
-		if IsNoRows(err) {
+		if IsNotFound(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to check project existence by slug: %w", err)

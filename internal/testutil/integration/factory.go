@@ -111,7 +111,9 @@ func (f *TestDataFactory) CreateUser(overrides ...UserOverride) *domain.User {
 	}
 
 	// Set a default password hash for testing
-	_ = user.SetPassword("testpassword123")
+	if err := user.SetPassword("testpassword123"); err != nil {
+		panic(err)
+	}
 
 	// Apply overrides
 	for _, override := range overrides {

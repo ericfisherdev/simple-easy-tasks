@@ -96,6 +96,9 @@ func TestRateLimitManager_MemoryUsage(t *testing.T) {
 
 func TestRateLimitManager_Concurrency(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	if testing.Short() {
+		t.Skip("skipping performance-focused test in -short/CI")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

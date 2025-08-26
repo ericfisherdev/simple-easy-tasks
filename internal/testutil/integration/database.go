@@ -128,8 +128,21 @@ func (db *TestDatabase) DBPath() string {
 
 // Cleanup closes the database and cleans up resources
 func (db *TestDatabase) Cleanup() {
+	// First call the custom cleanup function (file cleanup, etc.)
 	if db.cleanup != nil {
 		db.cleanup()
+	}
+	
+	// Then properly shutdown the PocketBase app and close database connections
+	if db.app != nil {
+		// Use PocketBase's official shutdown method to properly close all database connections
+		// This stops the cron ticker and closes all database connections (data + auxiliary)
+		if err := db.app.ResetBootstrapState(); err != nil {
+			// Log the error but don't fail the test - cleanup should be best effort
+			// In a test environment, we want cleanup to proceed even if there are issues
+			// Use a simple print since we may not have access to a logger
+			println("Warning: Failed to reset PocketBase bootstrap state during cleanup:", err.Error())
+		}
 	}
 }
 
@@ -141,15 +154,23 @@ func (db *TestDatabase) Reset() error {
 		return fmt.Errorf("failed to get collections: %w", err)
 	}
 
-	// Clear data from each collection
+	// Clear data from each non-view collection using PocketBase direct methods
 	for _, collection := range collections {
 		if collection.IsView() {
 			continue // Skip views
 		}
 
-		sql := fmt.Sprintf("DELETE FROM %s", collection.Name)
-		if _, err := db.app.DB().NewQuery(sql).Execute(); err != nil {
-			return fmt.Errorf("failed to clear collection %s: %w", collection.Name, err)
+		// Find all records in the collection and delete them one by one
+		records, err := db.app.FindRecordsByFilter(collection.Id, "", "", 500, 0)
+		if err != nil {
+			return fmt.Errorf("failed to find records in collection %s: %w", collection.Name, err)
+		}
+
+		// Delete each record
+		for _, record := range records {
+			if err := db.app.Delete(record); err != nil {
+				return fmt.Errorf("failed to delete record from collection %s: %w", collection.Name, err)
+			}
 		}
 	}
 

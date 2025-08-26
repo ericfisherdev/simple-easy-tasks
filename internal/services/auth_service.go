@@ -370,10 +370,15 @@ func (s *authService) ForgotPassword(ctx context.Context, email string) error {
 		ID:        uuid.New().String(),
 		Token:     tokenValue,
 		UserID:    user.ID,
-		ExpiresAt: time.Now().Add(1 * time.Hour),
+		ExpiresAt: time.Now().UTC().Add(1 * time.Hour),
 		Used:      false,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+
+	// Validate token before persistence
+	if err := resetToken.Validate(); err != nil {
+		return err
 	}
 
 	// Store token in database
