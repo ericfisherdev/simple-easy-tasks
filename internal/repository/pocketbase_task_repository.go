@@ -47,7 +47,7 @@ func (r *pocketbaseTaskRepository) ListByProject(
 	params := dbx.Params{"projectID": projectID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "position, -created", limit, offset, params,
+		"tasks", filter, "position", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by project %s: %w", projectID, err)
@@ -89,7 +89,7 @@ func (r *pocketbaseTaskRepository) ListByStatus(
 	params := dbx.Params{"status": string(status)}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "position, -created", limit, offset, params,
+		"tasks", filter, "position", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by status %s: %w", status, err)
@@ -374,8 +374,7 @@ func (r *pocketbaseTaskRepository) GetByProject(
 		return nil, fmt.Errorf("project ID cannot be empty")
 	}
 
-	// Set project ID in filters and delegate to GetTasksByFilter
-	filters.AssigneeID = nil // Reset to avoid conflicts
+	// Set project ID as base filter and delegate to getTasksWithFiltersAndParams
 	baseFilter := "project = {:projectID}"
 	params := dbx.Params{"projectID": projectID}
 
@@ -392,7 +391,7 @@ func (r *pocketbaseTaskRepository) GetSubtasks(_ context.Context, parentID strin
 	params := dbx.Params{"parentID": parentID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "position, -created", 100, 0, params,
+		"tasks", filter, "position", 100, 0, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get subtasks for parent %s: %w", parentID, err)
@@ -428,7 +427,7 @@ func (r *pocketbaseTaskRepository) GetDependencies(ctx context.Context, taskID s
 
 	filter := strings.Join(filterParts, " || ")
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "position, -created", len(task.Dependencies), 0, params,
+		"tasks", filter, "position", len(task.Dependencies), 0, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dependencies for task %s: %w", taskID, err)
