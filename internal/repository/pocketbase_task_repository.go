@@ -255,7 +255,7 @@ func (r *pocketbaseTaskRepository) Create(_ context.Context, task *domain.Task) 
 	} else {
 		record.Set("updated", now)
 	}
-	
+
 	if task.ID != "" {
 		record.Id = task.ID
 	}
@@ -986,4 +986,3 @@ func (r *pocketbaseTaskRepository) buildSortOrder(sortBy, sortOrder string) stri
 	}
 	return field
 }
-

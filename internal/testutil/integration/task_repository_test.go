@@ -167,7 +167,7 @@ func TestTaskRepository_Integration(t *testing.T) {
 		err := taskRepo.Create(context.Background(), task)
 
 		require.NoError(t, err) // PocketBase doesn't enforce FK constraints by default
-		
+
 		// Verify the task was created with the invalid project ID
 		retrieved, err := taskRepo.GetByID(context.Background(), task.ID)
 		require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestTaskRepository_Integration(t *testing.T) {
 		err := taskRepo.Create(context.Background(), task)
 
 		require.NoError(t, err) // PocketBase doesn't enforce FK constraints by default
-		
+
 		// Verify the task was created with the invalid reporter ID
 		retrieved, err := taskRepo.GetByID(context.Background(), task.ID)
 		require.NoError(t, err)
@@ -965,7 +965,7 @@ func TestTaskRepository_Integration(t *testing.T) {
 
 		err := taskRepo.Create(context.Background(), task)
 		require.NoError(t, err) // PocketBase doesn't enforce FK constraints by default
-		
+
 		// Verify the task was created with the invalid assignee ID
 		retrieved, err := taskRepo.GetByID(context.Background(), task.ID)
 		require.NoError(t, err)
@@ -1114,7 +1114,7 @@ func TestTaskRepository_Integration(t *testing.T) {
 
 		err := taskRepo.Create(context.Background(), task)
 		require.NoError(t, err) // PocketBase doesn't enforce FK constraints by default
-		
+
 		// Verify the task was created with the invalid parent ID
 		retrieved, err := taskRepo.GetByID(context.Background(), task.ID)
 		require.NoError(t, err)
@@ -1228,11 +1228,11 @@ func TestTaskRepository_Integration(t *testing.T) {
 
 		require.NotNil(t, retrieved.DueDate, "Due date should not be nil")
 		require.NotNil(t, retrieved.StartDate, "Start date should not be nil")
-		
+
 		// Compare dates with truncation to handle potential precision differences
-		assert.True(t, retrieved.DueDate.Truncate(time.Second).Equal(dueDate.Truncate(time.Second)), 
+		assert.True(t, retrieved.DueDate.Truncate(time.Second).Equal(dueDate.Truncate(time.Second)),
 			"Due date should match (got %v, expected %v)", retrieved.DueDate, dueDate)
-		assert.True(t, retrieved.StartDate.Truncate(time.Second).Equal(startDate.Truncate(time.Second)), 
+		assert.True(t, retrieved.StartDate.Truncate(time.Second).Equal(startDate.Truncate(time.Second)),
 			"Start date should match (got %v, expected %v)", retrieved.StartDate, startDate)
 		assert.False(t, retrieved.CreatedAt.IsZero(), "CreatedAt should be set")
 		assert.False(t, retrieved.UpdatedAt.IsZero(), "UpdatedAt should be set")
