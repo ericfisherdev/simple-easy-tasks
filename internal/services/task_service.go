@@ -59,6 +59,15 @@ type TaskService interface {
 
 	// CreateFromTemplate creates a task from a predefined template
 	CreateFromTemplate(ctx context.Context, templateID string, projectID string, userID string) (*domain.Task, error)
+
+	// CreateSubtask creates a subtask under a parent task
+	CreateSubtask(ctx context.Context, parentTaskID string, req domain.CreateTaskRequest, userID string) (*domain.Task, error)
+
+	// AddDependency adds a dependency to a task
+	AddDependency(ctx context.Context, taskID string, dependencyID string, userID string) error
+
+	// RemoveDependency removes a dependency from a task
+	RemoveDependency(ctx context.Context, taskID string, dependencyID string, userID string) error
 }
 
 // MoveTaskRequest represents a request to move a task between columns/statuses
@@ -768,6 +777,136 @@ func (s *taskService) duplicateSubtasks(
 				continue
 			}
 		}
+	}
+
+	return nil
+}
+
+// CreateSubtask creates a subtask under a parent task
+func (s *taskService) CreateSubtask(
+	ctx context.Context,
+	parentTaskID string,
+	req domain.CreateTaskRequest,
+	userID string,
+) (*domain.Task, error) {
+	if parentTaskID == "" {
+		return nil, domain.NewValidationError("INVALID_PARENT_ID", "Parent task ID cannot be empty", nil)
+	}
+
+	// Validate parent task exists and user has access
+	parentTask, err := s.validateTaskAccess(ctx, parentTaskID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure subtask belongs to the same project as parent
+	req.ProjectID = parentTask.ProjectID
+
+	// Create the task
+	task, err := s.CreateTask(ctx, req, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set parent task ID to make it a subtask
+	if err := task.SetParentTask(parentTaskID); err != nil {
+		return nil, err
+	}
+
+	// Update the task with parent relationship
+	if err := s.taskRepo.Update(ctx, task); err != nil {
+		return nil, domain.NewInternalError("SUBTASK_CREATE_FAILED", "Failed to create subtask", err)
+	}
+
+	return task, nil
+}
+
+// AddDependency adds a dependency to a task
+func (s *taskService) AddDependency(
+	ctx context.Context,
+	taskID string,
+	dependencyID string,
+	userID string,
+) error {
+	if dependencyID == "" {
+		return domain.NewValidationError("INVALID_DEPENDENCY_ID", "Dependency task ID cannot be empty", nil)
+	}
+
+	// Validate both tasks exist and user has access
+	task, err := s.validateTaskAccess(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	dependencyTask, err := s.validateTaskAccess(ctx, dependencyID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Prevent circular dependencies - basic check
+	if taskID == dependencyID {
+		return domain.NewConflictError("CIRCULAR_DEPENDENCY", "Task cannot depend on itself")
+	}
+
+	// Check if dependency is already added
+	for _, depID := range task.Dependencies {
+		if depID == dependencyID {
+			return domain.NewConflictError("DEPENDENCY_EXISTS", "Dependency already exists")
+		}
+	}
+
+	// Ensure both tasks are in the same project
+	if task.ProjectID != dependencyTask.ProjectID {
+		return domain.NewValidationError("CROSS_PROJECT_DEPENDENCY", "Cannot add dependency from different project", nil)
+	}
+
+	// Add dependency
+	task.Dependencies = append(task.Dependencies, dependencyID)
+
+	// Update the task
+	if err := s.taskRepo.Update(ctx, task); err != nil {
+		return domain.NewInternalError("DEPENDENCY_ADD_FAILED", "Failed to add dependency", err)
+	}
+
+	return nil
+}
+
+// RemoveDependency removes a dependency from a task
+func (s *taskService) RemoveDependency(
+	ctx context.Context,
+	taskID string,
+	dependencyID string,
+	userID string,
+) error {
+	if dependencyID == "" {
+		return domain.NewValidationError("INVALID_DEPENDENCY_ID", "Dependency task ID cannot be empty", nil)
+	}
+
+	// Validate task exists and user has access
+	task, err := s.validateTaskAccess(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Find and remove the dependency
+	dependencyIndex := -1
+	for i, depID := range task.Dependencies {
+		if depID == dependencyID {
+			dependencyIndex = i
+			break
+		}
+	}
+
+	if dependencyIndex == -1 {
+		return domain.NewNotFoundError("DEPENDENCY_NOT_FOUND", "Dependency not found")
+	}
+
+	// Remove dependency from slice
+	task.Dependencies = append(task.Dependencies[:dependencyIndex], task.Dependencies[dependencyIndex+1:]...)
+
+	// Update the task
+	if err := s.taskRepo.Update(ctx, task); err != nil {
+		return domain.NewInternalError("DEPENDENCY_REMOVE_FAILED", "Failed to remove dependency", err)
 	}
 
 	return nil
