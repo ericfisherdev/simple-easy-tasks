@@ -40,6 +40,8 @@ linters:
       enable:
         - shadow
       enable-all: true
+      disable:
+        - fieldalignment  # Disable fieldalignment for better readability
     gocyclo:
       min-complexity: 15
     dupl:

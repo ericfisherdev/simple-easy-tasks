@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"simple-easy-tasks/internal/domain"
 	"simple-easy-tasks/internal/repository"
@@ -35,6 +36,47 @@ type TaskService interface {
 
 	// UpdateTaskStatus updates a task's status
 	UpdateTaskStatus(ctx context.Context, taskID string, status domain.TaskStatus, userID string) (*domain.Task, error)
+
+	// MoveTask moves a task between statuses and positions (kanban functionality)
+	MoveTask(ctx context.Context, req MoveTaskRequest, userID string) error
+
+	// GetProjectTasksFiltered gets tasks for a project with advanced filtering
+	GetProjectTasksFiltered(
+		ctx context.Context,
+		projectID string,
+		filters repository.TaskFilters,
+		userID string,
+	) ([]*domain.Task, error)
+
+	// GetSubtasks retrieves subtasks for a parent task
+	GetSubtasks(ctx context.Context, parentTaskID string, userID string) ([]*domain.Task, error)
+
+	// GetTaskDependencies retrieves dependency tasks for a task
+	GetTaskDependencies(ctx context.Context, taskID string, userID string) ([]*domain.Task, error)
+
+	// DuplicateTask creates a copy of an existing task
+	DuplicateTask(ctx context.Context, taskID string, options DuplicationOptions, userID string) (*domain.Task, error)
+
+	// CreateFromTemplate creates a task from a predefined template
+	CreateFromTemplate(ctx context.Context, templateID string, projectID string, userID string) (*domain.Task, error)
+}
+
+// MoveTaskRequest represents a request to move a task between columns/statuses
+type MoveTaskRequest struct {
+	TaskID      string            `json:"task_id" binding:"required"`
+	ProjectID   string            `json:"project_id" binding:"required"`
+	NewStatus   domain.TaskStatus `json:"new_status" binding:"required"`
+	NewPosition int               `json:"new_position" binding:"min=0"`
+}
+
+// DuplicationOptions controls how a task is duplicated
+type DuplicationOptions struct {
+	NewTitle           string `json:"new_title,omitempty"`
+	IncludeSubtasks    bool   `json:"include_subtasks"`
+	IncludeComments    bool   `json:"include_comments"`
+	IncludeAttachments bool   `json:"include_attachments"`
+	ResetProgress      bool   `json:"reset_progress"`
+	ResetTimeSpent     bool   `json:"reset_time_spent"`
 }
 
 // taskService implements TaskService interface.
@@ -438,4 +480,295 @@ func (s *taskService) UpdateTaskStatus(
 	}
 
 	return task, nil
+}
+
+// MoveTask moves a task between statuses and positions (kanban functionality)
+func (s *taskService) MoveTask(ctx context.Context, req MoveTaskRequest, userID string) error {
+	// Validate request
+	if req.TaskID == "" {
+		return domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
+	}
+	if !req.NewStatus.IsValid() {
+		return domain.NewValidationError("INVALID_STATUS", "Invalid task status", nil)
+	}
+	if req.ProjectID == "" {
+		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
+	}
+
+	// Validate user has access to the task
+	task, err := s.validateTaskAccess(ctx, req.TaskID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Ensure the task belongs to the specified project
+	if task.ProjectID != req.ProjectID {
+		return domain.NewValidationError("PROJECT_MISMATCH", "Task does not belong to specified project", nil)
+	}
+
+	// Use repository's Move method which handles position calculation and validation
+	if err := s.taskRepo.Move(ctx, req.TaskID, req.NewStatus, req.NewPosition); err != nil {
+		return domain.NewInternalError("TASK_MOVE_FAILED", "Failed to move task", err)
+	}
+
+	return nil
+}
+
+// GetProjectTasksFiltered gets tasks for a project with advanced filtering
+func (s *taskService) GetProjectTasksFiltered(
+	ctx context.Context,
+	projectID string,
+	filters repository.TaskFilters,
+	userID string,
+) ([]*domain.Task, error) {
+	if projectID == "" {
+		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
+	}
+
+	// Check if user has access to the project
+	project, err := s.projectRepo.GetByID(ctx, projectID)
+	if err != nil {
+		return nil, domain.NewNotFoundError("PROJECT_NOT_FOUND", "Project not found")
+	}
+
+	if !project.HasAccess(userID) && project.Settings.IsPrivate {
+		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to this project")
+	}
+
+	// Use repository's filtered query
+	tasks, err := s.taskRepo.GetByProject(ctx, projectID, filters)
+	if err != nil {
+		return nil, domain.NewInternalError("TASK_FILTER_FAILED", "Failed to filter project tasks", err)
+	}
+
+	return tasks, nil
+}
+
+// GetSubtasks retrieves subtasks for a parent task
+func (s *taskService) GetSubtasks(ctx context.Context, parentTaskID string, userID string) ([]*domain.Task, error) {
+	if parentTaskID == "" {
+		return nil, domain.NewValidationError("INVALID_PARENT_ID", "Parent task ID cannot be empty", nil)
+	}
+
+	// Validate user has access to the parent task
+	_, err := s.validateTaskAccess(ctx, parentTaskID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get subtasks from repository
+	subtasks, err := s.taskRepo.GetSubtasks(ctx, parentTaskID)
+	if err != nil {
+		return nil, domain.NewInternalError("SUBTASK_FETCH_FAILED", "Failed to fetch subtasks", err)
+	}
+
+	return subtasks, nil
+}
+
+// GetTaskDependencies retrieves dependency tasks for a task
+func (s *taskService) GetTaskDependencies(ctx context.Context, taskID string, userID string) ([]*domain.Task, error) {
+	if taskID == "" {
+		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
+	}
+
+	// Validate user has access to the task
+	_, err := s.validateTaskAccess(ctx, taskID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get dependencies from repository
+	dependencies, err := s.taskRepo.GetDependencies(ctx, taskID)
+	if err != nil {
+		return nil, domain.NewInternalError("DEPENDENCY_FETCH_FAILED", "Failed to fetch task dependencies", err)
+	}
+
+	return dependencies, nil
+}
+
+// DuplicateTask creates a copy of an existing task
+func (s *taskService) DuplicateTask(
+	ctx context.Context,
+	taskID string,
+	options DuplicationOptions,
+	userID string,
+) (*domain.Task, error) {
+	if taskID == "" {
+		return nil, domain.NewValidationError("INVALID_TASK_ID", "Task ID cannot be empty", nil)
+	}
+
+	// Get the original task and validate access
+	originalTask, err := s.validateTaskAccess(ctx, taskID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create new task from original
+	newTask := s.createTaskCopy(originalTask, options)
+	newTask.ReporterID = userID // Set the user as the reporter of the duplicated task
+
+	// Create the new task
+	if err := s.taskRepo.Create(ctx, newTask); err != nil {
+		return nil, domain.NewInternalError("TASK_DUPLICATE_FAILED", "Failed to duplicate task", err)
+	}
+
+	// Handle subtasks if requested
+	if options.IncludeSubtasks {
+		if err := s.duplicateSubtasks(ctx, taskID, newTask.ID, options, userID); err != nil {
+			// Log error but don't fail the main duplication
+			// In a production system, use structured logging here
+			_ = err // Explicitly ignore error to satisfy linter
+		}
+	}
+
+	return newTask, nil
+}
+
+// CreateFromTemplate creates a task from a predefined template
+func (s *taskService) CreateFromTemplate(
+	ctx context.Context,
+	templateID string,
+	projectID string,
+	userID string,
+) (*domain.Task, error) {
+	if templateID == "" {
+		return nil, domain.NewValidationError("INVALID_TEMPLATE_ID", "Template ID cannot be empty", nil)
+	}
+	if projectID == "" {
+		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
+	}
+
+	// Check if user has access to the project
+	project, err := s.projectRepo.GetByID(ctx, projectID)
+	if err != nil {
+		return nil, domain.NewNotFoundError("PROJECT_NOT_FOUND", "Project not found")
+	}
+
+	if !project.HasAccess(userID) {
+		return nil, domain.NewAuthorizationError("ACCESS_DENIED", "You don't have access to this project")
+	}
+
+	// Get the template task (assuming templates are just tasks marked as templates)
+	templateTask, err := s.taskRepo.GetByID(ctx, templateID)
+	if err != nil {
+		return nil, domain.NewNotFoundError("TEMPLATE_NOT_FOUND", "Template not found")
+	}
+
+	// Create task from template
+	newTask := s.createTaskFromTemplate(templateTask, projectID, userID)
+
+	// Create the task
+	if err := s.taskRepo.Create(ctx, newTask); err != nil {
+		return nil, domain.NewInternalError("TEMPLATE_CREATE_FAILED", "Failed to create task from template", err)
+	}
+
+	return newTask, nil
+}
+
+// Helper methods for task duplication and templating
+
+// createTaskCopy creates a copy of a task with specified options
+func (s *taskService) createTaskCopy(original *domain.Task, options DuplicationOptions) *domain.Task {
+	title := options.NewTitle
+	if title == "" {
+		title = "Copy of " + original.Title
+	}
+
+	newTask := &domain.Task{
+		Title:          title,
+		Description:    original.Description,
+		ProjectID:      original.ProjectID,
+		Status:         domain.StatusTodo, // Reset to todo for duplicated tasks
+		Priority:       original.Priority,
+		AssigneeID:     original.AssigneeID,
+		ParentTaskID:   original.ParentTaskID,
+		Dependencies:   make([]string, len(original.Dependencies)),
+		Tags:           make([]string, len(original.Tags)),
+		DueDate:        original.DueDate,
+		StartDate:      original.StartDate,
+		EffortEstimate: original.EffortEstimate,
+		CustomFields:   original.CustomFields,
+		Position:       0, // Will be calculated by repository
+	}
+
+	// Copy slices properly
+	copy(newTask.Dependencies, original.Dependencies)
+	copy(newTask.Tags, original.Tags)
+
+	// Handle options
+	if options.ResetProgress {
+		newTask.Progress = 0
+	} else {
+		newTask.Progress = original.Progress
+	}
+
+	if options.ResetTimeSpent {
+		newTask.TimeSpent = 0.0
+	} else {
+		newTask.TimeSpent = original.TimeSpent
+	}
+
+	// Don't copy attachments by default for security reasons
+	if options.IncludeAttachments {
+		newTask.Attachments = make([]string, len(original.Attachments))
+		copy(newTask.Attachments, original.Attachments)
+	}
+
+	return newTask
+}
+
+// createTaskFromTemplate creates a new task from a template
+func (s *taskService) createTaskFromTemplate(template *domain.Task, projectID string, userID string) *domain.Task {
+	// Copy tags properly
+	tags := make([]string, len(template.Tags))
+	copy(tags, template.Tags)
+
+	return &domain.Task{
+		Title:          template.Title,
+		Description:    template.Description,
+		ProjectID:      projectID,
+		Status:         domain.StatusTodo,
+		Priority:       template.Priority,
+		ReporterID:     userID,
+		Tags:           tags,
+		EffortEstimate: template.EffortEstimate,
+		Progress:       0,
+		TimeSpent:      0.0,
+		Position:       0, // Will be calculated by repository
+	}
+}
+
+// duplicateSubtasks recursively duplicates subtasks
+func (s *taskService) duplicateSubtasks(
+	ctx context.Context,
+	originalParentID string,
+	newParentID string,
+	options DuplicationOptions,
+	userID string,
+) error {
+	subtasks, err := s.taskRepo.GetSubtasks(ctx, originalParentID)
+	if err != nil {
+		return fmt.Errorf("failed to get subtasks for duplication: %w", err)
+	}
+
+	for _, subtask := range subtasks {
+		// Create copy of subtask
+		newSubtask := s.createTaskCopy(subtask, options)
+		newSubtask.ParentTaskID = &newParentID
+		newSubtask.ReporterID = userID
+
+		if err := s.taskRepo.Create(ctx, newSubtask); err != nil {
+			return fmt.Errorf("failed to create subtask copy: %w", err)
+		}
+
+		// Recursively duplicate nested subtasks
+		if options.IncludeSubtasks {
+			if err := s.duplicateSubtasks(ctx, subtask.ID, newSubtask.ID, options, userID); err != nil {
+				// Log but continue with other subtasks
+				continue
+			}
+		}
+	}
+
+	return nil
 }

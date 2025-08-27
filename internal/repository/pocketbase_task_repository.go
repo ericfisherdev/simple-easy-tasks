@@ -12,6 +12,11 @@ import (
 	"simple-easy-tasks/internal/domain"
 )
 
+const (
+	// jsonNullValue represents the literal "null" string returned by PocketBase for null JSON fields
+	jsonNullValue = "null"
+)
+
 type pocketbaseTaskRepository struct {
 	app core.App
 }
@@ -47,7 +52,7 @@ func (r *pocketbaseTaskRepository) ListByProject(
 	params := dbx.Params{"projectID": projectID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "position, -created", limit, offset, params,
+		"tasks", filter, "position", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by project %s: %w", projectID, err)
@@ -68,7 +73,7 @@ func (r *pocketbaseTaskRepository) ListByAssignee(
 	params := dbx.Params{"assigneeID": assigneeID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-created", limit, offset, params,
+		"tasks", filter, "", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by assignee %s: %w", assigneeID, err)
@@ -89,7 +94,7 @@ func (r *pocketbaseTaskRepository) ListByStatus(
 	params := dbx.Params{"status": string(status)}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "position, -created", limit, offset, params,
+		"tasks", filter, "position", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by status %s: %w", status, err)
@@ -110,7 +115,7 @@ func (r *pocketbaseTaskRepository) ListByCreator(
 	params := dbx.Params{"creatorID": creatorID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-created", limit, offset, params,
+		"tasks", filter, "", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by creator %s: %w", creatorID, err)
@@ -140,7 +145,7 @@ func (r *pocketbaseTaskRepository) Search(
 	}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-created", limit, offset, params,
+		"tasks", filter, "", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search tasks with query '%s': %w", query, err)
@@ -238,13 +243,19 @@ func (r *pocketbaseTaskRepository) Create(_ context.Context, task *domain.Task) 
 	record := core.NewRecord(collection)
 	r.setTaskFields(record, task)
 
-	// Set timestamps if provided, otherwise let PocketBase handle them
+	// Set timestamps - these are regular date fields now, not system fields
+	now := time.Now().UTC()
 	if !task.CreatedAt.IsZero() {
 		record.Set("created", task.CreatedAt)
+	} else {
+		record.Set("created", now)
 	}
 	if !task.UpdatedAt.IsZero() {
 		record.Set("updated", task.UpdatedAt)
+	} else {
+		record.Set("updated", now)
 	}
+
 	if task.ID != "" {
 		record.Id = task.ID
 	}
@@ -273,6 +284,7 @@ func (r *pocketbaseTaskRepository) Update(_ context.Context, task *domain.Task) 
 	}
 
 	r.setTaskFields(record, task)
+	// Manually update the timestamp since it's now a regular field
 	record.Set("updated", time.Now().UTC())
 
 	if err := r.app.Save(record); err != nil {
@@ -280,9 +292,7 @@ func (r *pocketbaseTaskRepository) Update(_ context.Context, task *domain.Task) 
 	}
 
 	// Update the task with the persisted timestamps
-	if updatedTime := record.GetDateTime("updated"); !updatedTime.IsZero() {
-		task.UpdatedAt = updatedTime.Time()
-	}
+	task.UpdatedAt = record.GetDateTime("updated").Time()
 
 	return nil
 }
@@ -366,6 +376,178 @@ func (r *pocketbaseTaskRepository) UnarchiveTask(ctx context.Context, id string)
 	return r.updateArchiveStatus(ctx, id, false)
 }
 
+// GetByProject retrieves tasks for a specific project with advanced filtering
+func (r *pocketbaseTaskRepository) GetByProject(
+	ctx context.Context,
+	projectID string,
+	filters TaskFilters,
+) ([]*domain.Task, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("project ID cannot be empty")
+	}
+
+	// Set project ID as base filter and delegate to getTasksWithFiltersAndParams
+	baseFilter := "project = {:projectID}"
+	params := dbx.Params{"projectID": projectID}
+
+	return r.getTasksWithFiltersAndParams(ctx, baseFilter, params, filters)
+}
+
+// GetSubtasks retrieves subtasks for a parent task
+func (r *pocketbaseTaskRepository) GetSubtasks(_ context.Context, parentID string) ([]*domain.Task, error) {
+	if parentID == "" {
+		return nil, fmt.Errorf("parent task ID cannot be empty")
+	}
+
+	filter := "parent_task = {:parentID}"
+	params := dbx.Params{"parentID": parentID}
+
+	records, err := r.app.FindRecordsByFilter(
+		"tasks", filter, "position", 100, 0, params,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subtasks for parent %s: %w", parentID, err)
+	}
+
+	return r.recordsToTasks(records)
+}
+
+// GetDependencies retrieves dependency tasks for a task
+func (r *pocketbaseTaskRepository) GetDependencies(ctx context.Context, taskID string) ([]*domain.Task, error) {
+	if taskID == "" {
+		return nil, fmt.Errorf("task ID cannot be empty")
+	}
+
+	// First get the task to extract its dependencies
+	task, err := r.GetByID(ctx, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task %s: %w", taskID, err)
+	}
+
+	if len(task.Dependencies) == 0 {
+		return []*domain.Task{}, nil
+	}
+
+	// Build filter to get all dependency tasks
+	var filterParts []string
+	params := dbx.Params{}
+	for i, depID := range task.Dependencies {
+		paramKey := fmt.Sprintf("dep%d", i)
+		filterParts = append(filterParts, fmt.Sprintf("id = {:%s}", paramKey))
+		params[paramKey] = depID
+	}
+
+	filter := strings.Join(filterParts, " || ")
+	records, err := r.app.FindRecordsByFilter(
+		"tasks", filter, "position", len(task.Dependencies), 0, params,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dependencies for task %s: %w", taskID, err)
+	}
+
+	return r.recordsToTasks(records)
+}
+
+// GetTasksByFilter retrieves tasks using advanced filters
+func (r *pocketbaseTaskRepository) GetTasksByFilter(ctx context.Context, filters TaskFilters) ([]*domain.Task, error) {
+	return r.getTasksWithFiltersAndParams(ctx, "", dbx.Params{}, filters)
+}
+
+// Move moves a task to a new status and position
+func (r *pocketbaseTaskRepository) Move(
+	_ context.Context,
+	taskID string,
+	newStatus domain.TaskStatus,
+	position int,
+) error {
+	if taskID == "" {
+		return fmt.Errorf("task ID cannot be empty")
+	}
+	if !newStatus.IsValid() {
+		return fmt.Errorf("invalid task status: %s", newStatus)
+	}
+	if position < 0 {
+		return fmt.Errorf("position cannot be negative")
+	}
+
+	// Get the task first
+	record, err := r.app.FindRecordById("tasks", taskID)
+	if err != nil {
+		return fmt.Errorf("failed to find task for move: %w", err)
+	}
+
+	// Convert to domain task to validate transition
+	task, err := r.recordToTask(record)
+	if err != nil {
+		return fmt.Errorf("failed to convert record to task: %w", err)
+	}
+
+	// Validate status transition using domain logic
+	if !task.CanTransitionTo(newStatus) {
+		return fmt.Errorf("cannot transition from %s to %s", task.Status, newStatus)
+	}
+
+	// Update the status and position
+	record.Set("status", string(newStatus))
+	record.Set("position", position)
+	record.Set("updated", time.Now().UTC())
+
+	if err := r.app.Save(record); err != nil {
+		return fmt.Errorf("failed to move task: %w", err)
+	}
+
+	return nil
+}
+
+// BulkUpdateStatus updates multiple tasks with the same status
+func (r *pocketbaseTaskRepository) BulkUpdateStatus(
+	_ context.Context,
+	taskIDs []string,
+	newStatus domain.TaskStatus,
+) error {
+	if len(taskIDs) == 0 {
+		return nil // Nothing to update
+	}
+	if !newStatus.IsValid() {
+		return fmt.Errorf("invalid task status: %s", newStatus)
+	}
+
+	// Validate all task IDs first
+	for i, id := range taskIDs {
+		if id == "" {
+			return fmt.Errorf("task ID %d is empty", i)
+		}
+	}
+
+	// Process updates individually (could be optimized with transactions)
+	for i, taskID := range taskIDs {
+		record, err := r.app.FindRecordById("tasks", taskID)
+		if err != nil {
+			return fmt.Errorf("failed to find task %d (ID: %s): %w", i, taskID, err)
+		}
+
+		// Validate transition using domain logic
+		task, err := r.recordToTask(record)
+		if err != nil {
+			return fmt.Errorf("failed to convert task %d to domain object: %w", i, err)
+		}
+
+		if !task.CanTransitionTo(newStatus) {
+			return fmt.Errorf("task %d (ID: %s) cannot transition from %s to %s",
+				i, taskID, task.Status, newStatus)
+		}
+
+		record.Set("status", string(newStatus))
+		record.Set("updated", time.Now().UTC())
+
+		if err := r.app.Save(record); err != nil {
+			return fmt.Errorf("failed to update task %d (ID: %s): %w", i, taskID, err)
+		}
+	}
+
+	return nil
+}
+
 // updateArchiveStatus handles archiving/unarchiving tasks
 func (r *pocketbaseTaskRepository) updateArchiveStatus(_ context.Context, id string, archive bool) error {
 	if id == "" {
@@ -396,8 +578,12 @@ func (r *pocketbaseTaskRepository) updateArchiveStatus(_ context.Context, id str
 
 	// Update record with archived values
 	record.Set("archived", task.Archived)
-	record.Set("archived_at", task.ArchivedAt)
-	record.Set("updated", task.UpdatedAt)
+	if task.ArchivedAt != nil {
+		record.Set("archived_at", *task.ArchivedAt)
+	} else {
+		record.Set("archived_at", nil)
+	}
+	record.Set("updated", time.Now().UTC())
 
 	if err := r.app.Save(record); err != nil {
 		operation := "unarchive"
@@ -425,17 +611,32 @@ func (r *pocketbaseTaskRepository) recordToTask(record *core.Record) (*domain.Ta
 		Progress:    record.GetInt("progress"),
 		CreatedAt:   record.GetDateTime("created").Time(),
 		UpdatedAt:   record.GetDateTime("updated").Time(),
+		Archived:    record.GetBool("archived"),
 	}
 
-	// Handle optional string fields
+	r.populateOptionalFields(task, record)
+	r.populateDateFields(task, record)
+	r.populateJSONFields(task, record)
+	r.populateArrayFields(task, record)
+
+	return task, nil
+}
+
+// populateOptionalFields populates optional string and numeric fields
+func (r *pocketbaseTaskRepository) populateOptionalFields(task *domain.Task, record *core.Record) {
 	if assignee := record.GetString("assignee"); assignee != "" {
 		task.AssigneeID = &assignee
 	}
 	if parentTask := record.GetString("parent_task"); parentTask != "" {
 		task.ParentTaskID = &parentTask
 	}
+	if effortEstimate := record.GetFloat("effort_estimate"); effortEstimate > 0 {
+		task.EffortEstimate = &effortEstimate
+	}
+}
 
-	// Handle optional date fields
+// populateDateFields populates optional date fields
+func (r *pocketbaseTaskRepository) populateDateFields(task *domain.Task, record *core.Record) {
 	if dueDate := record.GetDateTime("due_date"); !dueDate.IsZero() {
 		dueDateTime := dueDate.Time()
 		task.DueDate = &dueDateTime
@@ -448,27 +649,23 @@ func (r *pocketbaseTaskRepository) recordToTask(record *core.Record) (*domain.Ta
 		archivedDateTime := archivedAt.Time()
 		task.ArchivedAt = &archivedDateTime
 	}
+}
 
-	// Handle archived field
-	task.Archived = record.GetBool("archived")
-
-	// Handle optional numeric fields
-	if effortEstimate := record.GetFloat("effort_estimate"); effortEstimate > 0 {
-		task.EffortEstimate = &effortEstimate
-	}
-
-	// Handle JSON fields
-	if columnPosition := record.GetString("column_position"); columnPosition != "" {
+// populateJSONFields populates JSON byte fields
+func (r *pocketbaseTaskRepository) populateJSONFields(task *domain.Task, record *core.Record) {
+	if columnPosition := record.GetString("column_position"); columnPosition != "" && columnPosition != jsonNullValue {
 		task.ColumnPosition = []byte(columnPosition)
 	}
-	if githubData := record.GetString("github_data"); githubData != "" {
+	if githubData := record.GetString("github_data"); githubData != "" && githubData != jsonNullValue {
 		task.GithubData = []byte(githubData)
 	}
-	if customFields := record.GetString("custom_fields"); customFields != "" {
+	if customFields := record.GetString("custom_fields"); customFields != "" && customFields != jsonNullValue {
 		task.CustomFields = []byte(customFields)
 	}
+}
 
-	// Handle array fields (if stored as JSON)
+// populateArrayFields populates array fields from JSON
+func (r *pocketbaseTaskRepository) populateArrayFields(task *domain.Task, record *core.Record) {
 	var dependencies []string
 	if err := record.UnmarshalJSONField("dependencies", &dependencies); err == nil && len(dependencies) > 0 {
 		task.Dependencies = dependencies
@@ -483,8 +680,6 @@ func (r *pocketbaseTaskRepository) recordToTask(record *core.Record) (*domain.Ta
 	if err := record.UnmarshalJSONField("attachments", &attachments); err == nil && len(attachments) > 0 {
 		task.Attachments = attachments
 	}
-
-	return task, nil
 }
 
 // recordsToTasks converts PocketBase records to domain.Task slice.
@@ -596,10 +791,198 @@ func (r *pocketbaseTaskRepository) setJSONAndArrayFields(record *core.Record, ta
 // updateTaskFromRecord updates a task with values from a PocketBase record
 func (r *pocketbaseTaskRepository) updateTaskFromRecord(task *domain.Task, record *core.Record) {
 	task.ID = record.Id
-	if createdTime := record.GetDateTime("created"); !createdTime.IsZero() {
-		task.CreatedAt = createdTime.Time()
+	task.CreatedAt = record.GetDateTime("created").Time()
+	task.UpdatedAt = record.GetDateTime("updated").Time()
+}
+
+// getTasksWithFiltersAndParams implements the core filtering logic
+func (r *pocketbaseTaskRepository) getTasksWithFiltersAndParams(
+	_ context.Context,
+	baseFilter string,
+	baseParams dbx.Params,
+	filters TaskFilters,
+) ([]*domain.Task, error) {
+	filterParts := []string{}
+	params := dbx.Params{}
+
+	// Copy base params
+	for k, v := range baseParams {
+		params[k] = v
 	}
-	if updatedTime := record.GetDateTime("updated"); !updatedTime.IsZero() {
-		task.UpdatedAt = updatedTime.Time()
+
+	// Add base filter if provided
+	if baseFilter != "" {
+		filterParts = append(filterParts, baseFilter)
 	}
+
+	// Apply all filter types
+	r.applyStatusFilters(filters, &filterParts, params)
+	r.applyPriorityFilters(filters, &filterParts, params)
+	r.applyUserFilters(filters, &filterParts, params)
+	r.applyTagFilters(filters, &filterParts, params)
+	r.applyDateFilters(filters, &filterParts, params)
+	r.applySearchFilters(filters, &filterParts, params)
+	r.applyParentFilters(filters, &filterParts, params)
+	r.applyArchivedFilter(filters, &filterParts, params)
+
+	// Build final filter and execute query
+	finalFilter := ""
+	if len(filterParts) > 0 {
+		finalFilter = strings.Join(filterParts, " && ")
+	}
+
+	sortOrder := r.buildSortOrder(filters.SortBy, filters.SortOrder)
+	limit, offset := r.normalizeLimitAndOffset(filters.Limit, filters.Offset)
+
+	records, err := r.app.FindRecordsByFilter("tasks", finalFilter, sortOrder, limit, offset, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute filtered task query: %w", err)
+	}
+
+	return r.recordsToTasks(records)
+}
+
+// applyStatusFilters adds status filters to the query
+func (r *pocketbaseTaskRepository) applyStatusFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if len(filters.Status) == 0 {
+		return
+	}
+	statusParts := []string{}
+	for i, status := range filters.Status {
+		paramKey := fmt.Sprintf("status%d", i)
+		statusParts = append(statusParts, fmt.Sprintf("status = {:%s}", paramKey))
+		params[paramKey] = string(status)
+	}
+	*filterParts = append(*filterParts, fmt.Sprintf("(%s)", strings.Join(statusParts, " || ")))
+}
+
+// applyPriorityFilters adds priority filters to the query
+func (r *pocketbaseTaskRepository) applyPriorityFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if len(filters.Priority) == 0 {
+		return
+	}
+	priorityParts := []string{}
+	for i, priority := range filters.Priority {
+		paramKey := fmt.Sprintf("priority%d", i)
+		priorityParts = append(priorityParts, fmt.Sprintf("priority = {:%s}", paramKey))
+		params[paramKey] = string(priority)
+	}
+	*filterParts = append(*filterParts, fmt.Sprintf("(%s)", strings.Join(priorityParts, " || ")))
+}
+
+// applyUserFilters adds assignee and reporter filters to the query
+func (r *pocketbaseTaskRepository) applyUserFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.AssigneeID != nil {
+		if *filters.AssigneeID == "" {
+			*filterParts = append(*filterParts, "assignee = ''")
+		} else {
+			*filterParts = append(*filterParts, "assignee = {:assigneeID}")
+			params["assigneeID"] = *filters.AssigneeID
+		}
+	}
+	if filters.ReporterID != nil {
+		*filterParts = append(*filterParts, "reporter = {:reporterID}")
+		params["reporterID"] = *filters.ReporterID
+	}
+}
+
+// applyTagFilters adds tag filters to the query
+func (r *pocketbaseTaskRepository) applyTagFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if len(filters.Tags) == 0 {
+		return
+	}
+	tagParts := []string{}
+	for i, tag := range filters.Tags {
+		paramKey := fmt.Sprintf("tag%d", i)
+		tagParts = append(tagParts, fmt.Sprintf("tags ~ {:%s}", paramKey))
+		params[paramKey] = tag
+	}
+	*filterParts = append(*filterParts, fmt.Sprintf("(%s)", strings.Join(tagParts, " || ")))
+}
+
+// applyDateFilters adds date filters to the query
+func (r *pocketbaseTaskRepository) applyDateFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.DueBefore != nil {
+		*filterParts = append(*filterParts, "due_date < {:dueBefore}")
+		params["dueBefore"] = filters.DueBefore.Format("2006-01-02 15:04:05")
+	}
+	if filters.DueAfter != nil {
+		*filterParts = append(*filterParts, "due_date > {:dueAfter}")
+		params["dueAfter"] = filters.DueAfter.Format("2006-01-02 15:04:05")
+	}
+}
+
+// applySearchFilters adds search filters to the query
+func (r *pocketbaseTaskRepository) applySearchFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.Search == "" {
+		return
+	}
+	searchTerm := "%" + strings.ReplaceAll(filters.Search, "%", "\\%") + "%"
+	*filterParts = append(*filterParts, "(title ~ {:searchTerm} || description ~ {:searchTerm})")
+	params["searchTerm"] = searchTerm
+}
+
+// applyParentFilters adds parent task filters to the query
+func (r *pocketbaseTaskRepository) applyParentFilters(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.HasParent != nil {
+		if *filters.HasParent {
+			*filterParts = append(*filterParts, "parent_task != ''")
+		} else {
+			*filterParts = append(*filterParts, "parent_task = ''")
+		}
+	}
+	if filters.ParentID != nil {
+		*filterParts = append(*filterParts, "parent_task = {:parentID}")
+		params["parentID"] = *filters.ParentID
+	}
+}
+
+// applyArchivedFilter adds archived filter to the query
+func (r *pocketbaseTaskRepository) applyArchivedFilter(filters TaskFilters, filterParts *[]string, params dbx.Params) {
+	if filters.Archived != nil {
+		*filterParts = append(*filterParts, "archived = {:archived}")
+		params["archived"] = *filters.Archived
+	}
+}
+
+// normalizeLimitAndOffset normalizes limit and offset values
+func (r *pocketbaseTaskRepository) normalizeLimitAndOffset(limit, offset int) (int, int) {
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return limit, offset
+}
+
+// buildSortOrder constructs the sort order string for PocketBase queries
+func (r *pocketbaseTaskRepository) buildSortOrder(sortBy, sortOrder string) string {
+	// Default sort order - use position only to avoid issues with timestamp fields
+	if sortBy == "" {
+		return "position"
+	}
+
+	// Validate sort field - using standard field names since @ prefixes are removed
+	validSortFields := map[string]string{
+		SortByCreated:  "created", // PocketBase timestamp field
+		SortByUpdated:  "updated", // PocketBase timestamp field
+		SortByTitle:    "title",
+		SortByStatus:   "status",
+		SortByPriority: "priority",
+		SortByDueDate:  "due_date",
+		SortByPosition: "position",
+		SortByProgress: "progress",
+	}
+
+	field, exists := validSortFields[sortBy]
+	if !exists {
+		return "position" // Fallback to default
+	}
+
+	// Apply sort order
+	if sortOrder == SortOrderDesc {
+		return "-" + field
+	}
+	return field
 }

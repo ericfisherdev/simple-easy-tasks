@@ -10,7 +10,7 @@ func init() {
 		// For security reasons, we need to clear all existing password reset tokens
 		// because we're changing from plaintext storage to HMAC-SHA256 hashes.
 		// Existing plaintext tokens cannot be converted to hashes.
-		
+
 		collection, err := app.FindCollectionByNameOrId("password_reset_tokens")
 		if err != nil {
 			// Collection doesn't exist, nothing to clear

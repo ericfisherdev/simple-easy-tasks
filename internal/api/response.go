@@ -6,7 +6,8 @@
 // leakage and ensures proper error tracking across the application.
 //
 // Usage:
-//   api.SanitizedErrorResponse(c, err)
+//
+//	api.SanitizedErrorResponse(c, err)
 //
 // Avoid direct c.JSON calls with error payloads - use SanitizedErrorResponse instead.
 package api

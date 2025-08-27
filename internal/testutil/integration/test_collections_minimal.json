@@ -43,6 +43,22 @@
         "required": false,
         "unique": false,
         "options": {}
+      },
+      {
+        "name": "created",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "name": "updated",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
       }
     ],
     "indexes": [],
@@ -255,6 +271,22 @@
         "required": false,
         "unique": false,
         "options": {}
+      },
+      {
+        "name": "created",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "name": "updated",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
       }
     ],
     "indexes": [],
@@ -313,6 +345,22 @@
       {
         "name": "attachments",
         "type": "json",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "name": "created",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "unique": false,
+        "options": {}
+      },
+      {
+        "name": "updated",
+        "type": "date",
         "system": false,
         "required": false,
         "unique": false,

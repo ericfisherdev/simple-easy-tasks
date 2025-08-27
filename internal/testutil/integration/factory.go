@@ -34,6 +34,15 @@ func (f *TestDataFactory) nextID() int64 {
 	return atomic.AddInt64(&f.counter, 1)
 }
 
+// nextPosition ensures position is always >= 1 for PocketBase validation
+func (f *TestDataFactory) nextPosition() int {
+	id := f.nextID()
+	if id <= 0 {
+		return 1
+	}
+	return int(id)
+}
+
 // nextUUID generates a deterministic UUID for testing
 func (f *TestDataFactory) nextUUID() string {
 	return uuid.New().String()
@@ -290,7 +299,7 @@ func (f *TestDataFactory) CreateTask(project *domain.Project, reporter *domain.U
 		Priority:     domain.PriorityMedium,
 		Progress:     0,
 		TimeSpent:    0.0,
-		Position:     int(id), // Use counter as position for ordering
+		Position:     f.nextPosition(), // Ensures position is always >= 1 for PocketBase validation
 		Tags:         []string{},
 		Dependencies: []string{},
 		Attachments:  []string{},

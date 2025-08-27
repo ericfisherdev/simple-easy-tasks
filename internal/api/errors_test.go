@@ -90,7 +90,7 @@ func TestSanitizedErrorResponse(t *testing.T) {
 			success, exists := response["success"].(bool)
 			assert.True(t, exists, "success field should exist and be boolean")
 			assert.False(t, success, "success should be false")
-			
+
 			// Assert correlation_id exists and is non-empty
 			correlationID, exists := response["correlation_id"].(string)
 			assert.True(t, exists, "correlation_id should exist and be string")

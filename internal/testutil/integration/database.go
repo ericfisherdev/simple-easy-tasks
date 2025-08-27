@@ -132,7 +132,7 @@ func (db *TestDatabase) Cleanup() {
 	if db.cleanup != nil {
 		db.cleanup()
 	}
-	
+
 	// Then properly shutdown the PocketBase app and close database connections
 	if db.app != nil {
 		// Use PocketBase's official shutdown method to properly close all database connections

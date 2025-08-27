@@ -9,9 +9,9 @@ import (
 
 func TestPasswordResetToken_Validate(t *testing.T) {
 	tests := []struct {
+		token   *PasswordResetToken
 		name    string
 		errCode string
-		token   *PasswordResetToken
 		wantErr bool
 	}{
 		{
@@ -84,8 +84,8 @@ func TestPasswordResetToken_Validate(t *testing.T) {
 
 func TestPasswordResetToken_IsExpired(t *testing.T) {
 	tests := []struct {
-		name      string
 		expiresAt time.Time
+		name      string
 		expected  bool
 	}{
 		{
@@ -125,8 +125,8 @@ func TestPasswordResetToken_IsExpired(t *testing.T) {
 
 func TestPasswordResetToken_IsValid(t *testing.T) {
 	tests := []struct {
-		name     string
 		token    *PasswordResetToken
+		name     string
 		expected bool
 	}{
 		{

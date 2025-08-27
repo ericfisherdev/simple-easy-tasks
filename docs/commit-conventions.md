@@ -256,14 +256,23 @@ Migration guide available in docs/migration-v2.md
    - Reinstall hooks: `npm run prepare`
    - Check `.husky/commit-msg` file exists
 
-### Bypass Validation (Emergency Only)
-```bash
-# Skip commit-msg hook (not recommended)
-git commit --no-verify -m "emergency fix"
+### Security Notice
 
-# Skip all hooks
-git commit --no-verify --no-verify -m "emergency fix"
-```
+**⚠️ IMPORTANT: Hook bypass is DISABLED for security reasons.**
+
+This project enforces mandatory code quality checks that **cannot be bypassed** using `--no-verify` or similar methods. This ensures:
+
+- All Go code is properly formatted
+- All code passes linting and static analysis
+- Dependencies are properly managed
+- Commit messages follow conventions
+
+**For emergencies:**
+1. Fix formatting/linting issues first: `make fmt && make lint`
+2. Contact a repository maintainer if immediate bypass is needed
+3. Use secure commit methods: `make commit MESSAGE="your message"`
+
+See `docs/hook-enforcement.md` for detailed security information.
 
 ### Check Hook Status
 ```bash

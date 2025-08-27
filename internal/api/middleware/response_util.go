@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	
+
 	"simple-easy-tasks/internal/domain"
 )
 
@@ -31,9 +31,9 @@ func getMiddlewareLogger() *slog.Logger {
 // This provides basic error sanitization without creating import cycles
 func sanitizedErrorResponse(c *gin.Context, err error) {
 	logger := getMiddlewareLogger()
-	
+
 	// Log the error for debugging
-	logger.Error("Middleware error occurred", 
+	logger.Error("Middleware error occurred",
 		"error", err.Error(),
 		"path", c.Request.URL.Path,
 		"method", c.Request.Method,
@@ -44,7 +44,7 @@ func sanitizedErrorResponse(c *gin.Context, err error) {
 		"success": false,
 		"error": gin.H{
 			"type":    "INTERNAL_ERROR",
-			"code":    "MIDDLEWARE_ERROR", 
+			"code":    "MIDDLEWARE_ERROR",
 			"message": "An error occurred processing your request",
 		},
 	}

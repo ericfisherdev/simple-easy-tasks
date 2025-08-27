@@ -103,12 +103,12 @@ func TestTestDatabase_Reset(t *testing.T) {
 	// Find non-view collections and create test data in each
 	testCollections := make(map[string]*core.Collection)
 	originalCounts := make(map[string]int)
-	
+
 	for _, col := range collections {
 		if col.IsView() {
 			continue // Skip views as expected
 		}
-		
+
 		// Only test with collections that have simple field requirements
 		// Projects collection only requires title, slug, and owner (all text fields)
 		if col.Name == "projects" {
@@ -119,7 +119,7 @@ func TestTestDatabase_Reset(t *testing.T) {
 	// Create test records in each non-view collection
 	for name, collection := range testCollections {
 		record := core.NewRecord(collection)
-		
+
 		switch name {
 		case "projects":
 			record.Set("title", "Test Project")

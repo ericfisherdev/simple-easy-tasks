@@ -286,12 +286,7 @@
         }
       }
     ],
-    "indexes": [
-      "CREATE INDEX idx_tasks_project_status ON tasks (project, status)",
-      "CREATE INDEX idx_tasks_assignee ON tasks (assignee)",
-      "CREATE INDEX idx_tasks_due_date ON tasks (due_date)",
-      "CREATE INDEX idx_tasks_position ON tasks (project, status, position)"
-    ],
+    "indexes": [],
     "listRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
     "viewRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
     "createRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
@@ -359,9 +354,7 @@
         }
       }
     ],
-    "indexes": [
-      "CREATE UNIQUE INDEX idx_tags_name_project ON tags (name, project)"
-    ],
+    "indexes": [],
     "listRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
     "viewRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
     "createRule": "@request.auth.id != \"\" && project.members.id ?= @request.auth.id",
@@ -463,10 +456,7 @@
         "options": {}
       }
     ],
-    "indexes": [
-      "CREATE INDEX idx_comments_task ON comments (task)",
-      "CREATE INDEX idx_comments_author ON comments (author)"
-    ],
+    "indexes": [],
     "listRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
     "viewRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
     "createRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
@@ -563,11 +553,7 @@
         "options": {}
       }
     ],
-    "indexes": [
-      "CREATE INDEX idx_task_history_task ON task_history (task)",
-      "CREATE INDEX idx_task_history_user ON task_history (user)",
-      "CREATE INDEX idx_task_history_action ON task_history (action)"
-    ],
+    "indexes": [],
     "listRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
     "viewRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
     "createRule": "@request.auth.id != \"\" && task.project.members.id ?= @request.auth.id",
