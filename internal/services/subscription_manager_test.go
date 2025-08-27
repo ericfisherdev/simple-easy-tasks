@@ -66,6 +66,11 @@ func TestSubscriptionManager(t *testing.T) {
 				Username: "testuser2",
 				Email:    "user2@example.com",
 			},
+			"user_delete_test": {
+				ID:       "user_delete_test",
+				Username: "testuser_delete",
+				Email:    "delete@example.com",
+			},
 		},
 	}
 
@@ -315,9 +320,9 @@ func TestSubscriptionManager(t *testing.T) {
 	t.Run("DeleteSubscription", func(t *testing.T) {
 		ctx := context.Background()
 
-		// Create subscription
+		// Create subscription - use a unique user to avoid subscription limit
 		req := CreateSubscriptionRequest{
-			UserID:     "user1",
+			UserID:     "user_delete_test",
 			EventTypes: []domain.TaskEventType{domain.TaskCreated},
 		}
 
@@ -327,13 +332,13 @@ func TestSubscriptionManager(t *testing.T) {
 		}
 
 		// Delete subscription
-		err = manager.DeleteSubscription(ctx, created.ID, "user1")
+		err = manager.DeleteSubscription(ctx, created.ID, "user_delete_test")
 		if err != nil {
 			t.Fatalf("Failed to delete subscription: %v", err)
 		}
 
 		// Try to get subscription (should fail)
-		_, err = manager.GetSubscription(ctx, created.ID, "user1")
+		_, err = manager.GetSubscription(ctx, created.ID, "user_delete_test")
 		if err == nil {
 			t.Error("Expected subscription to be deleted")
 		}

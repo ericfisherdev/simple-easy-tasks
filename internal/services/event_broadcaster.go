@@ -97,8 +97,8 @@ func (b *eventBroadcaster) BroadcastEvent(ctx context.Context, event *domain.Tas
 		return err
 	}
 
-	b.mu.RLock()
-	defer b.mu.RUnlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	matchingSubscriptions := b.findMatchingSubscriptions(event)
 	if len(matchingSubscriptions) == 0 {

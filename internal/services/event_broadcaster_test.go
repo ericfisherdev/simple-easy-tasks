@@ -106,8 +106,8 @@ func TestEventBroadcaster(t *testing.T) {
 		// Store initial activity time
 		initialActivity := subscription.LastActivity
 
-		// Add small delay to ensure timestamp difference
-		time.Sleep(time.Millisecond)
+		// Add delay to ensure timestamp difference (local operations are very fast)
+		time.Sleep(10 * time.Millisecond)
 
 		// Create test event
 		eventData := &domain.TaskCreatedData{
@@ -221,6 +221,10 @@ func TestEventBroadcaster(t *testing.T) {
 			[]domain.TaskEventType{domain.TaskCreated},
 		)
 
+		// Record the original activity times before subscribing
+		originalActivity1 := subscription1.LastActivity
+		originalActivity2 := subscription2.LastActivity
+
 		err := broadcaster.Subscribe(ctx, subscription1)
 		if err != nil {
 			t.Fatalf("Failed to subscribe 1: %v", err)
@@ -231,7 +235,7 @@ func TestEventBroadcaster(t *testing.T) {
 			t.Fatalf("Failed to subscribe 2: %v", err)
 		}
 
-		// Create event for project1
+		// Create event for project1 (should match subscription1 only)
 		eventData := &domain.TaskCreatedData{
 			Task: &domain.Task{
 				ID:        "task1",
@@ -251,12 +255,8 @@ func TestEventBroadcaster(t *testing.T) {
 			t.Fatalf("Failed to create event: %v", err)
 		}
 
-		// Get initial activity times
-		sub1Before, _ := broadcaster.GetSubscription(ctx, subscription1.ID)
-		sub2Before, _ := broadcaster.GetSubscription(ctx, subscription2.ID)
-
-		// Add small delay to ensure timestamp difference
-		time.Sleep(time.Millisecond)
+		// Add delay to ensure timestamp difference (local operations are very fast)
+		time.Sleep(10 * time.Millisecond)
 
 		// Broadcast event
 		err = broadcaster.BroadcastEvent(ctx, event)
@@ -268,12 +268,18 @@ func TestEventBroadcaster(t *testing.T) {
 		sub1After, _ := broadcaster.GetSubscription(ctx, subscription1.ID)
 		sub2After, _ := broadcaster.GetSubscription(ctx, subscription2.ID)
 
-		if !sub1After.LastActivity.After(sub1Before.LastActivity) {
-			t.Error("Expected subscription1 activity to be updated")
+		// Subscription1 should have activity after the original time (it was updated)
+		if !sub1After.LastActivity.After(originalActivity1) {
+			t.Errorf("Expected subscription1 activity to be updated. Original: %s, After broadcast: %s",
+				originalActivity1.Format(time.RFC3339Nano),
+				sub1After.LastActivity.Format(time.RFC3339Nano))
 		}
 
-		if sub2After.LastActivity.After(sub2Before.LastActivity) {
-			t.Error("Expected subscription2 activity to remain unchanged")
+		// Subscription2 should still have the original activity (it was not updated)
+		if !sub2After.LastActivity.Equal(originalActivity2) {
+			t.Errorf("Expected subscription2 activity to remain unchanged. Original: %s, After broadcast: %s",
+				originalActivity2.Format(time.RFC3339Nano),
+				sub2After.LastActivity.Format(time.RFC3339Nano))
 		}
 	})
 

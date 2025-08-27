@@ -778,8 +778,9 @@ func TestCalculateTaskChanges(t *testing.T) {
 			t.Errorf("Expected assignee_id change to %s, got %v", assignee, changes["assignee_id"])
 		}
 
-		if oldValues["assignee_id"] != nil {
-			t.Errorf("Expected old assignee_id to be nil, got %v", oldValues["assignee_id"])
+		// Check that old value is nil (comparing typed nil)
+		if val, exists := oldValues["assignee_id"]; !exists || val != (*string)(nil) {
+			t.Errorf("Expected old assignee_id to be nil, got %v (exists: %v)", val, exists)
 		}
 
 		// Test assigned to nil
@@ -788,8 +789,9 @@ func TestCalculateTaskChanges(t *testing.T) {
 
 		changes, oldValues = realtimeService.calculateTaskChanges(task3, task4)
 
-		if changes["assignee_id"] != nil {
-			t.Errorf("Expected assignee_id change to nil, got %v", changes["assignee_id"])
+		// Check that assignee_id is set in changes map and its value is nil
+		if val, exists := changes["assignee_id"]; !exists || val != (*string)(nil) {
+			t.Errorf("Expected assignee_id change to nil, got %v (exists: %v)", val, exists)
 		}
 
 		if oldValues["assignee_id"] == nil || *oldValues["assignee_id"].(*string) != assignee {
@@ -811,8 +813,9 @@ func TestCalculateTaskChanges(t *testing.T) {
 			t.Errorf("Expected due_date change to %v, got %v", now, changes["due_date"])
 		}
 
-		if oldValues["due_date"] != nil {
-			t.Errorf("Expected old due_date to be nil, got %v", oldValues["due_date"])
+		// Check that old value is nil (comparing typed nil)
+		if val, exists := oldValues["due_date"]; !exists || val != (*time.Time)(nil) {
+			t.Errorf("Expected old due_date to be nil, got %v (exists: %v)", val, exists)
 		}
 
 		// Test date to different date

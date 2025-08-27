@@ -285,7 +285,12 @@ func (s *EventSubscription) matchesFilter(key, value string, event *TaskEvent) b
 
 // UpdateActivity updates the last activity timestamp
 func (s *EventSubscription) UpdateActivity() {
-	s.LastActivity = time.Now().UTC()
+	now := time.Now().UTC()
+	// Ensure timestamp is always newer than the previous one
+	if !now.After(s.LastActivity) {
+		now = s.LastActivity.Add(time.Nanosecond)
+	}
+	s.LastActivity = now
 }
 
 // generateSubscriptionID creates a unique identifier for subscriptions
