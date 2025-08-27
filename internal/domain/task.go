@@ -453,7 +453,7 @@ type CreateTaskRequest struct {
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 	Title       string                 `json:"title" binding:"required,min=1,max=200"`
 	Description string                 `json:"description,omitempty"`
-	ProjectID   string                 `json:"project_id" binding:"required"`
+	ProjectID   string                 `json:"project_id,omitempty"`
 	AssigneeID  string                 `json:"assignee_id,omitempty"`
 	Priority    TaskPriority           `json:"priority,omitempty"`
 	Tags        []string               `json:"tags,omitempty"`
