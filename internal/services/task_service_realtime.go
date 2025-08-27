@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"simple-easy-tasks/internal/domain"
 )
@@ -84,7 +85,7 @@ func (s *realtimeTaskService) UpdateTask(
 // DeleteTask deletes a task and broadcasts a deletion event
 func (s *realtimeTaskService) DeleteTask(ctx context.Context, taskID string, userID string) error {
 	// Get task before deletion for event data
-	task, err := s.TaskService.GetTask(ctx, taskID, userID)
+	task, err := s.GetTask(ctx, taskID, userID)
 	if err != nil {
 		return err
 	}
@@ -112,7 +113,7 @@ func (s *realtimeTaskService) AssignTask(
 	userID string,
 ) (*domain.Task, error) {
 	// Get original task for comparison
-	originalTask, err := s.TaskService.GetTask(ctx, taskID, userID)
+	originalTask, err := s.GetTask(ctx, taskID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +137,7 @@ func (s *realtimeTaskService) AssignTask(
 // UnassignTask removes assignment from a task and broadcasts an assignment event
 func (s *realtimeTaskService) UnassignTask(ctx context.Context, taskID string, userID string) (*domain.Task, error) {
 	// Get original task for comparison
-	originalTask, err := s.TaskService.GetTask(ctx, taskID, userID)
+	originalTask, err := s.GetTask(ctx, taskID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +174,7 @@ func (s *realtimeTaskService) UpdateTaskStatus(
 // MoveTask moves a task between statuses/positions and broadcasts a move event
 func (s *realtimeTaskService) MoveTask(ctx context.Context, req MoveTaskRequest, userID string) error {
 	// Get original task for comparison
-	originalTask, err := s.TaskService.GetTask(ctx, req.TaskID, userID)
+	originalTask, err := s.GetTask(ctx, req.TaskID, userID)
 	if err != nil {
 		return err
 	}
@@ -184,7 +185,7 @@ func (s *realtimeTaskService) MoveTask(ctx context.Context, req MoveTaskRequest,
 	}
 
 	// Get updated task for event data
-	updatedTask, err := s.TaskService.GetTask(ctx, req.TaskID, userID)
+	updatedTask, err := s.GetTask(ctx, req.TaskID, userID)
 	if err != nil {
 		s.logger.Error("Failed to get updated task after move for event broadcasting",
 			"task_id", req.TaskID,
@@ -243,7 +244,9 @@ func (s *realtimeTaskService) broadcastTaskCreated(ctx context.Context, task *do
 }
 
 // broadcastTaskUpdated broadcasts a task update event
-func (s *realtimeTaskService) broadcastTaskUpdated(ctx context.Context, originalTask, updatedTask *domain.Task, userID string) error {
+func (s *realtimeTaskService) broadcastTaskUpdated(
+	ctx context.Context, originalTask, updatedTask *domain.Task, userID string,
+) error {
 	// Calculate changes
 	changes, oldValues := s.calculateTaskChanges(originalTask, updatedTask)
 
@@ -262,7 +265,9 @@ func (s *realtimeTaskService) broadcastTaskUpdated(ctx context.Context, original
 }
 
 // broadcastTaskMoved broadcasts a task move event
-func (s *realtimeTaskService) broadcastTaskMoved(ctx context.Context, originalTask, updatedTask *domain.Task, userID string) error {
+func (s *realtimeTaskService) broadcastTaskMoved(
+	ctx context.Context, originalTask, updatedTask *domain.Task, userID string,
+) error {
 	eventData := &domain.TaskMovedData{
 		Task:        updatedTask,
 		OldStatus:   originalTask.Status,
@@ -280,7 +285,9 @@ func (s *realtimeTaskService) broadcastTaskMoved(ctx context.Context, originalTa
 }
 
 // broadcastTaskAssigned broadcasts a task assignment event
-func (s *realtimeTaskService) broadcastTaskAssigned(ctx context.Context, originalTask, updatedTask *domain.Task, userID string) error {
+func (s *realtimeTaskService) broadcastTaskAssigned(
+	ctx context.Context, originalTask, updatedTask *domain.Task, userID string,
+) error {
 	eventData := &domain.TaskAssignedData{
 		Task:        updatedTask,
 		OldAssignee: originalTask.AssigneeID,
@@ -313,7 +320,9 @@ func (s *realtimeTaskService) broadcastTaskDeleted(ctx context.Context, task *do
 }
 
 // broadcastTaskCommented broadcasts a task comment event
-func (s *realtimeTaskService) BroadcastTaskCommented(ctx context.Context, task *domain.Task, commentID, comment, authorID string) error {
+func (s *realtimeTaskService) BroadcastTaskCommented(
+	ctx context.Context, task *domain.Task, commentID, comment, authorID string,
+) error {
 	eventData := &domain.TaskCommentedData{
 		Task:      task,
 		CommentID: commentID,
@@ -330,86 +339,94 @@ func (s *realtimeTaskService) BroadcastTaskCommented(ctx context.Context, task *
 }
 
 // calculateTaskChanges compares two tasks and returns the changes
-func (s *realtimeTaskService) calculateTaskChanges(original, updated *domain.Task) (map[string]interface{}, map[string]interface{}) {
+func (s *realtimeTaskService) calculateTaskChanges(
+	original, updated *domain.Task,
+) (map[string]interface{}, map[string]interface{}) {
 	changes := make(map[string]interface{})
 	oldValues := make(map[string]interface{})
 
-	// Compare fields and track changes
-	if original.Title != updated.Title {
-		changes["title"] = updated.Title
-		oldValues["title"] = original.Title
+	s.compareBasicFields(original, updated, changes, oldValues)
+	s.comparePointerFields(original, updated, changes, oldValues)
+	s.compareTags(original, updated, changes, oldValues)
+
+	return changes, oldValues
+}
+
+// compareBasicFields compares basic task fields
+func (s *realtimeTaskService) compareBasicFields(
+	original, updated *domain.Task, changes, oldValues map[string]interface{},
+) {
+	fieldComparisons := map[string][2]interface{}{
+		"title":       {original.Title, updated.Title},
+		"description": {original.Description, updated.Description},
+		"status":      {original.Status, updated.Status},
+		"priority":    {original.Priority, updated.Priority},
+		"position":    {original.Position, updated.Position},
+		"progress":    {original.Progress, updated.Progress},
+		"time_spent":  {original.TimeSpent, updated.TimeSpent},
 	}
 
-	if original.Description != updated.Description {
-		changes["description"] = updated.Description
-		oldValues["description"] = original.Description
+	for field, values := range fieldComparisons {
+		if values[0] != values[1] {
+			changes[field] = values[1]
+			oldValues[field] = values[0]
+		}
 	}
+}
 
-	if original.Status != updated.Status {
-		changes["status"] = updated.Status
-		oldValues["status"] = original.Status
-	}
-
-	if original.Priority != updated.Priority {
-		changes["priority"] = updated.Priority
-		oldValues["priority"] = original.Priority
-	}
-
-	if original.Position != updated.Position {
-		changes["position"] = updated.Position
-		oldValues["position"] = original.Position
-	}
-
-	if original.Progress != updated.Progress {
-		changes["progress"] = updated.Progress
-		oldValues["progress"] = original.Progress
-	}
-
-	if original.TimeSpent != updated.TimeSpent {
-		changes["time_spent"] = updated.TimeSpent
-		oldValues["time_spent"] = original.TimeSpent
-	}
-
-	// Compare assignee (handle pointer comparison)
-	if (original.AssigneeID == nil) != (updated.AssigneeID == nil) ||
-		(original.AssigneeID != nil && updated.AssigneeID != nil && *original.AssigneeID != *updated.AssigneeID) {
+// comparePointerFields compares pointer fields (assignee, dates)
+func (s *realtimeTaskService) comparePointerFields(
+	original, updated *domain.Task, changes, oldValues map[string]interface{},
+) {
+	// Compare assignee
+	if s.assigneeChanged(original.AssigneeID, updated.AssigneeID) {
 		changes["assignee_id"] = updated.AssigneeID
 		oldValues["assignee_id"] = original.AssigneeID
 	}
 
 	// Compare dates
-	if (original.DueDate == nil) != (updated.DueDate == nil) ||
-		(original.DueDate != nil && updated.DueDate != nil && !original.DueDate.Equal(*updated.DueDate)) {
+	if s.dateChanged(original.DueDate, updated.DueDate) {
 		changes["due_date"] = updated.DueDate
 		oldValues["due_date"] = original.DueDate
 	}
 
-	if (original.StartDate == nil) != (updated.StartDate == nil) ||
-		(original.StartDate != nil && updated.StartDate != nil && !original.StartDate.Equal(*updated.StartDate)) {
+	if s.dateChanged(original.StartDate, updated.StartDate) {
 		changes["start_date"] = updated.StartDate
 		oldValues["start_date"] = original.StartDate
 	}
+}
 
-	// Compare tags (simplified - could be more sophisticated)
+// assigneeChanged checks if assignee pointer values differ
+func (s *realtimeTaskService) assigneeChanged(original, updated *string) bool {
+	if (original == nil) != (updated == nil) {
+		return true
+	}
+	return original != nil && updated != nil && *original != *updated
+}
+
+// dateChanged checks if date pointer values differ
+func (s *realtimeTaskService) dateChanged(original, updated *time.Time) bool {
+	if (original == nil) != (updated == nil) {
+		return true
+	}
+	return original != nil && updated != nil && !original.Equal(*updated)
+}
+
+// compareTags compares tag slices
+func (s *realtimeTaskService) compareTags(original, updated *domain.Task, changes, oldValues map[string]interface{}) {
 	if len(original.Tags) != len(updated.Tags) {
 		changes["tags"] = updated.Tags
 		oldValues["tags"] = original.Tags
-	} else {
-		// Check if tags are different
-		tagsDifferent := false
-		for i, tag := range original.Tags {
-			if i >= len(updated.Tags) || tag != updated.Tags[i] {
-				tagsDifferent = true
-				break
-			}
-		}
-		if tagsDifferent {
-			changes["tags"] = updated.Tags
-			oldValues["tags"] = original.Tags
-		}
+		return
 	}
 
-	return changes, oldValues
+	for i, tag := range original.Tags {
+		if i >= len(updated.Tags) || tag != updated.Tags[i] {
+			changes["tags"] = updated.Tags
+			oldValues["tags"] = original.Tags
+			return
+		}
+	}
 }
 
 // updateTaskWithBroadcast is a helper function to reduce code duplication
@@ -422,7 +439,7 @@ func (s *realtimeTaskService) updateTaskWithBroadcast(
 	updateFunc func() (*domain.Task, error),
 ) (*domain.Task, error) {
 	// Get original task for comparison
-	originalTask, err := s.TaskService.GetTask(ctx, taskID, userID)
+	originalTask, err := s.GetTask(ctx, taskID, userID)
 	if err != nil {
 		return nil, err
 	}

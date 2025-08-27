@@ -20,7 +20,9 @@ type mockTaskService struct {
 	deleteError error
 }
 
-func (m *mockTaskService) CreateTask(ctx context.Context, req domain.CreateTaskRequest, userID string) (*domain.Task, error) {
+func (m *mockTaskService) CreateTask(
+	_ context.Context, req domain.CreateTaskRequest, userID string,
+) (*domain.Task, error) {
 	if m.createError != nil {
 		return nil, m.createError
 	}
@@ -49,7 +51,7 @@ func (m *mockTaskService) CreateTask(ctx context.Context, req domain.CreateTaskR
 	return task, nil
 }
 
-func (m *mockTaskService) GetTask(ctx context.Context, taskID string, userID string) (*domain.Task, error) {
+func (m *mockTaskService) GetTask(_ context.Context, taskID string, _ string) (*domain.Task, error) {
 	task, exists := m.tasks[taskID]
 	if !exists {
 		return nil, domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
@@ -57,7 +59,9 @@ func (m *mockTaskService) GetTask(ctx context.Context, taskID string, userID str
 	return task, nil
 }
 
-func (m *mockTaskService) UpdateTask(ctx context.Context, taskID string, req domain.UpdateTaskRequest, userID string) (*domain.Task, error) {
+func (m *mockTaskService) UpdateTask(
+	_ context.Context, taskID string, req domain.UpdateTaskRequest, _ string,
+) (*domain.Task, error) {
 	if m.updateError != nil {
 		return nil, m.updateError
 	}
@@ -93,7 +97,7 @@ func (m *mockTaskService) UpdateTask(ctx context.Context, taskID string, req dom
 	return task, nil
 }
 
-func (m *mockTaskService) DeleteTask(ctx context.Context, taskID string, userID string) error {
+func (m *mockTaskService) DeleteTask(_ context.Context, taskID string, _ string) error {
 	if m.deleteError != nil {
 		return m.deleteError
 	}
@@ -107,7 +111,9 @@ func (m *mockTaskService) DeleteTask(ctx context.Context, taskID string, userID 
 	return nil
 }
 
-func (m *mockTaskService) ListProjectTasks(ctx context.Context, projectID string, userID string, offset, limit int) ([]*domain.Task, error) {
+func (m *mockTaskService) ListProjectTasks(
+	_ context.Context, projectID string, _ string, _, _ int,
+) ([]*domain.Task, error) {
 	var tasks []*domain.Task
 	for _, task := range m.tasks {
 		if task.ProjectID == projectID {
@@ -117,7 +123,7 @@ func (m *mockTaskService) ListProjectTasks(ctx context.Context, projectID string
 	return tasks, nil
 }
 
-func (m *mockTaskService) ListUserTasks(ctx context.Context, userID string, offset, limit int) ([]*domain.Task, error) {
+func (m *mockTaskService) ListUserTasks(_ context.Context, userID string, _, _ int) ([]*domain.Task, error) {
 	var tasks []*domain.Task
 	for _, task := range m.tasks {
 		if task.AssigneeID != nil && *task.AssigneeID == userID {
@@ -127,7 +133,9 @@ func (m *mockTaskService) ListUserTasks(ctx context.Context, userID string, offs
 	return tasks, nil
 }
 
-func (m *mockTaskService) AssignTask(ctx context.Context, taskID string, assigneeID string, userID string) (*domain.Task, error) {
+func (m *mockTaskService) AssignTask(
+	_ context.Context, taskID string, assigneeID string, _ string,
+) (*domain.Task, error) {
 	task, exists := m.tasks[taskID]
 	if !exists {
 		return nil, domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
@@ -137,7 +145,7 @@ func (m *mockTaskService) AssignTask(ctx context.Context, taskID string, assigne
 	return task, nil
 }
 
-func (m *mockTaskService) UnassignTask(ctx context.Context, taskID string, userID string) (*domain.Task, error) {
+func (m *mockTaskService) UnassignTask(_ context.Context, taskID string, _ string) (*domain.Task, error) {
 	task, exists := m.tasks[taskID]
 	if !exists {
 		return nil, domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
@@ -147,7 +155,9 @@ func (m *mockTaskService) UnassignTask(ctx context.Context, taskID string, userI
 	return task, nil
 }
 
-func (m *mockTaskService) UpdateTaskStatus(ctx context.Context, taskID string, status domain.TaskStatus, userID string) (*domain.Task, error) {
+func (m *mockTaskService) UpdateTaskStatus(
+	_ context.Context, taskID string, status domain.TaskStatus, _ string,
+) (*domain.Task, error) {
 	task, exists := m.tasks[taskID]
 	if !exists {
 		return nil, domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
@@ -157,7 +167,7 @@ func (m *mockTaskService) UpdateTaskStatus(ctx context.Context, taskID string, s
 	return task, nil
 }
 
-func (m *mockTaskService) MoveTask(ctx context.Context, req MoveTaskRequest, userID string) error {
+func (m *mockTaskService) MoveTask(_ context.Context, req MoveTaskRequest, _ string) error {
 	task, exists := m.tasks[req.TaskID]
 	if !exists {
 		return domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
@@ -169,35 +179,41 @@ func (m *mockTaskService) MoveTask(ctx context.Context, req MoveTaskRequest, use
 }
 
 // Additional methods required by TaskService interface
-func (m *mockTaskService) GetProjectTasksFiltered(ctx context.Context, projectID string, filters repository.TaskFilters, userID string) ([]*domain.Task, error) {
+func (m *mockTaskService) GetProjectTasksFiltered(
+	ctx context.Context, projectID string, _ repository.TaskFilters, userID string,
+) ([]*domain.Task, error) {
 	return m.ListProjectTasks(ctx, projectID, userID, 0, 100)
 }
 
-func (m *mockTaskService) GetSubtasks(ctx context.Context, parentTaskID string, userID string) ([]*domain.Task, error) {
+func (m *mockTaskService) GetSubtasks(_ context.Context, _ string, _ string) ([]*domain.Task, error) {
 	return []*domain.Task{}, nil
 }
 
-func (m *mockTaskService) GetTaskDependencies(ctx context.Context, taskID string, userID string) ([]*domain.Task, error) {
+func (m *mockTaskService) GetTaskDependencies(_ context.Context, _ string, _ string) ([]*domain.Task, error) {
 	return []*domain.Task{}, nil
 }
 
-func (m *mockTaskService) DuplicateTask(ctx context.Context, taskID string, options DuplicationOptions, userID string) (*domain.Task, error) {
+func (m *mockTaskService) DuplicateTask(
+	_ context.Context, _ string, _ DuplicationOptions, _ string,
+) (*domain.Task, error) {
 	return nil, nil
 }
 
-func (m *mockTaskService) CreateFromTemplate(ctx context.Context, templateID string, projectID string, userID string) (*domain.Task, error) {
+func (m *mockTaskService) CreateFromTemplate(_ context.Context, _ string, _ string, _ string) (*domain.Task, error) {
 	return nil, nil
 }
 
-func (m *mockTaskService) CreateSubtask(ctx context.Context, parentTaskID string, req domain.CreateTaskRequest, userID string) (*domain.Task, error) {
+func (m *mockTaskService) CreateSubtask(
+	ctx context.Context, _ string, req domain.CreateTaskRequest, userID string,
+) (*domain.Task, error) {
 	return m.CreateTask(ctx, req, userID)
 }
 
-func (m *mockTaskService) AddDependency(ctx context.Context, taskID string, dependencyID string, userID string) error {
+func (m *mockTaskService) AddDependency(_ context.Context, _ string, _ string, _ string) error {
 	return nil
 }
 
-func (m *mockTaskService) RemoveDependency(ctx context.Context, taskID string, dependencyID string, userID string) error {
+func (m *mockTaskService) RemoveDependency(_ context.Context, _ string, _ string, _ string) error {
 	return nil
 }
 
@@ -211,7 +227,7 @@ type mockEventBroadcaster struct {
 	broadcastError    error
 }
 
-func (m *mockEventBroadcaster) BroadcastEvent(ctx context.Context, event *domain.TaskEvent) error {
+func (m *mockEventBroadcaster) BroadcastEvent(_ context.Context, event *domain.TaskEvent) error {
 	if m.broadcastError != nil {
 		return m.broadcastError
 	}
@@ -220,19 +236,19 @@ func (m *mockEventBroadcaster) BroadcastEvent(ctx context.Context, event *domain
 	return nil
 }
 
-func (m *mockEventBroadcaster) Subscribe(ctx context.Context, subscription *domain.EventSubscription) error {
+func (m *mockEventBroadcaster) Subscribe(_ context.Context, _ *domain.EventSubscription) error {
 	return nil
 }
 
-func (m *mockEventBroadcaster) Unsubscribe(ctx context.Context, subscriptionID string) error {
+func (m *mockEventBroadcaster) Unsubscribe(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockEventBroadcaster) GetSubscription(ctx context.Context, subscriptionID string) (*domain.EventSubscription, error) {
+func (m *mockEventBroadcaster) GetSubscription(_ context.Context, _ string) (*domain.EventSubscription, error) {
 	return nil, nil
 }
 
-func (m *mockEventBroadcaster) GetUserSubscriptions(ctx context.Context, userID string) ([]*domain.EventSubscription, error) {
+func (m *mockEventBroadcaster) GetUserSubscriptions(_ context.Context, _ string) ([]*domain.EventSubscription, error) {
 	return []*domain.EventSubscription{}, nil
 }
 
@@ -240,7 +256,7 @@ func (m *mockEventBroadcaster) GetActiveSubscriptionCount() int {
 	return 0
 }
 
-func (m *mockEventBroadcaster) Cleanup(ctx context.Context) error {
+func (m *mockEventBroadcaster) Cleanup(_ context.Context) error {
 	return nil
 }
 

@@ -16,7 +16,9 @@ type SubscriptionManager interface {
 	CreateSubscription(ctx context.Context, req CreateSubscriptionRequest) (*domain.EventSubscription, error)
 
 	// UpdateSubscription updates an existing subscription
-	UpdateSubscription(ctx context.Context, subscriptionID string, req UpdateSubscriptionRequest) (*domain.EventSubscription, error)
+	UpdateSubscription(
+		ctx context.Context, subscriptionID string, req UpdateSubscriptionRequest,
+	) (*domain.EventSubscription, error)
 
 	// DeleteSubscription removes a subscription
 	DeleteSubscription(ctx context.Context, subscriptionID string, userID string) error
@@ -123,7 +125,9 @@ func NewSubscriptionManager(
 }
 
 // CreateSubscription creates a new event subscription for a user
-func (m *subscriptionManager) CreateSubscription(ctx context.Context, req CreateSubscriptionRequest) (*domain.EventSubscription, error) {
+func (m *subscriptionManager) CreateSubscription(
+	ctx context.Context, req CreateSubscriptionRequest,
+) (*domain.EventSubscription, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -162,7 +166,9 @@ func (m *subscriptionManager) CreateSubscription(ctx context.Context, req Create
 }
 
 // UpdateSubscription updates an existing subscription
-func (m *subscriptionManager) UpdateSubscription(ctx context.Context, subscriptionID string, req UpdateSubscriptionRequest) (*domain.EventSubscription, error) {
+func (m *subscriptionManager) UpdateSubscription(
+	ctx context.Context, subscriptionID string, req UpdateSubscriptionRequest,
+) (*domain.EventSubscription, error) {
 	if subscriptionID == "" {
 		return nil, domain.NewValidationError("INVALID_SUBSCRIPTION_ID", "Subscription ID cannot be empty", nil)
 	}
@@ -222,7 +228,9 @@ func (m *subscriptionManager) DeleteSubscription(ctx context.Context, subscripti
 }
 
 // GetSubscription retrieves a subscription by ID
-func (m *subscriptionManager) GetSubscription(ctx context.Context, subscriptionID string, userID string) (*domain.EventSubscription, error) {
+func (m *subscriptionManager) GetSubscription(
+	ctx context.Context, subscriptionID string, userID string,
+) (*domain.EventSubscription, error) {
 	if err := m.ValidateSubscriptionAccess(ctx, subscriptionID, userID); err != nil {
 		return nil, err
 	}
@@ -231,7 +239,9 @@ func (m *subscriptionManager) GetSubscription(ctx context.Context, subscriptionI
 }
 
 // ListUserSubscriptions lists all subscriptions for a user
-func (m *subscriptionManager) ListUserSubscriptions(ctx context.Context, userID string) ([]*domain.EventSubscription, error) {
+func (m *subscriptionManager) ListUserSubscriptions(
+	ctx context.Context, userID string,
+) ([]*domain.EventSubscription, error) {
 	if userID == "" {
 		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
@@ -246,7 +256,9 @@ func (m *subscriptionManager) ListUserSubscriptions(ctx context.Context, userID 
 }
 
 // ValidateSubscriptionAccess checks if a user can access a subscription
-func (m *subscriptionManager) ValidateSubscriptionAccess(ctx context.Context, subscriptionID string, userID string) error {
+func (m *subscriptionManager) ValidateSubscriptionAccess(
+	ctx context.Context, subscriptionID string, userID string,
+) error {
 	if subscriptionID == "" {
 		return domain.NewValidationError("INVALID_SUBSCRIPTION_ID", "Subscription ID cannot be empty", nil)
 	}

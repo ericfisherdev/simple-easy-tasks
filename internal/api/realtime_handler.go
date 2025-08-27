@@ -288,7 +288,6 @@ func (h *RealtimeHandler) DeleteSubscription(c *gin.Context) {
 
 // StreamEvents provides Server-Sent Events stream for real-time updates
 func (h *RealtimeHandler) StreamEvents(c *gin.Context) {
-	// Get authenticated user
 	user, exists := middleware.GetUserFromContext(c)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -302,11 +301,42 @@ func (h *RealtimeHandler) StreamEvents(c *gin.Context) {
 		return
 	}
 
-	// Parse query parameters
-	projectID := c.Query("project_id")
-	eventTypesParam := c.Query("event_types")
+	subscription, err := h.setupStreamSubscription(c, user)
+	if err != nil {
+		ErrorResponse(c, err)
+		return
+	}
+	defer h.cleanupSubscription(subscription.ID, user.ID)
 
-	// Parse event types
+	h.setupSSEHeaders(c)
+	eventChan := make(chan *domain.TaskEvent, 100)
+	defer close(eventChan)
+
+	h.handleSSEStream(c, subscription, eventChan)
+}
+
+// setupStreamSubscription creates a subscription for the SSE connection
+func (h *RealtimeHandler) setupStreamSubscription(
+	c *gin.Context, user *domain.User,
+) (*domain.EventSubscription, error) {
+	eventTypes := h.parseEventTypes(c.Query("event_types"))
+	
+	var projectIDPtr *string
+	if projectID := c.Query("project_id"); projectID != "" {
+		projectIDPtr = &projectID
+	}
+
+	subscriptionReq := services.CreateSubscriptionRequest{
+		UserID:     user.ID,
+		ProjectID:  projectIDPtr,
+		EventTypes: eventTypes,
+	}
+
+	return h.subscriptionManager.CreateSubscription(c.Request.Context(), subscriptionReq)
+}
+
+// parseEventTypes parses event types from query parameter
+func (h *RealtimeHandler) parseEventTypes(eventTypesParam string) []domain.TaskEventType {
 	var eventTypes []domain.TaskEventType
 	if eventTypesParam != "" {
 		typeStrings := strings.Split(eventTypesParam, ",")
@@ -318,7 +348,6 @@ func (h *RealtimeHandler) StreamEvents(c *gin.Context) {
 		}
 	}
 
-	// Default to all event types if none specified
 	if len(eventTypes) == 0 {
 		eventTypes = []domain.TaskEventType{
 			domain.TaskCreated,
@@ -329,83 +358,65 @@ func (h *RealtimeHandler) StreamEvents(c *gin.Context) {
 			domain.TaskCommented,
 		}
 	}
+	return eventTypes
+}
 
-	// Create temporary subscription for this connection
-	var projectIDPtr *string
-	if projectID != "" {
-		projectIDPtr = &projectID
+// cleanupSubscription removes a subscription safely
+func (h *RealtimeHandler) cleanupSubscription(subscriptionID, userID string) {
+	if err := h.subscriptionManager.DeleteSubscription(context.Background(), subscriptionID, userID); err != nil {
+		// Log error but don't fail
 	}
+}
 
-	subscriptionReq := services.CreateSubscriptionRequest{
-		UserID:     user.ID,
-		ProjectID:  projectIDPtr,
-		EventTypes: eventTypes,
-	}
-
-	subscription, err := h.subscriptionManager.CreateSubscription(c.Request.Context(), subscriptionReq)
-	if err != nil {
-		ErrorResponse(c, err)
-		return
-	}
-
-	// Ensure cleanup on connection close
-	defer func() {
-		if err := h.subscriptionManager.DeleteSubscription(context.Background(), subscription.ID, user.ID); err != nil {
-			// Log error but don't fail
-		}
-	}()
-
-	// Set up SSE headers
+// setupSSEHeaders configures headers for Server-Sent Events
+func (h *RealtimeHandler) setupSSEHeaders(c *gin.Context) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("X-Accel-Buffering", "no") // Disable nginx buffering for SSE
+}
 
-	// Create event channel
-	eventChan := make(chan *domain.TaskEvent, 100)
-	defer close(eventChan)
-
-	// Register event handler for this connection
-	// TODO: Implement proper event registration with the EventBroadcaster
-	// For now, we'll simulate real-time events through the channel
-	// This is a placeholder until proper event integration is implemented
-
-	// Send keepalive and events
+// handleSSEStream manages the SSE event streaming loop
+func (h *RealtimeHandler) handleSSEStream(
+	c *gin.Context, subscription *domain.EventSubscription, eventChan chan *domain.TaskEvent,
+) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
 	w := c.Writer
-	if f, ok := w.(http.Flusher); ok {
-		// Send initial connection message
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", `{"type":"connected","subscription_id":"`+subscription.ID+`"}`); err != nil {
-			return // Connection closed
-		}
-		f.Flush()
+	f, ok := w.(http.Flusher)
+	if !ok {
+		return
+	}
 
-		for {
-			select {
-			case <-c.Request.Context().Done():
-				return
+	// Send initial connection message
+	connMsg := `{"type":"connected","subscription_id":"` + subscription.ID + `"}`
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", connMsg); err != nil {
+		return // Connection closed
+	}
+	f.Flush()
 
-			case <-ticker.C:
-				// Send keepalive
-				if _, err := fmt.Fprintf(w, ": keepalive\n\n"); err != nil {
-					return // Connection closed
-				}
-				f.Flush()
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
 
-			case event := <-eventChan:
-				// Send event
-				eventJSON, err := event.ToJSON()
-				if err != nil {
-					continue // Skip malformed events
-				}
-				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(eventJSON)); err != nil {
-					return // Connection closed
-				}
-				f.Flush()
+		case <-ticker.C:
+			if _, err := fmt.Fprintf(w, ": keepalive\n\n"); err != nil {
+				return // Connection closed
 			}
+			f.Flush()
+
+		case event := <-eventChan:
+			eventJSON, err := event.ToJSON()
+			if err != nil {
+				continue // Skip malformed events
+			}
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", string(eventJSON)); err != nil {
+				return // Connection closed
+			}
+			f.Flush()
 		}
 	}
 }
@@ -453,54 +464,6 @@ func (h *RealtimeHandler) HealthCheck(c *gin.Context) {
 	})
 }
 
-// realtimeClient implements PocketBase's subscription client interface
-type realtimeClient struct {
-	id     string
-	userID string
-}
-
-func (c *realtimeClient) Id() string {
-	return c.id
-}
-
-func (c *realtimeClient) Channel() chan []byte {
-	return make(chan []byte, 100)
-}
-
-func (c *realtimeClient) Set(key string, value any) {
-	// Implementation for setting client data
-}
-
-func (c *realtimeClient) Get(key string) any {
-	// Implementation for getting client data
-	return nil
-}
-
-func (c *realtimeClient) Unset(key string) {
-	// Implementation for unsetting client data
-}
-
-func (c *realtimeClient) Send(data []byte) {
-	// Implementation for sending data to client
-}
-
-func (c *realtimeClient) Discard() {
-	// Implementation for discarding the client
-}
-
-func (c *realtimeClient) IsDiscarded() bool {
-	// Implementation for checking if client is discarded
-	return false
-}
-
-func (c *realtimeClient) Context() context.Context {
-	return context.Background()
-}
-
-// generateClientID creates a unique client identifier
-func generateClientID() string {
-	return fmt.Sprintf("client_%d", time.Now().UnixNano())
-}
 
 // TaskEventStreamRequest represents the structure for creating event streams
 type TaskEventStreamRequest struct {

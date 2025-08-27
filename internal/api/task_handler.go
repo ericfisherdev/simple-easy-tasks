@@ -1049,8 +1049,15 @@ func (h *TaskHandler) LogTimeSpent(c *gin.Context) {
 // parseTaskFilters parses query parameters into TaskFilters struct.
 func (h *TaskHandler) parseTaskFilters(c *gin.Context) repository.TaskFilters {
 	filters := repository.TaskFilters{}
+	h.parsePaginationFilters(c, &filters)
+	h.parseBasicFilters(c, &filters)
+	h.parseDateFilters(c, &filters)
+	h.parseSortFilters(c, &filters)
+	return filters
+}
 
-	// Parse limit and offset
+// parsePaginationFilters parses limit and offset parameters
+func (h *TaskHandler) parsePaginationFilters(c *gin.Context, filters *repository.TaskFilters) {
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= 100 {
 			filters.Limit = limit
@@ -1065,46 +1072,48 @@ func (h *TaskHandler) parseTaskFilters(c *gin.Context) repository.TaskFilters {
 			filters.Offset = offset
 		}
 	}
+}
 
-	// Parse status filter
+// parseBasicFilters parses basic filter parameters
+func (h *TaskHandler) parseBasicFilters(c *gin.Context, filters *repository.TaskFilters) {
 	if statusStr := c.Query("status"); statusStr != "" {
-		statuses := []domain.TaskStatus{domain.TaskStatus(statusStr)}
-		filters.Status = statuses
+		filters.Status = []domain.TaskStatus{domain.TaskStatus(statusStr)}
 	}
 
-	// Parse priority filter
 	if priorityStr := c.Query("priority"); priorityStr != "" {
-		priorities := []domain.TaskPriority{domain.TaskPriority(priorityStr)}
-		filters.Priority = priorities
+		filters.Priority = []domain.TaskPriority{domain.TaskPriority(priorityStr)}
 	}
 
-	// Parse assignee filter
 	if assigneeStr := c.Query("assignee"); assigneeStr != "" {
 		filters.AssigneeID = &assigneeStr
 	}
 
-	// Parse reporter filter
 	if reporterStr := c.Query("reporter"); reporterStr != "" {
 		filters.ReporterID = &reporterStr
 	}
 
-	// Parse search filter
 	if searchStr := c.Query("search"); searchStr != "" {
 		filters.Search = searchStr
 	}
 
-	// Parse archived filter
-	if archivedStr := c.Query("archived"); archivedStr != "" {
-		if archivedStr == "true" {
-			archived := true
-			filters.Archived = &archived
-		} else if archivedStr == "false" {
-			archived := false
-			filters.Archived = &archived
-		}
-	}
+	h.parseArchivedFilter(c, filters)
+}
 
-	// Parse due date filters
+// parseArchivedFilter parses the archived filter parameter
+func (h *TaskHandler) parseArchivedFilter(c *gin.Context, filters *repository.TaskFilters) {
+	archivedStr := c.Query("archived")
+	switch archivedStr {
+	case "true":
+		archived := true
+		filters.Archived = &archived
+	case "false":
+		archived := false
+		filters.Archived = &archived
+	}
+}
+
+// parseDateFilters parses date-related filter parameters
+func (h *TaskHandler) parseDateFilters(c *gin.Context, filters *repository.TaskFilters) {
 	if dueBeforeStr := c.Query("due_before"); dueBeforeStr != "" {
 		if dueBefore, err := time.Parse(time.RFC3339, dueBeforeStr); err == nil {
 			filters.DueBefore = &dueBefore
@@ -1116,8 +1125,10 @@ func (h *TaskHandler) parseTaskFilters(c *gin.Context) repository.TaskFilters {
 			filters.DueAfter = &dueAfter
 		}
 	}
+}
 
-	// Parse sort parameters
+// parseSortFilters parses sort-related parameters
+func (h *TaskHandler) parseSortFilters(c *gin.Context, filters *repository.TaskFilters) {
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters.SortBy = sortBy
 	} else {
@@ -1129,8 +1140,6 @@ func (h *TaskHandler) parseTaskFilters(c *gin.Context) repository.TaskFilters {
 	} else {
 		filters.SortOrder = repository.SortOrderDesc // default
 	}
-
-	return filters
 }
 
 // CreateSubtask handles POST /api/projects/:projectId/tasks/:id/subtasks requests.

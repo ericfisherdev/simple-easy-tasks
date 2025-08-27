@@ -829,7 +829,9 @@ type MockTaskService struct {
 	userRepo    *testutil.MockUserRepository
 }
 
-func (m *MockTaskService) CreateTask(_ context.Context, req domain.CreateTaskRequest, userID string) (*domain.Task, error) {
+func (m *MockTaskService) CreateTask(
+	_ context.Context, req domain.CreateTaskRequest, userID string,
+) (*domain.Task, error) {
 	// Basic validation
 	if req.Title == "" {
 		return nil, domain.NewValidationError("INVALID_TITLE", "Title is required", nil)
@@ -866,7 +868,9 @@ func (m *MockTaskService) GetTask(_ context.Context, taskID string, _ string) (*
 	return nil, domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
 }
 
-func (m *MockTaskService) UpdateTask(_ context.Context, taskID string, req domain.UpdateTaskRequest, _ string) (*domain.Task, error) {
+func (m *MockTaskService) UpdateTask(
+	_ context.Context, taskID string, req domain.UpdateTaskRequest, _ string,
+) (*domain.Task, error) {
 	for _, task := range m.tasks {
 		if task.ID == taskID {
 			if req.Title != nil {
@@ -899,7 +903,9 @@ func (m *MockTaskService) DeleteTask(_ context.Context, taskID string, _ string)
 	return domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
 }
 
-func (m *MockTaskService) ListProjectTasks(_ context.Context, projectID string, _ string, _, _ int) ([]*domain.Task, error) {
+func (m *MockTaskService) ListProjectTasks(
+	_ context.Context, projectID string, _ string, _, _ int,
+) ([]*domain.Task, error) {
 	var projectTasks []*domain.Task
 	for _, task := range m.tasks {
 		if task.ProjectID == projectID {
@@ -913,7 +919,9 @@ func (m *MockTaskService) ListUserTasks(_ context.Context, _ string, _, _ int) (
 	return m.tasks, nil
 }
 
-func (m *MockTaskService) AssignTask(_ context.Context, taskID string, assigneeID string, _ string) (*domain.Task, error) {
+func (m *MockTaskService) AssignTask(
+	_ context.Context, taskID string, assigneeID string, _ string,
+) (*domain.Task, error) {
 	for _, task := range m.tasks {
 		if task.ID == taskID {
 			task.AssigneeID = &assigneeID
@@ -935,7 +943,9 @@ func (m *MockTaskService) UnassignTask(_ context.Context, taskID string, _ strin
 	return nil, domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
 }
 
-func (m *MockTaskService) UpdateTaskStatus(_ context.Context, taskID string, status domain.TaskStatus, _ string) (*domain.Task, error) {
+func (m *MockTaskService) UpdateTaskStatus(
+	_ context.Context, taskID string, status domain.TaskStatus, _ string,
+) (*domain.Task, error) {
 	for _, task := range m.tasks {
 		if task.ID == taskID {
 			task.Status = status
@@ -963,7 +973,9 @@ func (m *MockTaskService) MoveTask(_ context.Context, req services.MoveTaskReque
 	return domain.NewNotFoundError("TASK_NOT_FOUND", "Task not found")
 }
 
-func (m *MockTaskService) GetProjectTasksFiltered(ctx context.Context, projectID string, _ repository.TaskFilters, _ string) ([]*domain.Task, error) {
+func (m *MockTaskService) GetProjectTasksFiltered(
+	ctx context.Context, projectID string, _ repository.TaskFilters, _ string,
+) ([]*domain.Task, error) {
 	// Check if project exists
 	_, err := m.projectRepo.GetByID(ctx, projectID)
 	if err != nil {
@@ -987,7 +999,9 @@ func (m *MockTaskService) GetTaskDependencies(_ context.Context, _ string, _ str
 	return []*domain.Task{}, nil
 }
 
-func (m *MockTaskService) DuplicateTask(_ context.Context, taskID string, options services.DuplicationOptions, userID string) (*domain.Task, error) {
+func (m *MockTaskService) DuplicateTask(
+	_ context.Context, taskID string, options services.DuplicationOptions, userID string,
+) (*domain.Task, error) {
 	for _, task := range m.tasks {
 		if task.ID == taskID {
 			newTitle := options.NewTitle
@@ -1019,7 +1033,9 @@ func (m *MockTaskService) CreateFromTemplate(_ context.Context, _ string, _ stri
 	return nil, domain.NewInternalError("NOT_IMPLEMENTED", "Not implemented in mock", nil)
 }
 
-func (m *MockTaskService) CreateSubtask(_ context.Context, parentTaskID string, req domain.CreateTaskRequest, userID string) (*domain.Task, error) {
+func (m *MockTaskService) CreateSubtask(
+	_ context.Context, parentTaskID string, req domain.CreateTaskRequest, userID string,
+) (*domain.Task, error) {
 	// Basic validation
 	if req.Title == "" {
 		return nil, domain.NewValidationError("INVALID_TITLE", "Title is required", nil)

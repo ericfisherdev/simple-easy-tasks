@@ -61,7 +61,9 @@ type TaskService interface {
 	CreateFromTemplate(ctx context.Context, templateID string, projectID string, userID string) (*domain.Task, error)
 
 	// CreateSubtask creates a subtask under a parent task
-	CreateSubtask(ctx context.Context, parentTaskID string, req domain.CreateTaskRequest, userID string) (*domain.Task, error)
+	CreateSubtask(
+		ctx context.Context, parentTaskID string, req domain.CreateTaskRequest, userID string,
+	) (*domain.Task, error)
 
 	// AddDependency adds a dependency to a task
 	AddDependency(ctx context.Context, taskID string, dependencyID string, userID string) error

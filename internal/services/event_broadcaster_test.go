@@ -63,7 +63,9 @@ func TestEventBroadcaster(t *testing.T) {
 
 		// Create multiple subscriptions
 		subscription1 := domain.NewEventSubscription(userID, nil, []domain.TaskEventType{domain.TaskCreated})
-		subscription2 := domain.NewEventSubscription(userID, stringPtr("project1"), []domain.TaskEventType{domain.TaskUpdated})
+		subscription2 := domain.NewEventSubscription(
+			userID, stringPtr("project1"), []domain.TaskEventType{domain.TaskUpdated},
+		)
 
 		err := broadcaster.Subscribe(ctx, subscription1)
 		if err != nil {

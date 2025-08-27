@@ -153,7 +153,9 @@ func (r *EnhancedRealtimeService) broadcastToPocketBase(ctx context.Context, eve
 }
 
 // convertToSubscriptionMessage converts a TaskEvent to PocketBase subscription message format
-func (r *EnhancedRealtimeService) convertToSubscriptionMessage(event *domain.TaskEvent) (*subscriptions.Message, error) {
+func (r *EnhancedRealtimeService) convertToSubscriptionMessage(
+	event *domain.TaskEvent,
+) (*subscriptions.Message, error) {
 	// Create a message compatible with PocketBase's subscription format
 	messageData := map[string]interface{}{
 		"action": "custom_event",
@@ -164,7 +166,7 @@ func (r *EnhancedRealtimeService) convertToSubscriptionMessage(event *domain.Tas
 			"task_id":    event.TaskID,
 			"project_id": event.ProjectID,
 			"user_id":    event.UserID,
-			"data":       json.RawMessage(event.Data),
+			"data":       event.Data,
 			"timestamp":  event.Timestamp.Format(time.RFC3339),
 		},
 	}
@@ -190,18 +192,6 @@ func (r *EnhancedRealtimeService) shouldReceiveEvent(client subscriptions.Client
 	return true
 }
 
-// processOutgoingMessage processes messages before they're sent to clients
-// This is for future use when PocketBase exposes the necessary hooks
-func (r *EnhancedRealtimeService) processOutgoingMessage(messageData []byte, clientID string) error {
-	// Add custom processing logic here
-	// For example, filtering sensitive data, adding metadata, etc.
-
-	r.logger.Debug("Processing outgoing real-time message",
-		"client_id", clientID,
-		"message_size", len(messageData))
-
-	return nil
-}
 
 // GetStats returns real-time service statistics
 func (r *EnhancedRealtimeService) GetStats() map[string]interface{} {
