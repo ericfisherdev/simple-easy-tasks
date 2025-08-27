@@ -375,7 +375,7 @@ func (h *SubscriptionManagerHealthChecker) Name() string {
 }
 
 // Check performs the health check
-func (h *SubscriptionManagerHealthChecker) Check(ctx context.Context) HealthCheck {
+func (h *SubscriptionManagerHealthChecker) Check(_ context.Context) HealthCheck {
 	if h.manager == nil {
 		return HealthCheck{
 			Name:   "subscription_manager",

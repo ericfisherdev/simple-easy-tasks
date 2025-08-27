@@ -183,7 +183,7 @@ func (r *EnhancedRealtimeService) convertToSubscriptionMessage(
 }
 
 // shouldReceiveEvent determines if a client should receive a specific event
-func (r *EnhancedRealtimeService) shouldReceiveEvent(client subscriptions.Client, event *domain.TaskEvent) bool {
+func (r *EnhancedRealtimeService) shouldReceiveEvent(_ subscriptions.Client, _ *domain.TaskEvent) bool {
 	// Get client's subscription info from context
 	// This is a simplified version - in practice, you'd store subscription data with the client
 
@@ -231,7 +231,7 @@ func (h *EnhancedRealtimeHealthChecker) Name() string {
 }
 
 // Check performs the enhanced real-time health check
-func (h *EnhancedRealtimeHealthChecker) Check(ctx context.Context) HealthCheck {
+func (h *EnhancedRealtimeHealthChecker) Check(_ context.Context) HealthCheck {
 	if h.service == nil {
 		return HealthCheck{
 			Name:   "enhanced_realtime",

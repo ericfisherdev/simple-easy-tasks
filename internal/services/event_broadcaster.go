@@ -212,7 +212,9 @@ func (b *eventBroadcaster) Unsubscribe(_ context.Context, subscriptionID string)
 }
 
 // GetSubscription retrieves a subscription by ID
-func (b *eventBroadcaster) GetSubscription(_ context.Context, subscriptionID string) (*domain.EventSubscription, error) {
+func (b *eventBroadcaster) GetSubscription(
+	_ context.Context, subscriptionID string,
+) (*domain.EventSubscription, error) {
 	if subscriptionID == "" {
 		return nil, domain.NewValidationError("INVALID_SUBSCRIPTION_ID", "Subscription ID cannot be empty", nil)
 	}

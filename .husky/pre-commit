@@ -17,10 +17,10 @@ make vet || {
     exit 1
 }
 
-# 3. Run staticcheck (linter)
-echo "🧹 Running staticcheck..."
-make staticcheck || {
-    echo "❌ Staticcheck found issues."
+# 3. Run golangci-lint (comprehensive linter suite)
+echo "🧹 Running golangci-lint..."
+golangci-lint run --config .golangci.yml || {
+    echo "❌ golangci-lint found issues."
     exit 1
 }
 

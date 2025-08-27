@@ -15,7 +15,7 @@ type mockProjectRepository struct {
 	projects map[string]*domain.Project
 }
 
-func (m *mockProjectRepository) GetByID(ctx context.Context, id string) (*domain.Project, error) {
+func (m *mockProjectRepository) GetByID(_ context.Context, id string) (*domain.Project, error) {
 	project, exists := m.projects[id]
 	if !exists {
 		return nil, domain.NewNotFoundError("PROJECT_NOT_FOUND", "Project not found")
@@ -27,7 +27,7 @@ type mockUserRepository struct {
 	users map[string]*domain.User
 }
 
-func (m *mockUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
+func (m *mockUserRepository) GetByID(_ context.Context, id string) (*domain.User, error) {
 	user, exists := m.users[id]
 	if !exists {
 		return nil, domain.NewNotFoundError("USER_NOT_FOUND", "User not found")
@@ -344,7 +344,7 @@ func TestSubscriptionManager(t *testing.T) {
 		}
 	})
 
-	t.Run("CleanupRoutine", func(t *testing.T) {
+	t.Run("CleanupRoutine", func(_ *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 		defer cancel()
 
