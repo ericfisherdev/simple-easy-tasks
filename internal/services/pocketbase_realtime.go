@@ -119,7 +119,7 @@ func (r *EnhancedRealtimeService) setupPocketBaseHooks() {
 }
 
 // broadcastToPocketBase sends events through PocketBase's real-time system
-func (r *EnhancedRealtimeService) broadcastToPocketBase(ctx context.Context, event *domain.TaskEvent) error {
+func (r *EnhancedRealtimeService) broadcastToPocketBase(_ context.Context, event *domain.TaskEvent) error {
 	if r.pbService == nil || r.pbService.app == nil {
 		return fmt.Errorf("PocketBase service not available")
 	}

@@ -363,9 +363,8 @@ func (h *RealtimeHandler) parseEventTypes(eventTypesParam string) []domain.TaskE
 
 // cleanupSubscription removes a subscription safely
 func (h *RealtimeHandler) cleanupSubscription(subscriptionID, userID string) {
-	if err := h.subscriptionManager.DeleteSubscription(context.Background(), subscriptionID, userID); err != nil {
-		// Log error but don't fail
-	}
+	_ = h.subscriptionManager.DeleteSubscription(context.Background(), subscriptionID, userID)
+	// Ignore errors during cleanup
 }
 
 // setupSSEHeaders configures headers for Server-Sent Events
@@ -511,7 +510,7 @@ func (h *RealtimeHandler) WebSocketUpgrade(c *gin.Context) {
 }
 
 // BroadcastToProject broadcasts an event to all subscribers of a project
-func (h *RealtimeHandler) BroadcastToProject(ctx context.Context, projectID string, event *domain.TaskEvent) error {
+func (h *RealtimeHandler) BroadcastToProject(ctx context.Context, _ string, event *domain.TaskEvent) error {
 	// This would be called from task operations to broadcast events
 	return h.eventBroadcaster.BroadcastEvent(ctx, event)
 }

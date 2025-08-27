@@ -143,7 +143,7 @@ func (b *eventBroadcaster) BroadcastEvent(ctx context.Context, event *domain.Tas
 }
 
 // Subscribe adds a new event subscription
-func (b *eventBroadcaster) Subscribe(ctx context.Context, subscription *domain.EventSubscription) error {
+func (b *eventBroadcaster) Subscribe(_ context.Context, subscription *domain.EventSubscription) error {
 	if subscription == nil {
 		return domain.NewValidationError("NIL_SUBSCRIPTION", "Subscription cannot be nil", nil)
 	}
@@ -179,7 +179,7 @@ func (b *eventBroadcaster) Subscribe(ctx context.Context, subscription *domain.E
 }
 
 // Unsubscribe removes an event subscription
-func (b *eventBroadcaster) Unsubscribe(ctx context.Context, subscriptionID string) error {
+func (b *eventBroadcaster) Unsubscribe(_ context.Context, subscriptionID string) error {
 	if subscriptionID == "" {
 		return domain.NewValidationError("INVALID_SUBSCRIPTION_ID", "Subscription ID cannot be empty", nil)
 	}
@@ -212,7 +212,7 @@ func (b *eventBroadcaster) Unsubscribe(ctx context.Context, subscriptionID strin
 }
 
 // GetSubscription retrieves a subscription by ID
-func (b *eventBroadcaster) GetSubscription(ctx context.Context, subscriptionID string) (*domain.EventSubscription, error) {
+func (b *eventBroadcaster) GetSubscription(_ context.Context, subscriptionID string) (*domain.EventSubscription, error) {
 	if subscriptionID == "" {
 		return nil, domain.NewValidationError("INVALID_SUBSCRIPTION_ID", "Subscription ID cannot be empty", nil)
 	}
@@ -229,7 +229,7 @@ func (b *eventBroadcaster) GetSubscription(ctx context.Context, subscriptionID s
 }
 
 // GetUserSubscriptions retrieves all subscriptions for a user
-func (b *eventBroadcaster) GetUserSubscriptions(ctx context.Context, userID string) ([]*domain.EventSubscription, error) {
+func (b *eventBroadcaster) GetUserSubscriptions(_ context.Context, userID string) ([]*domain.EventSubscription, error) {
 	if userID == "" {
 		return nil, domain.NewValidationError("INVALID_USER_ID", "User ID cannot be empty", nil)
 	}
@@ -268,7 +268,7 @@ func (b *eventBroadcaster) GetActiveSubscriptionCount() int {
 }
 
 // Cleanup removes inactive or expired subscriptions
-func (b *eventBroadcaster) Cleanup(ctx context.Context) error {
+func (b *eventBroadcaster) Cleanup(_ context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -322,7 +322,7 @@ func (b *eventBroadcaster) findMatchingSubscriptions(event *domain.TaskEvent) []
 }
 
 // broadcastToPocketBase sends the event to PocketBase's real-time system
-func (b *eventBroadcaster) broadcastToPocketBase(ctx context.Context, event *domain.TaskEvent) error {
+func (b *eventBroadcaster) broadcastToPocketBase(_ context.Context, event *domain.TaskEvent) error {
 	if b.pbService == nil || b.pbService.app == nil {
 		return domain.NewInternalError("POCKETBASE_UNAVAILABLE", "PocketBase service is not available", nil)
 	}
@@ -380,7 +380,7 @@ func (h *EventBroadcasterHealthChecker) Name() string {
 }
 
 // Check performs the event broadcaster health check
-func (h *EventBroadcasterHealthChecker) Check(ctx context.Context) HealthCheck {
+func (h *EventBroadcasterHealthChecker) Check(_ context.Context) HealthCheck {
 	if h.broadcaster == nil {
 		return HealthCheck{
 			Name:   "event_broadcaster",
