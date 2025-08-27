@@ -192,7 +192,6 @@ func (r *EnhancedRealtimeService) shouldReceiveEvent(client subscriptions.Client
 	return true
 }
 
-
 // GetStats returns real-time service statistics
 func (r *EnhancedRealtimeService) GetStats() map[string]interface{} {
 	stats := make(map[string]interface{})

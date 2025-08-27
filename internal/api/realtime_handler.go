@@ -320,7 +320,7 @@ func (h *RealtimeHandler) setupStreamSubscription(
 	c *gin.Context, user *domain.User,
 ) (*domain.EventSubscription, error) {
 	eventTypes := h.parseEventTypes(c.Query("event_types"))
-	
+
 	var projectIDPtr *string
 	if projectID := c.Query("project_id"); projectID != "" {
 		projectIDPtr = &projectID
@@ -463,7 +463,6 @@ func (h *RealtimeHandler) HealthCheck(c *gin.Context) {
 		"message": "Real-time service is healthy",
 	})
 }
-
 
 // TaskEventStreamRequest represents the structure for creating event streams
 type TaskEventStreamRequest struct {
