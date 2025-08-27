@@ -73,7 +73,7 @@ func (r *pocketbaseTaskRepository) ListByAssignee(
 	params := dbx.Params{"assigneeID": assigneeID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-updated", limit, offset, params,
+		"tasks", filter, "", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by assignee %s: %w", assigneeID, err)
@@ -115,7 +115,7 @@ func (r *pocketbaseTaskRepository) ListByCreator(
 	params := dbx.Params{"creatorID": creatorID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-updated", limit, offset, params,
+		"tasks", filter, "", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by creator %s: %w", creatorID, err)
@@ -145,7 +145,7 @@ func (r *pocketbaseTaskRepository) Search(
 	}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-updated", limit, offset, params,
+		"tasks", filter, "", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search tasks with query '%s': %w", query, err)
