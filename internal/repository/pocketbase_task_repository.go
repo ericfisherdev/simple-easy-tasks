@@ -243,13 +243,19 @@ func (r *pocketbaseTaskRepository) Create(_ context.Context, task *domain.Task) 
 	record := core.NewRecord(collection)
 	r.setTaskFields(record, task)
 
-	// Set timestamps if provided, otherwise let PocketBase handle them
+	// Set timestamps - these are regular date fields now, not system fields
+	now := time.Now().UTC()
 	if !task.CreatedAt.IsZero() {
 		record.Set("created", task.CreatedAt)
+	} else {
+		record.Set("created", now)
 	}
 	if !task.UpdatedAt.IsZero() {
 		record.Set("updated", task.UpdatedAt)
+	} else {
+		record.Set("updated", now)
 	}
+	
 	if task.ID != "" {
 		record.Id = task.ID
 	}
@@ -278,6 +284,7 @@ func (r *pocketbaseTaskRepository) Update(_ context.Context, task *domain.Task) 
 	}
 
 	r.setTaskFields(record, task)
+	// Manually update the timestamp since it's now a regular field
 	record.Set("updated", time.Now().UTC())
 
 	if err := r.app.Save(record); err != nil {
@@ -576,7 +583,7 @@ func (r *pocketbaseTaskRepository) updateArchiveStatus(_ context.Context, id str
 	} else {
 		record.Set("archived_at", nil)
 	}
-	record.Set("updated", task.UpdatedAt)
+	record.Set("updated", time.Now().UTC())
 
 	if err := r.app.Save(record); err != nil {
 		operation := "unarchive"
