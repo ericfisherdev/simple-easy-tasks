@@ -1,23 +1,7 @@
-name: Integration Tests
+name: Integration Tests (Manual)
 
 on:
-  pull_request:
-    branches: [ develop, release, main ]
-    paths:
-      - 'internal/**'
-      - 'test/integration/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'migrations/**'
-  push:
-    branches: [ develop, release, main ]
-    paths:
-      - 'internal/**'
-      - 'test/integration/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'migrations/**'
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch: # Manual triggering only - integration tests run locally during development
 
 env:
   GO_VERSION: '1.24.6'
