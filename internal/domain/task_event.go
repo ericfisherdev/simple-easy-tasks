@@ -146,7 +146,7 @@ type TaskCreatedData struct {
 // TaskUpdatedData contains data for task update events
 type TaskUpdatedData struct {
 	Task      *Task                  `json:"task"`
-	Changes   map[string]interface{} `json:"changes,omitempty"` // Fields that were changed
+	Changes   map[string]interface{} `json:"changes,omitempty"`    // Fields that were changed
 	OldValues map[string]interface{} `json:"old_values,omitempty"` // Previous values for changed fields
 }
 
@@ -161,10 +161,10 @@ type TaskMovedData struct {
 
 // TaskAssignedData contains data for task assignment events
 type TaskAssignedData struct {
-	Task         *Task   `json:"task"`
-	OldAssignee  *string `json:"old_assignee,omitempty"`
-	NewAssignee  *string `json:"new_assignee,omitempty"`
-	AssignedBy   string  `json:"assigned_by"`
+	Task        *Task   `json:"task"`
+	OldAssignee *string `json:"old_assignee,omitempty"`
+	NewAssignee *string `json:"new_assignee,omitempty"`
+	AssignedBy  string  `json:"assigned_by"`
 }
 
 // TaskDeletedData contains data for task deletion events
@@ -176,10 +176,10 @@ type TaskDeletedData struct {
 
 // TaskCommentedData contains data for task comment events
 type TaskCommentedData struct {
-	Task      *Task   `json:"task"`
-	CommentID string  `json:"comment_id"`
-	Comment   string  `json:"comment"`
-	Author    string  `json:"author"`
+	Task      *Task  `json:"task"`
+	CommentID string `json:"comment_id"`
+	Comment   string `json:"comment"`
+	Author    string `json:"author"`
 }
 
 // generateEventID creates a unique identifier for events

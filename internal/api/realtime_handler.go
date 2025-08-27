@@ -47,12 +47,12 @@ func (h *RealtimeHandler) RegisterRoutes(router *gin.RouterGroup, authMiddleware
 		realtime.GET("/subscriptions/:id", h.GetSubscription)
 		realtime.PUT("/subscriptions/:id", h.UpdateSubscription)
 		realtime.DELETE("/subscriptions/:id", h.DeleteSubscription)
-		
+
 		// Real-time connection endpoints
 		realtime.GET("/events", h.StreamEvents)
 		realtime.GET("/connections", h.GetActiveConnections)
 	}
-	
+
 	// Public health check (no auth required)
 	router.GET("/realtime/health", h.HealthCheck)
 
@@ -443,7 +443,7 @@ func (h *RealtimeHandler) HealthCheck(c *gin.Context) {
 	health := map[string]interface{}{
 		"status":               "healthy",
 		"active_subscriptions": activeSubscriptions,
-		"timestamp":           time.Now().UTC(),
+		"timestamp":            time.Now().UTC(),
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -504,9 +504,9 @@ func generateClientID() string {
 
 // TaskEventStreamRequest represents the structure for creating event streams
 type TaskEventStreamRequest struct {
-	ProjectID  *string                   `json:"project_id,omitempty"`
-	EventTypes []domain.TaskEventType    `json:"event_types,omitempty"`
-	Filters    map[string]string         `json:"filters,omitempty"`
+	ProjectID  *string                `json:"project_id,omitempty"`
+	EventTypes []domain.TaskEventType `json:"event_types,omitempty"`
+	Filters    map[string]string      `json:"filters,omitempty"`
 }
 
 // ValidateEventStreamRequest validates the event stream request
@@ -581,7 +581,7 @@ func (h *RealtimeHandler) GetActiveConnections(c *gin.Context) {
 	connectionInfo := map[string]interface{}{
 		"total_active_subscriptions": activeSubscriptions,
 		"user_subscriptions":         len(userSubscriptions),
-		"subscriptions":             userSubscriptions,
+		"subscriptions":              userSubscriptions,
 	}
 
 	c.JSON(http.StatusOK, gin.H{

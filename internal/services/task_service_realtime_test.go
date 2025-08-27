@@ -718,21 +718,21 @@ func TestCalculateTaskChanges(t *testing.T) {
 		assignee2 := "user2"
 
 		task1 := &domain.Task{
-			ID:          "task1",
-			Title:       "Old Title",
-			Status:      domain.StatusTodo,
-			Priority:    domain.PriorityLow,
-			AssigneeID:  &assignee1,
-			Position:    1,
+			ID:         "task1",
+			Title:      "Old Title",
+			Status:     domain.StatusTodo,
+			Priority:   domain.PriorityLow,
+			AssigneeID: &assignee1,
+			Position:   1,
 		}
 
 		task2 := &domain.Task{
-			ID:          "task1",
-			Title:       "New Title",
-			Status:      domain.StatusDeveloping,
-			Priority:    domain.PriorityHigh,
-			AssigneeID:  &assignee2,
-			Position:    3,
+			ID:         "task1",
+			Title:      "New Title",
+			Status:     domain.StatusDeveloping,
+			Priority:   domain.PriorityHigh,
+			AssigneeID: &assignee2,
+			Position:   3,
 		}
 
 		changes, oldValues := realtimeService.calculateTaskChanges(task1, task2)

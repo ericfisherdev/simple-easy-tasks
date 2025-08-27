@@ -36,10 +36,10 @@ type SubscriptionManager interface {
 
 // CreateSubscriptionRequest represents a request to create a new subscription
 type CreateSubscriptionRequest struct {
-	UserID     string                    `json:"user_id" binding:"required"`
-	ProjectID  *string                   `json:"project_id,omitempty"`
-	EventTypes []domain.TaskEventType    `json:"event_types" binding:"required,min=1"`
-	Filters    map[string]string         `json:"filters,omitempty"`
+	UserID     string                 `json:"user_id" binding:"required"`
+	ProjectID  *string                `json:"project_id,omitempty"`
+	EventTypes []domain.TaskEventType `json:"event_types" binding:"required,min=1"`
+	Filters    map[string]string      `json:"filters,omitempty"`
 }
 
 // UpdateSubscriptionRequest represents a request to update a subscription
@@ -70,16 +70,16 @@ func (r *CreateSubscriptionRequest) Validate() error {
 
 // subscriptionManager implements the SubscriptionManager interface
 type subscriptionManager struct {
-	broadcaster   EventBroadcaster
-	projectRepo   ProjectRepository  // For project access validation
-	userRepo      UserRepository    // For user validation
-	logger        *slog.Logger
-	mu            sync.RWMutex
+	broadcaster EventBroadcaster
+	projectRepo ProjectRepository // For project access validation
+	userRepo    UserRepository    // For user validation
+	logger      *slog.Logger
+	mu          sync.RWMutex
 
 	// Cleanup configuration
-	cleanupInterval   time.Duration
-	cleanupRunning    bool
-	cleanupStop       chan struct{}
+	cleanupInterval time.Duration
+	cleanupRunning  bool
+	cleanupStop     chan struct{}
 }
 
 // ProjectRepository interface for project access validation
@@ -87,7 +87,7 @@ type ProjectRepository interface {
 	GetByID(ctx context.Context, id string) (*domain.Project, error)
 }
 
-// UserRepository interface for user validation  
+// UserRepository interface for user validation
 type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*domain.User, error)
 }

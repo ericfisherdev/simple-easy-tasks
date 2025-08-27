@@ -969,8 +969,8 @@ func (h *TaskHandler) LogTimeSpent(c *gin.Context) {
 	}
 
 	var req struct {
-		Hours       float64 `json:"hours" binding:"required,min=0"`
-		Description string  `json:"description,omitempty"`
+		Hours       float64    `json:"hours" binding:"required,min=0"`
+		Description string     `json:"description,omitempty"`
 		LoggedAt    *time.Time `json:"logged_at,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {

@@ -502,10 +502,10 @@ func TestTaskHandler_UpdateTaskStatus(t *testing.T) {
 			ExpectedStatus: http.StatusBadRequest,
 		},
 		{
-			Name:   "missing status field",
-			Method: "PUT",
-			URL:    "/api/projects/project-1/tasks/task-1/status",
-			Body:   map[string]interface{}{},
+			Name:           "missing status field",
+			Method:         "PUT",
+			URL:            "/api/projects/project-1/tasks/task-1/status",
+			Body:           map[string]interface{}{},
 			ExpectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -544,10 +544,10 @@ func TestTaskHandler_AssignTask(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 		},
 		{
-			Name:   "missing assignee ID",
-			Method: "POST",
-			URL:    "/api/projects/project-1/tasks/task-1/assign",
-			Body:   map[string]interface{}{},
+			Name:           "missing assignee ID",
+			Method:         "POST",
+			URL:            "/api/projects/project-1/tasks/task-1/assign",
+			Body:           map[string]interface{}{},
 			ExpectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -608,10 +608,10 @@ func TestTaskHandler_UnassignTask(t *testing.T) {
 func TestTaskHandler_DuplicateTask(t *testing.T) {
 	tests := []testutil.TestCase{
 		{
-			Name:   "duplicate task with default options",
-			Method: "POST",
-			URL:    "/api/projects/project-1/tasks/task-1/duplicate",
-			Body:   map[string]interface{}{},
+			Name:           "duplicate task with default options",
+			Method:         "POST",
+			URL:            "/api/projects/project-1/tasks/task-1/duplicate",
+			Body:           map[string]interface{}{},
 			ExpectedStatus: http.StatusCreated,
 		},
 		{
@@ -788,7 +788,7 @@ func setupTaskTestRouter(_ *testing.T) *gin.Engine {
 	testTask := testutil.MockTask("task-1", "Test Task", "project-1", "user-1")
 	testTask2 := testutil.MockTask("task-2", "Test Task 2", "project-1", "user-1")
 	testTask3 := testutil.MockTask("task-3", "Test Task 3", "project-1", "user-1")
-	
+
 	// Set up dependency relationship for testing (task-1 depends on task-2)
 	testTask.Dependencies = []string{"task-2"}
 
@@ -805,9 +805,9 @@ func setupTaskTestRouter(_ *testing.T) *gin.Engine {
 	}
 
 	mockTaskService := &MockTaskService{
-		tasks: []*domain.Task{testTask, testTask2, testTask3},
+		tasks:       []*domain.Task{testTask, testTask2, testTask3},
 		projectRepo: projectRepo,
-		userRepo: userRepo,
+		userRepo:    userRepo,
 	}
 
 	// Create middleware
@@ -821,7 +821,6 @@ func setupTaskTestRouter(_ *testing.T) *gin.Engine {
 
 	return router
 }
-
 
 // MockTaskService is a mock implementation of TaskService for testing.
 type MockTaskService struct {
@@ -995,7 +994,7 @@ func (m *MockTaskService) DuplicateTask(_ context.Context, taskID string, option
 			if newTitle == "" {
 				newTitle = "Copy of " + task.Title
 			}
-			
+
 			newTask := &domain.Task{
 				ID:          "duplicated-task-id",
 				Title:       newTitle,

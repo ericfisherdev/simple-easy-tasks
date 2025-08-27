@@ -142,7 +142,7 @@ func (r *EnhancedRealtimeService) broadcastToPocketBase(ctx context.Context, eve
 		// Filter clients based on subscription criteria
 		if r.shouldReceiveEvent(client, event) {
 			client.Send(*message)
-			r.logger.Debug("Sent event to client", 
+			r.logger.Debug("Sent event to client",
 				"client_id", client.Id(),
 				"event_type", event.Type,
 				"event_id", event.EventID)
@@ -184,7 +184,7 @@ func (r *EnhancedRealtimeService) convertToSubscriptionMessage(event *domain.Tas
 func (r *EnhancedRealtimeService) shouldReceiveEvent(client subscriptions.Client, event *domain.TaskEvent) bool {
 	// Get client's subscription info from context
 	// This is a simplified version - in practice, you'd store subscription data with the client
-	
+
 	// For now, send to all clients - in production, implement proper filtering
 	// based on client subscriptions stored in client context
 	return true
@@ -195,34 +195,34 @@ func (r *EnhancedRealtimeService) shouldReceiveEvent(client subscriptions.Client
 func (r *EnhancedRealtimeService) processOutgoingMessage(messageData []byte, clientID string) error {
 	// Add custom processing logic here
 	// For example, filtering sensitive data, adding metadata, etc.
-	
+
 	r.logger.Debug("Processing outgoing real-time message",
 		"client_id", clientID,
 		"message_size", len(messageData))
-	
+
 	return nil
 }
 
 // GetStats returns real-time service statistics
 func (r *EnhancedRealtimeService) GetStats() map[string]interface{} {
 	stats := make(map[string]interface{})
-	
+
 	if r.eventBroadcaster != nil {
 		stats["active_subscriptions"] = r.eventBroadcaster.GetActiveSubscriptionCount()
 	}
-	
+
 	if r.pbService != nil && r.pbService.app != nil {
 		broker := r.pbService.app.SubscriptionsBroker()
 		if broker != nil {
 			stats["pocketbase_clients"] = len(broker.Clients())
 		}
 	}
-	
+
 	stats["endpoints"] = map[string]string{
 		"realtime":    r.GetRealtimeEndpoint(),
 		"task_events": r.GetTaskEventEndpoint(),
 	}
-	
+
 	return stats
 }
 

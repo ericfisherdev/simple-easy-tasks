@@ -125,10 +125,10 @@ func (b *eventBroadcaster) BroadcastEvent(ctx context.Context, event *domain.Tas
 	// Process event handlers for all matching subscriptions
 	for _, subscription := range matchingSubscriptions {
 		subscription.UpdateActivity()
-		
+
 		// Update the subscription in the map to persist the activity change
 		b.subscriptions[subscription.ID] = subscription
-		
+
 		for _, handler := range b.eventHandlers {
 			if err := handler(event, subscription); err != nil {
 				b.logger.Error("Event handler failed",

@@ -75,26 +75,10 @@ func (s *realtimeTaskService) UpdateTask(
 	req domain.UpdateTaskRequest,
 	userID string,
 ) (*domain.Task, error) {
-	// Get original task for comparison
-	originalTask, err := s.TaskService.GetTask(ctx, taskID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update task using base service
-	updatedTask, err := s.TaskService.UpdateTask(ctx, taskID, req, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Broadcast task update event
-	if err := s.broadcastTaskUpdated(ctx, originalTask, updatedTask, userID); err != nil {
-		s.logger.Error("Failed to broadcast task update event",
-			"task_id", taskID,
-			"error", err)
-	}
-
-	return updatedTask, nil
+	return s.updateTaskWithBroadcast(ctx, taskID, userID, "task update",
+		func() (*domain.Task, error) {
+			return s.TaskService.UpdateTask(ctx, taskID, req, userID)
+		})
 }
 
 // DeleteTask deletes a task and broadcasts a deletion event
@@ -180,26 +164,10 @@ func (s *realtimeTaskService) UpdateTaskStatus(
 	status domain.TaskStatus,
 	userID string,
 ) (*domain.Task, error) {
-	// Get original task for comparison
-	originalTask, err := s.TaskService.GetTask(ctx, taskID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update task status using base service
-	updatedTask, err := s.TaskService.UpdateTaskStatus(ctx, taskID, status, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Broadcast task update event (status change is an update)
-	if err := s.broadcastTaskUpdated(ctx, originalTask, updatedTask, userID); err != nil {
-		s.logger.Error("Failed to broadcast task status update event",
-			"task_id", taskID,
-			"error", err)
-	}
-
-	return updatedTask, nil
+	return s.updateTaskWithBroadcast(ctx, taskID, userID, "task status update",
+		func() (*domain.Task, error) {
+			return s.TaskService.UpdateTaskStatus(ctx, taskID, status, userID)
+		})
 }
 
 // MoveTask moves a task between statuses/positions and broadcasts a move event
@@ -211,8 +179,8 @@ func (s *realtimeTaskService) MoveTask(ctx context.Context, req MoveTaskRequest,
 	}
 
 	// Move task using base service
-	if err := s.TaskService.MoveTask(ctx, req, userID); err != nil {
-		return err
+	if moveErr := s.TaskService.MoveTask(ctx, req, userID); moveErr != nil {
+		return moveErr
 	}
 
 	// Get updated task for event data
@@ -442,4 +410,35 @@ func (s *realtimeTaskService) calculateTaskChanges(original, updated *domain.Tas
 	}
 
 	return changes, oldValues
+}
+
+// updateTaskWithBroadcast is a helper function to reduce code duplication
+// for operations that update a task and broadcast an event
+func (s *realtimeTaskService) updateTaskWithBroadcast(
+	ctx context.Context,
+	taskID string,
+	userID string,
+	operationName string,
+	updateFunc func() (*domain.Task, error),
+) (*domain.Task, error) {
+	// Get original task for comparison
+	originalTask, err := s.TaskService.GetTask(ctx, taskID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update task using provided function
+	updatedTask, err := updateFunc()
+	if err != nil {
+		return nil, err
+	}
+
+	// Broadcast task update event
+	if err := s.broadcastTaskUpdated(ctx, originalTask, updatedTask, userID); err != nil {
+		s.logger.Error("Failed to broadcast "+operationName+" event",
+			"task_id", taskID,
+			"error", err)
+	}
+
+	return updatedTask, nil
 }

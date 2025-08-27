@@ -219,21 +219,21 @@ func MockProject(id, title, slug, ownerID string) *domain.Project {
 func MockTask(id, title, projectID, reporterID string) *domain.Task {
 	now := time.Now()
 	return &domain.Task{
-		ID:          id,
-		Title:       title,
-		Description: "Test task description",
-		ProjectID:   projectID,
-		ReporterID:  reporterID,
-		Status:      domain.StatusTodo,
-		Priority:    domain.PriorityMedium,
-		Progress:    0,
-		TimeSpent:   0.0,
-		Position:    1,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Tags:        []string{},
+		ID:           id,
+		Title:        title,
+		Description:  "Test task description",
+		ProjectID:    projectID,
+		ReporterID:   reporterID,
+		Status:       domain.StatusTodo,
+		Priority:     domain.PriorityMedium,
+		Progress:     0,
+		TimeSpent:    0.0,
+		Position:     1,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+		Tags:         []string{},
 		Dependencies: []string{},
-		Attachments: []string{},
+		Attachments:  []string{},
 	}
 }
 
