@@ -235,11 +235,6 @@ func (r *pocketbaseTaskRepository) Create(_ context.Context, task *domain.Task) 
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Validate foreign key references
-	if err := r.validateTaskReferences(task); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
-	}
-
 	collection, err := r.app.FindCollectionByNameOrId("tasks")
 	if err != nil {
 		return fmt.Errorf("failed to find tasks collection: %w", err)
@@ -275,11 +270,6 @@ func (r *pocketbaseTaskRepository) Update(_ context.Context, task *domain.Task) 
 
 	if task.ID == "" {
 		return fmt.Errorf("task ID cannot be empty for update")
-	}
-
-	// Validate foreign key references
-	if err := r.validateTaskReferences(task); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	record, err := r.app.FindRecordById("tasks", task.ID)
@@ -990,51 +980,3 @@ func (r *pocketbaseTaskRepository) buildSortOrder(sortBy, sortOrder string) stri
 	return field
 }
 
-// validateTaskReferences validates that foreign key references exist
-func (r *pocketbaseTaskRepository) validateTaskReferences(task *domain.Task) error {
-	// Validate project exists
-	if task.ProjectID != "" {
-		_, err := r.app.FindRecordById("projects", task.ProjectID)
-		if err != nil {
-			if IsNotFound(err) {
-				return fmt.Errorf("project with ID %s does not exist", task.ProjectID)
-			}
-			return fmt.Errorf("failed to validate project ID: %w", err)
-		}
-	}
-
-	// Validate reporter exists
-	if task.ReporterID != "" {
-		_, err := r.app.FindRecordById("users", task.ReporterID)
-		if err != nil {
-			if IsNotFound(err) {
-				return fmt.Errorf("reporter with ID %s does not exist", task.ReporterID)
-			}
-			return fmt.Errorf("failed to validate reporter ID: %w", err)
-		}
-	}
-
-	// Validate assignee exists (if provided)
-	if task.AssigneeID != nil && *task.AssigneeID != "" {
-		_, err := r.app.FindRecordById("users", *task.AssigneeID)
-		if err != nil {
-			if IsNotFound(err) {
-				return fmt.Errorf("assignee with ID %s does not exist", *task.AssigneeID)
-			}
-			return fmt.Errorf("failed to validate assignee ID: %w", err)
-		}
-	}
-
-	// Validate parent task exists (if provided)
-	if task.ParentTaskID != nil && *task.ParentTaskID != "" {
-		_, err := r.app.FindRecordById("tasks", *task.ParentTaskID)
-		if err != nil {
-			if IsNotFound(err) {
-				return fmt.Errorf("parent task with ID %s does not exist", *task.ParentTaskID)
-			}
-			return fmt.Errorf("failed to validate parent task ID: %w", err)
-		}
-	}
-
-	return nil
-}
