@@ -402,7 +402,7 @@ func TestTaskRepository_Integration(t *testing.T) {
 			task := suite.Factory.CreateTask(project, owner,
 				WithTaskTitle(fmt.Sprintf("Paginated Task %d", i)),
 			)
-			task.Position = i
+			task.Position = i + 1 // Position must be >= 1
 			require.NoError(t, taskRepo.Create(context.Background(), task))
 		}
 
@@ -1207,6 +1207,8 @@ func TestTaskRepository_Integration(t *testing.T) {
 		retrieved, err := taskRepo.GetByID(context.Background(), task.ID)
 		require.NoError(t, err)
 
+		require.NotNil(t, retrieved.DueDate, "Due date should not be nil")
+		require.NotNil(t, retrieved.StartDate, "Start date should not be nil")
 		assert.True(t, retrieved.DueDate.Equal(dueDate), "Due date should match")
 		assert.True(t, retrieved.StartDate.Equal(startDate), "Start date should match")
 		assert.False(t, retrieved.CreatedAt.IsZero(), "CreatedAt should be set")
@@ -1262,7 +1264,7 @@ func TestTaskRepository_Integration(t *testing.T) {
 				WithTaskTitle(fmt.Sprintf("Performance Task %d", i)),
 				WithTaskProgress(i%101), // 0-100
 			)
-			task.Position = i
+			task.Position = i + 1 // Position must be >= 1
 			require.NoError(t, taskRepo.Create(context.Background(), task))
 			tasks[i] = task
 		}
@@ -1349,7 +1351,7 @@ func TestTaskRepository_Integration(t *testing.T) {
 			task := suite.Factory.CreateTask(project, owner,
 				WithTaskTitle(fmt.Sprintf("Pagination Task %d", i)),
 			)
-			task.Position = i
+			task.Position = i + 1 // Position must be >= 1
 			require.NoError(t, taskRepo.Create(context.Background(), task))
 		}
 
@@ -1560,7 +1562,7 @@ func TestTaskRepository_Integration(t *testing.T) {
 			WithTaskTitle("A"), // Minimum title length (1 char)
 			WithTaskProgress(0),
 		)
-		task.Position = 0
+		task.Position = 1 // Position must be positive (cannot be 0)
 		task.TimeSpent = 0
 		zeroEffort := 0.0
 		task.EffortEstimate = &zeroEffort
@@ -1577,9 +1579,13 @@ func TestTaskRepository_Integration(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "A", retrieved.Title)
 		assert.Equal(t, 0, retrieved.Progress)
-		assert.Equal(t, 0, retrieved.Position)
+		assert.Equal(t, 1, retrieved.Position)
 		assert.Equal(t, 0.0, retrieved.TimeSpent)
-		assert.Equal(t, 0.0, *retrieved.EffortEstimate)
+		if retrieved.EffortEstimate != nil {
+			assert.Equal(t, 0.0, *retrieved.EffortEstimate)
+		} else {
+			assert.Nil(t, retrieved.EffortEstimate, "EffortEstimate should be nil for minimum field values")
+		}
 		assert.Empty(t, retrieved.Tags)
 		assert.Empty(t, retrieved.Dependencies)
 		assert.Empty(t, retrieved.Attachments)

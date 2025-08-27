@@ -12,6 +12,11 @@ import (
 	"simple-easy-tasks/internal/domain"
 )
 
+const (
+	// jsonNullValue represents the literal "null" string returned by PocketBase for null JSON fields
+	jsonNullValue = "null"
+)
+
 type pocketbaseTaskRepository struct {
 	app core.App
 }
@@ -68,7 +73,7 @@ func (r *pocketbaseTaskRepository) ListByAssignee(
 	params := dbx.Params{"assigneeID": assigneeID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-created", limit, offset, params,
+		"tasks", filter, "-updated", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by assignee %s: %w", assigneeID, err)
@@ -110,7 +115,7 @@ func (r *pocketbaseTaskRepository) ListByCreator(
 	params := dbx.Params{"creatorID": creatorID}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-created", limit, offset, params,
+		"tasks", filter, "-updated", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks by creator %s: %w", creatorID, err)
@@ -140,7 +145,7 @@ func (r *pocketbaseTaskRepository) Search(
 	}
 
 	records, err := r.app.FindRecordsByFilter(
-		"tasks", filter, "-created", limit, offset, params,
+		"tasks", filter, "-updated", limit, offset, params,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search tasks with query '%s': %w", query, err)
@@ -230,6 +235,11 @@ func (r *pocketbaseTaskRepository) Create(_ context.Context, task *domain.Task) 
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
+	// Validate foreign key references
+	if err := r.validateTaskReferences(task); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
 	collection, err := r.app.FindCollectionByNameOrId("tasks")
 	if err != nil {
 		return fmt.Errorf("failed to find tasks collection: %w", err)
@@ -265,6 +275,11 @@ func (r *pocketbaseTaskRepository) Update(_ context.Context, task *domain.Task) 
 
 	if task.ID == "" {
 		return fmt.Errorf("task ID cannot be empty for update")
+	}
+
+	// Validate foreign key references
+	if err := r.validateTaskReferences(task); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	record, err := r.app.FindRecordById("tasks", task.ID)
@@ -641,13 +656,13 @@ func (r *pocketbaseTaskRepository) populateDateFields(task *domain.Task, record 
 
 // populateJSONFields populates JSON byte fields
 func (r *pocketbaseTaskRepository) populateJSONFields(task *domain.Task, record *core.Record) {
-	if columnPosition := record.GetString("column_position"); columnPosition != "" {
+	if columnPosition := record.GetString("column_position"); columnPosition != "" && columnPosition != jsonNullValue {
 		task.ColumnPosition = []byte(columnPosition)
 	}
-	if githubData := record.GetString("github_data"); githubData != "" {
+	if githubData := record.GetString("github_data"); githubData != "" && githubData != jsonNullValue {
 		task.GithubData = []byte(githubData)
 	}
-	if customFields := record.GetString("custom_fields"); customFields != "" {
+	if customFields := record.GetString("custom_fields"); customFields != "" && customFields != jsonNullValue {
 		task.CustomFields = []byte(customFields)
 	}
 }
@@ -973,4 +988,53 @@ func (r *pocketbaseTaskRepository) buildSortOrder(sortBy, sortOrder string) stri
 		return "-" + field
 	}
 	return field
+}
+
+// validateTaskReferences validates that foreign key references exist
+func (r *pocketbaseTaskRepository) validateTaskReferences(task *domain.Task) error {
+	// Validate project exists
+	if task.ProjectID != "" {
+		_, err := r.app.FindRecordById("projects", task.ProjectID)
+		if err != nil {
+			if IsNotFound(err) {
+				return fmt.Errorf("project with ID %s does not exist", task.ProjectID)
+			}
+			return fmt.Errorf("failed to validate project ID: %w", err)
+		}
+	}
+
+	// Validate reporter exists
+	if task.ReporterID != "" {
+		_, err := r.app.FindRecordById("users", task.ReporterID)
+		if err != nil {
+			if IsNotFound(err) {
+				return fmt.Errorf("reporter with ID %s does not exist", task.ReporterID)
+			}
+			return fmt.Errorf("failed to validate reporter ID: %w", err)
+		}
+	}
+
+	// Validate assignee exists (if provided)
+	if task.AssigneeID != nil && *task.AssigneeID != "" {
+		_, err := r.app.FindRecordById("users", *task.AssigneeID)
+		if err != nil {
+			if IsNotFound(err) {
+				return fmt.Errorf("assignee with ID %s does not exist", *task.AssigneeID)
+			}
+			return fmt.Errorf("failed to validate assignee ID: %w", err)
+		}
+	}
+
+	// Validate parent task exists (if provided)
+	if task.ParentTaskID != nil && *task.ParentTaskID != "" {
+		_, err := r.app.FindRecordById("tasks", *task.ParentTaskID)
+		if err != nil {
+			if IsNotFound(err) {
+				return fmt.Errorf("parent task with ID %s does not exist", *task.ParentTaskID)
+			}
+			return fmt.Errorf("failed to validate parent task ID: %w", err)
+		}
+	}
+
+	return nil
 }
