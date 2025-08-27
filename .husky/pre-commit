@@ -64,7 +64,7 @@ echo "🔐 Checking for sensitive information..."
 STAGED_FILES=$(git diff --cached --name-only)
 if [ -n "$STAGED_FILES" ]; then
     # Check for private keys
-    if git diff --cached | grep -E "-----BEGIN [A-Z]* PRIVATE KEY-----"; then
+    if git diff --cached | grep -E -- "-----BEGIN [A-Z]* PRIVATE KEY-----"; then
         echo "⚠️ Found private key in staged files!"
         exit 1
     fi
