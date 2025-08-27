@@ -1,4 +1,8 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Run go fmt check first
+make fmt-check || exit 1
+
+# Then check integration tests compile
 make ci-integration-check
