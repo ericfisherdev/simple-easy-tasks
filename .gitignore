@@ -89,3 +89,6 @@ coverage/
 
 # node-waf configuration
 .lock-wscript
+
+# Playwright MCP
+.playwright-mcp/

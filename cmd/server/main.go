@@ -162,6 +162,9 @@ func setupRouter(
 	// Dashboard route
 	router.GET("/dashboard", dashboardHandler)
 
+	// Projects route
+	router.GET("/projects", projectsHandler)
+
 	// Add ping endpoint for simple health checks
 	router.GET("/ping", api.PingHandler)
 
@@ -222,6 +225,89 @@ func setupRouter(
 		})
 	})
 
+	// Temporary API endpoints to prevent 404 errors
+	// TODO: Replace with proper authenticated handlers when DI is fully integrated
+	api := router.Group("/api")
+	{
+		projects := api.Group("/projects")
+		{
+			// GET /api/projects - Return projects list
+			projects.GET("", func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{
+					"projects": []gin.H{
+						{
+							"id":          "1",
+							"name":        "Website Redesign",
+							"description": "Complete overhaul of the company website with modern design and improved UX",
+							"status":      "Active",
+							"progress":    65,
+							"taskCount":   24,
+							"memberCount": 5,
+							"updatedAt":   "2025-08-26T10:00:00Z",
+							"createdAt":   "2025-08-01T09:00:00Z",
+						},
+						{
+							"id":          "2",
+							"name":        "Mobile App Development",
+							"description": "Native iOS and Android app for task management",
+							"status":      "Planning",
+							"progress":    15,
+							"taskCount":   8,
+							"memberCount": 3,
+							"updatedAt":   "2025-08-23T14:30:00Z",
+							"createdAt":   "2025-08-15T11:00:00Z",
+						},
+						{
+							"id":          "3",
+							"name":        "API Integration",
+							"description": "Integration with third-party services and APIs",
+							"status":      "Completed",
+							"progress":    100,
+							"taskCount":   12,
+							"memberCount": 2,
+							"updatedAt":   "2025-08-21T16:45:00Z",
+							"createdAt":   "2025-07-10T08:30:00Z",
+						},
+					},
+					"status":  "success",
+					"message": "Projects loaded (demo mode)",
+				})
+			})
+
+			projectsDetail := projects.Group("/:projectId")
+			{
+				// GET /api/projects/:projectId/tasks - Return empty task list for now
+				projectsDetail.GET("/tasks", func(c *gin.Context) {
+					projectID := c.Param("projectId")
+					c.JSON(http.StatusOK, gin.H{
+						"project_id": projectID,
+						"tasks":      []interface{}{}, // Empty array for now
+						"status":     "success",
+						"message":    "Tasks loaded (demo mode)",
+					})
+				})
+
+				// GET /api/projects/:projectId/events - Server-Sent Events for real-time updates
+				projectsDetail.GET("/events", func(c *gin.Context) {
+					projectID := c.Param("projectId")
+
+					// Set headers for Server-Sent Events
+					c.Header("Content-Type", "text/event-stream")
+					c.Header("Cache-Control", "no-cache")
+					c.Header("Connection", "keep-alive")
+					c.Header("Access-Control-Allow-Origin", "*")
+					c.Header("Access-Control-Allow-Headers", "Cache-Control")
+
+					// Send initial connection event
+					c.String(http.StatusOK, "data: {\"type\":\"connected\",\"project_id\":\"%s\",\"message\":\"Real-time connection established (demo mode)\"}\n\n", projectID)
+
+					// For now, just send the initial message and close
+					// TODO: Replace with proper EventSource implementation
+				})
+			}
+		}
+	}
+
 	return router, rateLimitManager
 }
 
@@ -277,6 +363,38 @@ func rootHandler(c *gin.Context) {
 func dashboardHandler(c *gin.Context) {
 	// Load HTML template
 	tmpl, err := template.ParseFiles("web/templates/dashboard.html")
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Error loading template: %v", err)
+		return
+	}
+
+	// Template data
+	data := struct {
+		CSRFToken string
+		User      struct {
+			Name string
+		}
+	}{
+		CSRFToken: "sample-csrf-token", // In real implementation, use actual CSRF token
+		User: struct {
+			Name string
+		}{
+			Name: "Demo User",
+		},
+	}
+
+	// Render template
+	c.Header("Content-Type", "text/html")
+	if err := tmpl.Execute(c.Writer, data); err != nil {
+		c.String(http.StatusInternalServerError, "Error rendering template: %v", err)
+		return
+	}
+}
+
+// projectsHandler serves the projects page
+func projectsHandler(c *gin.Context) {
+	// Load HTML template
+	tmpl, err := template.ParseFiles("web/templates/projects.html")
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Error loading template: %v", err)
 		return

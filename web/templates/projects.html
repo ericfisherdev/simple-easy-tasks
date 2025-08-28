@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ .CSRFToken }}">
+    <title>Projects - Simple Easy Tasks</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'bounce-gentle': 'bounceGentle 0.6s ease-out',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/task-board.css">
+    <link rel="stylesheet" href="/static/css/htmx-styles.css">
+</head>
+<body class="h-full bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold text-primary-600">
+                        Simple Easy Tasks
+                    </a>
+                    <div class="hidden md:ml-10 md:flex md:space-x-8">
+                        <a href="/" class="text-gray-900 hover:text-primary-600 px-3 py-2 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="/projects" class="text-primary-600 border-b-2 border-primary-600 px-3 py-2 text-sm font-medium">
+                            Projects
+                        </a>
+                        <a href="/tasks" class="text-gray-900 hover:text-primary-600 px-3 py-2 text-sm font-medium">
+                            Tasks
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- Notifications -->
+                    <button class="text-gray-400 hover:text-gray-600 relative">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M15 17h5l-5 5v-5zM4 2h9v9H4V2zm0 11h9v9H4v-9z"/>
+                        </svg>
+                        <span class="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+                    </button>
+                    
+                    <!-- User Menu -->
+                    <div class="relative">
+                        <button class="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
+                            <img class="h-8 w-8 rounded-full" 
+                                 src="/static/images/default-avatar.png" 
+                                 alt="User avatar">
+                            <span class="text-sm font-medium">{{ .User.Name }}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8"
+             x-data="projectManager()" 
+             x-init="init()">
+             
+            <!-- Page Header -->
+            <div class="mb-8">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">Projects</h1>
+                        <p class="mt-2 text-sm text-gray-700">Manage your projects and track their progress</p>
+                    </div>
+                    
+                    <div class="mt-4 sm:mt-0 flex items-center space-x-4">
+                        <!-- Search -->
+                        <div class="relative">
+                            <input type="text" 
+                                   id="project-search"
+                                   placeholder="Search projects..."
+                                   class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   x-model="searchQuery"
+                                   @input="filterProjects">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        <!-- New Project Button -->
+                        <button @click="openCreateProjectModal()" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            <span>New Project</span>
+                        </button>
+                        
+                        <!-- View Toggle -->
+                        <div class="flex rounded-lg border border-gray-200 overflow-hidden">
+                            <button @click="viewMode = 'grid'" 
+                                    :class="viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                                    class="px-3 py-2 text-sm font-medium transition-colors duration-200">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                                </svg>
+                            </button>
+                            <button @click="viewMode = 'list'" 
+                                    :class="viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                                    class="px-3 py-2 text-sm font-medium transition-colors duration-200">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div x-show="isLoading" class="flex items-center justify-center py-12">
+                <div class="text-center">
+                    <div class="loading-spinner w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading projects...</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div x-show="error" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div class="flex items-center">
+                    <svg class="h-5 w-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-red-800" x-text="error"></span>
+                </div>
+            </div>
+
+            <!-- Grid View -->
+            <div x-show="viewMode === 'grid' && !isLoading" 
+                 class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                 
+                <template x-for="project in filteredProjects" :key="project.id">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                         @click="openProject(project)">
+                         
+                        <!-- Project Header -->
+                        <div class="p-6 pb-4">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex-1">
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-1" x-text="project.name"></h3>
+                                    <p class="text-sm text-gray-600 line-clamp-2" x-text="project.description || 'No description'"></p>
+                                </div>
+                                <div class="ml-4">
+                                    <button @click.stop="openProjectMenu(project)" 
+                                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Project Stats -->
+                            <div class="flex items-center justify-between text-sm text-gray-600">
+                                <div class="flex items-center space-x-4">
+                                    <span class="flex items-center">
+                                        <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                        </svg>
+                                        <span x-text="project.taskCount || 0"></span>
+                                    </span>
+                                    <span class="flex items-center">
+                                        <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                        </svg>
+                                        <span x-text="project.memberCount || 1"></span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-3 h-3 rounded-full mr-2"
+                                         :class="getStatusColor(project.status)"></div>
+                                    <span x-text="project.status || 'Active'"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="px-6 pb-4">
+                            <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
+                                <span>Progress</span>
+                                <span x-text="`${project.progress || 0}%`"></span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                     :style="`width: ${project.progress || 0}%`"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Project Footer -->
+                        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-gray-500">
+                                    Updated <span x-text="formatDate(project.updatedAt)"></span>
+                                </span>
+                                <div class="flex -space-x-1">
+                                    <template x-for="member in (project.members || []).slice(0, 3)" :key="member.id">
+                                        <img class="inline-block h-6 w-6 rounded-full ring-2 ring-white" 
+                                             :src="member.avatar || '/static/images/default-avatar.png'" 
+                                             :alt="member.name"
+                                             :title="member.name">
+                                    </template>
+                                    <div x-show="(project.members || []).length > 3" 
+                                         class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-gray-100 ring-2 ring-white text-xs font-medium text-gray-500"
+                                         x-text="`+${(project.members || []).length - 3}`">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- List View -->
+            <div x-show="viewMode === 'list' && !isLoading" 
+                 class="bg-white shadow rounded-lg overflow-hidden">
+                 
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <div class="grid grid-cols-12 gap-4 text-sm font-medium text-gray-900">
+                        <div class="col-span-4">Project</div>
+                        <div class="col-span-2">Status</div>
+                        <div class="col-span-2">Progress</div>
+                        <div class="col-span-2">Tasks</div>
+                        <div class="col-span-1">Members</div>
+                        <div class="col-span-1">Actions</div>
+                    </div>
+                </div>
+                
+                <div class="divide-y divide-gray-200">
+                    <template x-for="project in filteredProjects" :key="project.id">
+                        <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer"
+                             @click="openProject(project)">
+                            <div class="grid grid-cols-12 gap-4 items-center">
+                                <div class="col-span-4">
+                                    <div>
+                                        <h4 class="text-sm font-medium text-gray-900" x-text="project.name"></h4>
+                                        <p class="text-sm text-gray-500 line-clamp-1" x-text="project.description || 'No description'"></p>
+                                    </div>
+                                </div>
+                                <div class="col-span-2">
+                                    <div class="flex items-center">
+                                        <div class="w-2 h-2 rounded-full mr-2"
+                                             :class="getStatusColor(project.status)"></div>
+                                        <span class="text-sm text-gray-900" x-text="project.status || 'Active'"></span>
+                                    </div>
+                                </div>
+                                <div class="col-span-2">
+                                    <div class="flex items-center">
+                                        <div class="flex-1 bg-gray-200 rounded-full h-2 mr-2">
+                                            <div class="bg-blue-600 h-2 rounded-full"
+                                                 :style="`width: ${project.progress || 0}%`"></div>
+                                        </div>
+                                        <span class="text-xs text-gray-600" x-text="`${project.progress || 0}%`"></span>
+                                    </div>
+                                </div>
+                                <div class="col-span-2">
+                                    <span class="text-sm text-gray-900" x-text="project.taskCount || 0"></span>
+                                </div>
+                                <div class="col-span-1">
+                                    <span class="text-sm text-gray-900" x-text="project.memberCount || 1"></span>
+                                </div>
+                                <div class="col-span-1">
+                                    <button @click.stop="openProjectMenu(project)"
+                                            class="text-gray-400 hover:text-gray-600">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div x-show="!isLoading && filteredProjects.length === 0" 
+                 class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No projects found</h3>
+                <p class="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
+                <div class="mt-6">
+                    <button @click="openCreateProjectModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        New Project
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- Project Management Script -->
+    <script>
+        function projectManager() {
+            return {
+                projects: [],
+                filteredProjects: [],
+                searchQuery: '',
+                viewMode: 'grid',
+                isLoading: true,
+                error: null,
+
+                init() {
+                    console.log('Initializing project manager...');
+                    this.loadProjects();
+                },
+
+                async loadProjects() {
+                    this.isLoading = true;
+                    this.error = null;
+                    
+                    try {
+                        const response = await fetch('/api/projects');
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        this.projects = data.projects || [];
+                        this.filteredProjects = [...this.projects];
+                        
+                        console.log(`Loaded ${this.projects.length} projects`);
+                    } catch (error) {
+                        console.error('Failed to load projects:', error);
+                        this.error = 'Failed to load projects. Please try again.';
+                        
+                        // Set demo data for now
+                        this.projects = this.getDemoProjects();
+                        this.filteredProjects = [...this.projects];
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                getDemoProjects() {
+                    return [
+                        {
+                            id: '1',
+                            name: 'Website Redesign',
+                            description: 'Complete overhaul of the company website with modern design and improved UX',
+                            status: 'Active',
+                            progress: 65,
+                            taskCount: 24,
+                            memberCount: 5,
+                            updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+                            members: [
+                                { id: '1', name: 'Alice Johnson', avatar: '/static/images/default-avatar.png' },
+                                { id: '2', name: 'Bob Smith', avatar: '/static/images/default-avatar.png' },
+                                { id: '3', name: 'Carol Davis', avatar: '/static/images/default-avatar.png' }
+                            ]
+                        },
+                        {
+                            id: '2', 
+                            name: 'Mobile App Development',
+                            description: 'Native iOS and Android app for task management',
+                            status: 'Planning',
+                            progress: 15,
+                            taskCount: 8,
+                            memberCount: 3,
+                            updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+                            members: [
+                                { id: '4', name: 'David Wilson', avatar: '/static/images/default-avatar.png' },
+                                { id: '5', name: 'Emma Brown', avatar: '/static/images/default-avatar.png' }
+                            ]
+                        },
+                        {
+                            id: '3',
+                            name: 'API Integration',
+                            description: 'Integration with third-party services and APIs',
+                            status: 'Completed',
+                            progress: 100,
+                            taskCount: 12,
+                            memberCount: 2,
+                            updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+                            members: [
+                                { id: '6', name: 'Frank Miller', avatar: '/static/images/default-avatar.png' }
+                            ]
+                        }
+                    ];
+                },
+
+                filterProjects() {
+                    if (!this.searchQuery.trim()) {
+                        this.filteredProjects = [...this.projects];
+                        return;
+                    }
+                    
+                    const query = this.searchQuery.toLowerCase();
+                    this.filteredProjects = this.projects.filter(project => 
+                        project.name.toLowerCase().includes(query) ||
+                        (project.description && project.description.toLowerCase().includes(query))
+                    );
+                },
+
+                openProject(project) {
+                    console.log('Opening project:', project.name);
+                    // Navigate to project dashboard
+                    window.location.href = `/projects/${project.id}/dashboard`;
+                },
+
+                openCreateProjectModal() {
+                    console.log('Opening create project modal');
+                    // TODO: Implement create project modal
+                    alert('Create Project feature coming soon!');
+                },
+
+                openProjectMenu(project) {
+                    console.log('Opening project menu for:', project.name);
+                    // TODO: Implement project context menu
+                    alert(`Project menu for ${project.name} coming soon!`);
+                },
+
+                getStatusColor(status) {
+                    const colors = {
+                        'Active': 'bg-green-500',
+                        'Planning': 'bg-yellow-500',
+                        'Completed': 'bg-blue-500',
+                        'On Hold': 'bg-gray-500'
+                    };
+                    return colors[status] || 'bg-gray-500';
+                },
+
+                formatDate(date) {
+                    if (!date) return 'Unknown';
+                    
+                    const now = new Date();
+                    const diffTime = Math.abs(now - new Date(date));
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 1) return 'yesterday';
+                    if (diffDays < 7) return `${diffDays} days ago`;
+                    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+                    return new Date(date).toLocaleDateString();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
