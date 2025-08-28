@@ -1,0 +1,217 @@
+package cli
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
+)
+
+// Config represents the CLI configuration
+type Config struct {
+	DefaultProfile string             `json:"default_profile" yaml:"default_profile"`
+	Profiles       map[string]Profile `json:"profiles" yaml:"profiles"`
+}
+
+// Profile represents a configuration profile for different environments
+type Profile struct {
+	Name      string `json:"name" yaml:"name"`
+	ServerURL string `json:"server_url" yaml:"server_url"`
+	Token     string `json:"token" yaml:"token"`
+	ProjectID string `json:"project_id" yaml:"project_id"`
+}
+
+// LoadConfig loads the configuration from file
+func LoadConfig() (*Config, error) {
+	configPath := getConfigPath()
+
+	config := &Config{
+		Profiles: make(map[string]Profile),
+	}
+
+	// If config file doesn't exist, return empty config
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return config, nil
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if err := yaml.Unmarshal(data, config); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	return config, nil
+}
+
+// SaveConfig saves the configuration to file
+func SaveConfig(config *Config) error {
+	configPath := getConfigPath()
+
+	// Create config directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
+// GetCurrentProfile returns the current active profile
+func GetCurrentProfile() (*Profile, error) {
+	config, err := LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	profileName := config.DefaultProfile
+	if profileName == "" {
+		profileName = "default"
+	}
+
+	// Check for environment override
+	if envProfile := viper.GetString("profile"); envProfile != "" {
+		profileName = envProfile
+	}
+
+	profile, exists := config.Profiles[profileName]
+	if !exists {
+		return nil, fmt.Errorf("profile '%s' not found", profileName)
+	}
+
+	return &profile, nil
+}
+
+// SetCurrentProfile sets the default profile
+func SetCurrentProfile(profileName string) error {
+	config, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	if _, exists := config.Profiles[profileName]; !exists {
+		return fmt.Errorf("profile '%s' not found", profileName)
+	}
+
+	config.DefaultProfile = profileName
+	return SaveConfig(config)
+}
+
+// AddProfile adds a new profile to the configuration
+func AddProfile(profile Profile) error {
+	config, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	if config.Profiles == nil {
+		config.Profiles = make(map[string]Profile)
+	}
+
+	config.Profiles[profile.Name] = profile
+
+	// Set as default if it's the first profile
+	if config.DefaultProfile == "" {
+		config.DefaultProfile = profile.Name
+	}
+
+	return SaveConfig(config)
+}
+
+// RemoveProfile removes a profile from the configuration
+func RemoveProfile(profileName string) error {
+	config, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	if _, exists := config.Profiles[profileName]; !exists {
+		return fmt.Errorf("profile '%s' not found", profileName)
+	}
+
+	delete(config.Profiles, profileName)
+
+	// Clear default if removing default profile
+	if config.DefaultProfile == profileName {
+		config.DefaultProfile = ""
+		// Set first available profile as default
+		for name := range config.Profiles {
+			config.DefaultProfile = name
+			break
+		}
+	}
+
+	return SaveConfig(config)
+}
+
+// ListProfiles returns all available profiles
+func ListProfiles() ([]Profile, error) {
+	config, err := LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	profiles := make([]Profile, 0, len(config.Profiles))
+	for _, profile := range config.Profiles {
+		profiles = append(profiles, profile)
+	}
+
+	return profiles, nil
+}
+
+// ValidateProfile validates a profile configuration
+func ValidateProfile(profile *Profile) error {
+	if profile.Name == "" {
+		return fmt.Errorf("profile name is required")
+	}
+
+	if profile.ServerURL == "" {
+		return fmt.Errorf("server URL is required")
+	}
+
+	if profile.Token == "" {
+		return fmt.Errorf("authentication token is required")
+	}
+
+	return nil
+}
+
+// GetConfigAsJSON returns configuration as JSON string for debugging
+func GetConfigAsJSON() (string, error) {
+	config, err := LoadConfig()
+	if err != nil {
+		return "", err
+	}
+
+	// Mask sensitive information
+	maskedConfig := *config
+	maskedConfig.Profiles = make(map[string]Profile)
+
+	for name, profile := range config.Profiles {
+		maskedProfile := profile
+		if maskedProfile.Token != "" {
+			maskedProfile.Token = "***masked***"
+		}
+		maskedConfig.Profiles[name] = maskedProfile
+	}
+
+	data, err := json.MarshalIndent(maskedConfig, "", "  ")
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
+}
