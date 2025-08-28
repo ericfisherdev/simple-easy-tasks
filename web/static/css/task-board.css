@@ -246,25 +246,104 @@
     border-radius: 2px;
 }
 
-/* Responsive Design */
+/* Mobile-First Responsive Design */
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Safari and Chrome */
+}
+
+/* Mobile touch interactions */
+.mobile-task-card {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-task-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease-in-out;
+}
+
+/* Snap scrolling for mobile columns */
+.snap-x {
+    scroll-snap-type: x mandatory;
+}
+
+.snap-start {
+    scroll-snap-align: start;
+}
+
+/* Mobile column indicator */
+.mobile-column-indicator {
+    transition: all 0.3s ease;
+}
+
+/* Mobile responsive breakpoints */
 @media (max-width: 768px) {
     .board-container {
         padding: 1rem;
     }
     
+    /* Mobile board header adjustments */
+    .board-container h1 {
+        font-size: 1.5rem;
+        line-height: 1.3;
+    }
+    
+    /* Mobile search and controls */
+    .board-container .flex.flex-col.sm\\:flex-row {
+        space-y: 1rem;
+    }
+    
+    .board-container input[type="text"] {
+        font-size: 16px; /* Prevent zoom on iOS */
+        padding: 0.75rem 1rem;
+        padding-left: 2.5rem;
+    }
+    
+    .board-container button {
+        min-height: 44px; /* Touch target size */
+        min-width: 44px;
+    }
+    
+    /* Column width in mobile horizontal scroll */
     .column {
-        min-height: 300px;
-        margin-bottom: 1rem;
+        width: 20rem; /* 320px */
+        min-height: 400px;
+        margin-bottom: 0;
     }
     
     .task-card {
         margin-bottom: 0.75rem;
+        padding: 1rem;
+        border-radius: 12px;
     }
     
     /* Mobile drag and drop adjustments */
     .task-card.dragging {
-        transform: scale(1.1);
+        transform: scale(1.05);
         rotation: 0deg;
+        z-index: 1000;
+        box-shadow: 0 20px 40px -8px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Mobile task actions - larger touch targets */
+    .mobile-task-card .group-active\\:opacity-100 button {
+        padding: 0.75rem;
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
+    /* Mobile tag scrolling */
+    .task-card .scrollbar-hide {
+        padding-bottom: 0.25rem;
+    }
+    
+    /* Mobile footer stacking */
+    .task-card .space-y-2 > * + * {
+        margin-top: 0.5rem;
     }
 }
 
@@ -273,12 +352,78 @@
         padding: 0.75rem;
     }
     
+    .column {
+        width: 18rem; /* 288px */
+        padding: 0.75rem;
+    }
+    
     .task-card {
         padding: 0.75rem;
     }
     
+    /* Even smaller text on very small screens */
+    .task-card h4 {
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+    
+    .task-card p {
+        font-size: 0.75rem;
+        line-height: 1.4;
+    }
+}
+
+@media (max-width: 480px) {
+    .board-container {
+        padding: 0.5rem;
+    }
+    
     .column {
-        padding: 0.75rem;
+        width: 16rem; /* 256px */
+        padding: 0.5rem;
+    }
+    
+    .task-card {
+        padding: 0.5rem;
+    }
+    
+    /* Mobile header adjustments */
+    .board-container h1 {
+        font-size: 1.25rem;
+    }
+    
+    /* Compact mobile controls */
+    .board-container .flex.items-center.space-x-4 {
+        flex-direction: column;
+        align-items: stretch;
+        space-x: 0;
+        gap: 0.75rem;
+    }
+    
+    .board-container input[type="text"] {
+        width: 100%;
+    }
+}
+
+/* Tablet and Desktop */
+@media (min-width: 769px) {
+    /* Desktop drag and drop styles */
+    .task-card.dragging {
+        transform: rotate(5deg) scale(1.05);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        z-index: 1000;
+        opacity: 0.9;
+    }
+    
+    /* Desktop hover effects */
+    .task-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.15);
+    }
+    
+    .column:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     }
 }
 
@@ -304,6 +449,79 @@
     }
 }
 
+/* Accessibility Enhancements */
+
+/* Screen Reader Only Text */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip Links */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 10000;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.skip-link:focus {
+    top: 6px;
+}
+
+/* Focus Management */
+.accessibility-focused {
+    outline: 3px solid #0ea5e9;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Enhanced Focus Indicators */
+*:focus {
+    outline: 2px solid #0ea5e9;
+    outline-offset: 2px;
+}
+
+/* Specific focus styles for interactive elements */
+button:focus,
+[role="button"]:focus,
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    outline: 3px solid #0ea5e9;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+}
+
+/* Task card focus enhancement */
+.task-card:focus {
+    outline: 3px solid #0ea5e9;
+    outline-offset: 2px;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(14, 165, 233, 0.2);
+}
+
+/* Column focus enhancement */
+.column:focus {
+    outline: 3px solid #0ea5e9;
+    outline-offset: 2px;
+    background: rgba(14, 165, 233, 0.05);
+}
+
 /* High Contrast Mode */
 @media (prefers-contrast: high) {
     .task-card {
@@ -316,6 +534,61 @@
     
     .task-tag {
         border: 1px solid #000;
+    }
+    
+    /* Enhanced focus for high contrast */
+    *:focus {
+        outline: 4px solid #000;
+        outline-offset: 2px;
+        background-color: #ffff00;
+        color: #000;
+    }
+    
+    .accessibility-focused {
+        outline: 4px solid #000;
+        background-color: #ffff00;
+        color: #000;
+    }
+}
+
+/* High contrast class for forced high contrast */
+.high-contrast .task-card,
+.high-contrast .column,
+.high-contrast .task-tag {
+    border: 2px solid #000;
+}
+
+.high-contrast *:focus {
+    outline: 4px solid #000;
+    outline-offset: 2px;
+    background-color: #ffff00;
+    color: #000;
+}
+
+/* Keyboard navigation indicators */
+.keyboard-navigating .task-card:hover {
+    transform: none; /* Disable hover effects during keyboard navigation */
+}
+
+.keyboard-navigating .column:hover {
+    transform: none;
+}
+
+/* Touch target size for accessibility */
+@media (pointer: coarse) {
+    button,
+    [role="button"],
+    a,
+    input,
+    select,
+    textarea {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .task-card {
+        min-height: 44px;
+        padding: 12px;
     }
 }
 

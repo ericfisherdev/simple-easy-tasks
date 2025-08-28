@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Simple Easy Tasks</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .offline-container {
+            max-width: 28rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .offline-icon {
+            width: 5rem;
+            height: 5rem;
+            margin: 0 auto 1.5rem;
+            background: #f3f4f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .offline-icon svg {
+            width: 2.5rem;
+            height: 2.5rem;
+            color: #6b7280;
+        }
+        
+        .offline-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.75rem;
+        }
+        
+        .offline-description {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        
+        .offline-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background: #0ea5e9;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0284c7;
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+        
+        .btn-secondary:hover {
+            background: #f9fafb;
+        }
+        
+        .connection-status {
+            margin-top: 1.5rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .status-offline {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+        
+        .status-online {
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .cached-tasks {
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+        
+        .cached-tasks h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.75rem;
+        }
+        
+        .task-item {
+            display: flex;
+            items-center: center;
+            padding: 0.75rem;
+            background: #f9fafb;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .task-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .task-priority {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+            flex-shrink: 0;
+        }
+        
+        .priority-low { background: #10b981; }
+        .priority-medium { background: #f59e0b; }
+        .priority-high { background: #ef4444; }
+        .priority-critical { background: #dc2626; }
+        
+        .task-content {
+            flex: 1;
+        }
+        
+        .task-title {
+            font-weight: 500;
+            color: #1f2937;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .task-meta {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+        
+        @media (min-width: 640px) {
+            .offline-actions {
+                flex-direction: row;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192L5.636 18.364M12 2.25a9.75 9.75 0 110 19.5 9.75 9.75 0 010-19.5z"/>
+            </svg>
+        </div>
+        
+        <h1 class="offline-title">You're Offline</h1>
+        <p class="offline-description">
+            Don't worry! You can still view your cached tasks and any changes you make will be synced when you're back online.
+        </p>
+        
+        <div class="offline-actions">
+            <button onclick="window.history.back()" class="btn btn-primary">
+                Go Back
+            </button>
+            <button onclick="window.location.reload()" class="btn btn-secondary">
+                Try Again
+            </button>
+        </div>
+        
+        <div id="connection-status" class="connection-status status-offline">
+            📡 Connection: Offline
+        </div>
+        
+        <div id="cached-tasks" class="cached-tasks" style="display: none;">
+            <h3>Recently Cached Tasks</h3>
+            <div id="cached-tasks-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // Monitor online/offline status
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('connection-status');
+            
+            if (navigator.onLine) {
+                statusElement.textContent = '✅ Connection: Online';
+                statusElement.className = 'connection-status status-online';
+                
+                // Try to reload after a short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                statusElement.textContent = '📡 Connection: Offline';
+                statusElement.className = 'connection-status status-offline';
+            }
+        }
+        
+        // Load cached tasks from localStorage/indexedDB
+        function loadCachedTasks() {
+            try {
+                const cachedData = localStorage.getItem('taskboard_cache');
+                if (cachedData) {
+                    const data = JSON.parse(cachedData);
+                    displayCachedTasks(data.tasks || []);
+                }
+            } catch (error) {
+                console.log('No cached tasks available');
+            }
+        }
+        
+        function displayCachedTasks(tasks) {
+            const container = document.getElementById('cached-tasks');
+            const list = document.getElementById('cached-tasks-list');
+            
+            if (tasks.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            
+            list.innerHTML = tasks.slice(0, 5).map(task => `
+                <div class="task-item">
+                    <div class="task-priority priority-${task.priority || 'low'}"></div>
+                    <div class="task-content">
+                        <div class="task-title">${task.title}</div>
+                        <div class="task-meta">${task.status || 'Unknown Status'}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Listen for online/offline events
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Listen for service worker messages
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', event => {
+                if (event.data.type === 'offline-action-synced') {
+                    console.log('Offline action synced:', event.data.data);
+                    
+                    // Show notification that sync was successful
+                    const notification = document.createElement('div');
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 1rem;
+                        right: 1rem;
+                        background: #10b981;
+                        color: white;
+                        padding: 0.75rem 1rem;
+                        border-radius: 0.5rem;
+                        font-size: 0.875rem;
+                        z-index: 1000;
+                    `;
+                    notification.textContent = 'Changes synced successfully!';
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 3000);
+                }
+            });
+        }
+        
+        // Initialize
+        updateConnectionStatus();
+        loadCachedTasks();
+        
+        // Check connection status every 5 seconds
+        setInterval(updateConnectionStatus, 5000);
+    </script>
+</body>
+</html>
