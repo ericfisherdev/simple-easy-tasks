@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -152,8 +153,14 @@ func setupRouter(
 	// Note: serviceContainer parameter will be used when handlers are updated to use DI
 	_ = serviceContainer
 
+	// Static files
+	router.Static("/static", "./web/static")
+
 	// Root route
 	router.GET("/", rootHandler)
+
+	// Dashboard route
+	router.GET("/dashboard", dashboardHandler)
 
 	// Add ping endpoint for simple health checks
 	router.GET("/ping", api.PingHandler)
@@ -254,7 +261,8 @@ func rootHandler(c *gin.Context) {
         </ul>
 
         <div class="links">
-            <h3>API Endpoints:</h3>
+            <h3>Available Pages:</h3>
+            <a href="/dashboard">Task Board Dashboard</a>
             <a href="/health">Health Check</a>
             <a href="/ping">Ping</a>
             <a href="/api">API Base</a>
@@ -263,4 +271,36 @@ func rootHandler(c *gin.Context) {
 </body>
 </html>
 `)
+}
+
+// dashboardHandler serves the task board dashboard
+func dashboardHandler(c *gin.Context) {
+	// Load HTML template
+	tmpl, err := template.ParseFiles("web/templates/dashboard.html")
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Error loading template: %v", err)
+		return
+	}
+
+	// Template data
+	data := struct {
+		CSRFToken string
+		User      struct {
+			Name string
+		}
+	}{
+		CSRFToken: "sample-csrf-token", // In real implementation, use actual CSRF token
+		User: struct {
+			Name string
+		}{
+			Name: "Demo User",
+		},
+	}
+
+	// Render template
+	c.Header("Content-Type", "text/html")
+	if err := tmpl.Execute(c.Writer, data); err != nil {
+		c.String(http.StatusInternalServerError, "Error rendering template: %v", err)
+		return
+	}
 }
