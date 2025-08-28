@@ -11,6 +11,10 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Project binaries
+simple-easy-tasks
+task-server
+
 # Code coverage profiles and other test artifacts
 *.out
 coverage.*
