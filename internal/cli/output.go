@@ -13,12 +13,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	formatJSON = "json"
+	formatYAML = "yaml"
+	formatYML  = "yml"
+)
+
 // RenderProjects renders a list of projects in the specified format
 func RenderProjects(projects []domain.Project, defaultProjectID, format string) error {
 	switch strings.ToLower(format) {
-	case "json":
+	case formatJSON:
 		return renderProjectsJSON(projects)
-	case "yaml", "yml":
+	case formatYAML, formatYML:
 		return renderProjectsYAML(projects)
 	case "csv":
 		return renderProjectsCSV(projects)
@@ -30,9 +36,9 @@ func RenderProjects(projects []domain.Project, defaultProjectID, format string) 
 // RenderProjectDetails renders detailed project information
 func RenderProjectDetails(project *domain.Project, includeTasks bool, client *APIClient, format string) error {
 	switch strings.ToLower(format) {
-	case "json":
+	case formatJSON:
 		return renderProjectDetailsJSON(project, includeTasks, client)
-	case "yaml", "yml":
+	case formatYAML, formatYML:
 		return renderProjectDetailsYAML(project, includeTasks, client)
 	default:
 		return renderProjectDetailsTable(project, includeTasks, client)
@@ -42,9 +48,9 @@ func RenderProjectDetails(project *domain.Project, includeTasks bool, client *AP
 // RenderTasks renders a list of tasks in the specified format
 func RenderTasks(tasks []domain.Task, format string) error {
 	switch strings.ToLower(format) {
-	case "json":
+	case formatJSON:
 		return renderTasksJSON(tasks)
-	case "yaml", "yml":
+	case formatYAML, formatYML:
 		return renderTasksYAML(tasks)
 	case "csv":
 		return renderTasksCSV(tasks)
@@ -56,9 +62,9 @@ func RenderTasks(tasks []domain.Task, format string) error {
 // RenderTaskDetails renders detailed task information
 func RenderTaskDetails(task interface{}, format string) error {
 	switch strings.ToLower(format) {
-	case "json":
+	case formatJSON:
 		return renderTaskDetailsJSON(task)
-	case "yaml", "yml":
+	case formatYAML, formatYML:
 		return renderTaskDetailsYAML(task)
 	default:
 		return renderTaskDetailsTable(task)
@@ -165,11 +171,12 @@ func renderProjectDetailsTable(project *domain.Project, includeTasks bool, clien
 	if includeTasks {
 		fmt.Printf("\nTasks:\n")
 		tasks, err := client.GetTasks(project.ID, nil)
-		if err != nil {
+		switch {
+		case err != nil:
 			fmt.Printf("Error loading tasks: %v\n", err)
-		} else if len(tasks) == 0 {
+		case len(tasks) == 0:
 			fmt.Printf("No tasks found\n")
-		} else {
+		default:
 			return renderTasksTable(tasks)
 		}
 	}

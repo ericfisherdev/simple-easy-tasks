@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,7 +51,7 @@ func (e *APIError) Error() string {
 }
 
 // doRequest performs an HTTP request with authentication
-func (c *APIClient) doRequest(method, endpoint string, body interface{}) (*http.Response, error) {
+func (c *APIClient) doRequest(ctx context.Context, method, endpoint string, body interface{}) (*http.Response, error) {
 	var reqBody io.Reader
 
 	if body != nil {
@@ -62,7 +63,7 @@ func (c *APIClient) doRequest(method, endpoint string, body interface{}) (*http.
 	}
 
 	url := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
-	req, err := http.NewRequest(method, url, reqBody)
+	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -82,6 +83,7 @@ func (c *APIClient) doRequest(method, endpoint string, body interface{}) (*http.
 }
 
 // handleResponse processes the HTTP response and handles errors
+// Note: This function automatically closes the response body
 func (c *APIClient) handleResponse(resp *http.Response, result interface{}) error {
 	defer func() { _ = resp.Body.Close() }()
 
@@ -126,10 +128,12 @@ func (c *APIClient) handleResponse(resp *http.Response, result interface{}) erro
 
 // Health checks the API health
 func (c *APIClient) Health() error {
-	resp, err := c.doRequest("GET", "/api/health", nil)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "GET", "/api/health", nil)
 	if err != nil {
 		return err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var healthResp map[string]interface{}
 	return c.handleResponse(resp, &healthResp)
@@ -142,10 +146,12 @@ func (c *APIClient) Login(email, password string) (*LoginResponse, error) {
 		"password": password,
 	}
 
-	resp, err := c.doRequest("POST", "/api/auth/login", loginReq)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "POST", "/api/auth/login", loginReq)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var loginResp LoginResponse
 	err = c.handleResponse(resp, &loginResp)
@@ -167,10 +173,12 @@ type LoginResponse struct {
 
 // GetProjects retrieves all projects
 func (c *APIClient) GetProjects() ([]domain.Project, error) {
-	resp, err := c.doRequest("GET", "/api/projects", nil)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "GET", "/api/projects", nil)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var projects []domain.Project
 	err = c.handleResponse(resp, &projects)
@@ -180,10 +188,12 @@ func (c *APIClient) GetProjects() ([]domain.Project, error) {
 // GetProject retrieves a specific project
 func (c *APIClient) GetProject(projectID string) (*domain.Project, error) {
 	endpoint := fmt.Sprintf("/api/projects/%s", projectID)
-	resp, err := c.doRequest("GET", endpoint, nil)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var project domain.Project
 	err = c.handleResponse(resp, &project)
@@ -192,10 +202,12 @@ func (c *APIClient) GetProject(projectID string) (*domain.Project, error) {
 
 // CreateProject creates a new project
 func (c *APIClient) CreateProject(req *CreateProjectRequest) (*domain.Project, error) {
-	resp, err := c.doRequest("POST", "/api/projects", req)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "POST", "/api/projects", req)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var project domain.Project
 	err = c.handleResponse(resp, &project)
@@ -240,10 +252,12 @@ func (c *APIClient) GetTasks(projectID string, options *TaskListOptions) ([]doma
 		}
 	}
 
-	resp, err := c.doRequest("GET", endpoint, nil)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var tasks []domain.Task
 	err = c.handleResponse(resp, &tasks)
@@ -263,10 +277,12 @@ type TaskListOptions struct {
 // CreateTask creates a new task
 func (c *APIClient) CreateTask(projectID string, req *CreateTaskRequest) (*domain.Task, error) {
 	endpoint := fmt.Sprintf("/api/projects/%s/tasks", projectID)
-	resp, err := c.doRequest("POST", endpoint, req)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "POST", endpoint, req)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var task domain.Task
 	err = c.handleResponse(resp, &task)
@@ -285,10 +301,12 @@ type CreateTaskRequest struct {
 // UpdateTask updates an existing task
 func (c *APIClient) UpdateTask(projectID, taskID string, req *UpdateTaskRequest) (*domain.Task, error) {
 	endpoint := fmt.Sprintf("/api/projects/%s/tasks/%s", projectID, taskID)
-	resp, err := c.doRequest("PUT", endpoint, req)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "PUT", endpoint, req)
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var task domain.Task
 	err = c.handleResponse(resp, &task)
@@ -307,10 +325,12 @@ type UpdateTaskRequest struct {
 // DeleteTask deletes a task
 func (c *APIClient) DeleteTask(projectID, taskID string) error {
 	endpoint := fmt.Sprintf("/api/projects/%s/tasks/%s", projectID, taskID)
-	resp, err := c.doRequest("DELETE", endpoint, nil)
+	ctx := context.Background()
+	resp, err := c.doRequest(ctx, "DELETE", endpoint, nil)
 	if err != nil {
 		return err
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	return c.handleResponse(resp, nil)
 }

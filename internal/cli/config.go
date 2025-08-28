@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -24,6 +25,24 @@ type Profile struct {
 	ProjectID string `json:"project_id" yaml:"project_id"`
 }
 
+// validateConfigPath validates that the config path is safe
+func validateConfigPath(path string) error {
+	// Clean the path
+	cleanPath := filepath.Clean(path)
+
+	// Check for path traversal attempts
+	if strings.Contains(cleanPath, "..") {
+		return fmt.Errorf("invalid config path: path traversal not allowed")
+	}
+
+	// Ensure it's an absolute path or within user home
+	if !filepath.IsAbs(cleanPath) {
+		return fmt.Errorf("invalid config path: must be absolute path")
+	}
+
+	return nil
+}
+
 // LoadConfig loads the configuration from file
 func LoadConfig() (*Config, error) {
 	configPath := getConfigPath()
@@ -32,12 +51,17 @@ func LoadConfig() (*Config, error) {
 		Profiles: make(map[string]Profile),
 	}
 
+	// Validate config path for security
+	if err := validateConfigPath(configPath); err != nil {
+		return nil, fmt.Errorf("config path validation failed: %w", err)
+	}
+
 	// If config file doesn't exist, return empty config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return config, nil
 	}
 
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) //nolint:gosec // Path is validated by validateConfigPath
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -53,8 +77,13 @@ func LoadConfig() (*Config, error) {
 func SaveConfig(config *Config) error {
 	configPath := getConfigPath()
 
+	// Validate config path for security
+	if err := validateConfigPath(configPath); err != nil {
+		return fmt.Errorf("config path validation failed: %w", err)
+	}
+
 	// Create config directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 

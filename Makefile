@@ -1,6 +1,6 @@
 # Simple Easy Tasks - Makefile
 
-.PHONY: help build test test-verbose test-coverage clean lint run dev docker-build docker-run
+.PHONY: help build build-server build-cli build-pocketbase build-linux install test test-verbose test-coverage clean lint run dev docker-build docker-run
 
 # Default target
 help: ## Show this help message
@@ -10,13 +10,30 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Build targets
-build: ## Build the server binary
+build: build-server build-cli build-pocketbase ## Build all binaries (server, CLI, pocketbase)
+
+build-server: ## Build the server binary
 	@echo "Building server..."
 	go build -o server ./cmd/server
 
-build-linux: ## Build for Linux
+build-cli: ## Build the CLI tool
+	@echo "Building CLI tool..."
+	go build -o set-cli ./cmd/set-cli
+
+build-pocketbase: ## Build the PocketBase server
+	@echo "Building PocketBase server..."
+	go build -o pocketbase ./cmd/pocketbase
+
+build-linux: ## Build all binaries for Linux
 	@echo "Building for Linux..."
 	GOOS=linux GOARCH=amd64 go build -o server-linux ./cmd/server
+	GOOS=linux GOARCH=amd64 go build -o set-cli-linux ./cmd/set-cli
+	GOOS=linux GOARCH=amd64 go build -o pocketbase-linux ./cmd/pocketbase
+
+install: build-cli ## Install CLI tool to system path
+	@echo "Installing set-cli to /usr/local/bin..."
+	sudo cp set-cli /usr/local/bin/
+	@echo "✓ set-cli installed successfully"
 
 # Test targets
 test: ## Run all tests
