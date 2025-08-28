@@ -6,10 +6,10 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
-	"simple-easy-tasks/internal/services"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
 )
 
 // ServiceNames contains constants for service names used in DI container
@@ -24,6 +24,7 @@ const (
 	// GitHub repositories
 	GitHubIntegrationRepositoryService  = "github_integration_repository"
 	GitHubOAuthStateRepositoryService   = "github_oauth_state_repository"
+	GitHubAuthSessionRepositoryService  = "github_auth_session_repository"
 	GitHubIssueMappingRepositoryService = "github_issue_mapping_repository"
 	GitHubCommitLinkRepositoryService   = "github_commit_link_repository"
 	GitHubPRMappingRepositoryService    = "github_pr_mapping_repository"
@@ -524,6 +525,17 @@ func registerGitHubRepositories(container Container, app core.App) error {
 		return fmt.Errorf("failed to register GitHub OAuth state repository: %w", err)
 	}
 
+	// GitHub Auth Session Repository (in-memory for temporary sessions)
+	err = container.RegisterSingleton(
+		GitHubAuthSessionRepositoryService,
+		func(_ context.Context, _ Container) (interface{}, error) {
+			return repository.NewMemoryGitHubAuthSessionRepository(), nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub auth session repository: %w", err)
+	}
+
 	// GitHub Issue Mapping Repository
 	err = container.RegisterSingleton(
 		GitHubIssueMappingRepositoryService,
@@ -581,6 +593,12 @@ func registerGitHubServices(container Container) error {
 			return nil, err
 		}
 
+		authSessionRepo, err := resolveAndCast[repository.GitHubAuthSessionRepository](
+			ctx, c, GitHubAuthSessionRepositoryService, "GitHub auth session repository")
+		if err != nil {
+			return nil, err
+		}
+
 		userService, err := resolveAndCast[services.UserService](
 			ctx, c, UserService, "user service")
 		if err != nil {
@@ -597,11 +615,23 @@ func registerGitHubServices(container Container) error {
 		clientSecret := cfg.GetGitHubClientSecret()
 		redirectURL := cfg.GetGitHubRedirectURL()
 
+		// Validate GitHub OAuth configuration
+		if clientID == "" {
+			return nil, fmt.Errorf("GitHub client ID is missing in configuration")
+		}
+		if clientSecret == "" {
+			return nil, fmt.Errorf("GitHub client secret is missing in configuration")
+		}
+		if redirectURL == "" {
+			return nil, fmt.Errorf("GitHub redirect URL is missing in configuration")
+		}
+
 		return services.NewGitHubOAuthService(
 			clientID,
 			clientSecret,
 			redirectURL,
 			oauthStateRepo,
+			authSessionRepo,
 			userService,
 		), nil
 	})
@@ -689,8 +719,13 @@ func registerGitHubServices(container Container) error {
 
 		webhookSecret := cfg.GetGitHubWebhookSecret()
 
+		// For security: never allow unsigned webhooks in production
+		// This could be made configurable if needed for development
+		allowUnsigned := false
+
 		return services.NewGitHubWebhookService(
 			webhookSecret,
+			allowUnsigned,
 			integrationRepo,
 			webhookEventRepo,
 			githubService,

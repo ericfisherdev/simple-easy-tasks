@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/container"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
-	testutil "simple-easy-tasks/internal/testutil/integration"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/container"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
+	testutil "github.com/ericfisherdev/simple-easy-tasks/internal/testutil/integration"
 )
 
 // TestFIRSTPrinciples demonstrates that tests can now run individually

@@ -8,7 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
 	// Import migrations package to register all migrations via init()
-	_ "simple-easy-tasks/migrations"
+	_ "github.com/ericfisherdev/simple-easy-tasks/migrations"
 )
 
 func main() {

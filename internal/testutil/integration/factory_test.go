@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"simple-easy-tasks/internal/domain"
 )
 
 func TestNewTestDataFactory(t *testing.T) {

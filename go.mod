@@ -1,4 +1,4 @@
-module simple-easy-tasks
+module github.com/ericfisherdev/simple-easy-tasks
 
 go 1.24.6
 

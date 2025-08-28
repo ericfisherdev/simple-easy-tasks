@@ -4,7 +4,7 @@ package validation_test
 import (
 	"testing"
 
-	"simple-easy-tasks/internal/validation"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/validation"
 )
 
 // TestStruct for validation testing

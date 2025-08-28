@@ -15,16 +15,16 @@ import (
 
 // GitHubIntegrationResponse represents a GitHub integration for API responses (without access token)
 type GitHubIntegrationResponse struct {
-	ID        string                  `json:"id"`
-	ProjectID string                  `json:"project_id"`
-	UserID    string                  `json:"user_id"`
-	RepoOwner string                  `json:"repo_owner"`
-	RepoName  string                  `json:"repo_name"`
-	RepoID    int64                   `json:"repo_id"`
-	InstallID *int64                  `json:"install_id,omitempty"`
-	Settings  domain.GitHubSettings   `json:"settings"`
-	CreatedAt time.Time               `json:"created_at"`
-	UpdatedAt time.Time               `json:"updated_at"`
+	ID        string                `json:"id"`
+	ProjectID string                `json:"project_id"`
+	UserID    string                `json:"user_id"`
+	RepoOwner string                `json:"repo_owner"`
+	RepoName  string                `json:"repo_name"`
+	RepoID    int64                 `json:"repo_id"`
+	InstallID *int64                `json:"install_id,omitempty"`
+	Settings  domain.GitHubSettings `json:"settings"`
+	CreatedAt time.Time             `json:"created_at"`
+	UpdatedAt time.Time             `json:"updated_at"`
 }
 
 // toAPIResponse converts a domain GitHubIntegration to API response format
@@ -66,7 +66,7 @@ func NewGitHubHandler(
 // InitiateGitHubAuth starts the GitHub OAuth flow
 func (h *GitHubHandler) InitiateGitHubAuth(c *gin.Context) {
 	userID := getUserIDFromContext(c)
-	
+
 	// Validate user is authenticated
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -111,7 +111,7 @@ func (h *GitHubHandler) InitiateGitHubAuth(c *gin.Context) {
 // HandleGitHubCallback processes GitHub OAuth callback
 func (h *GitHubHandler) HandleGitHubCallback(c *gin.Context) {
 	userID := getUserIDFromContext(c)
-	
+
 	// Validate user is authenticated
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -120,7 +120,7 @@ func (h *GitHubHandler) HandleGitHubCallback(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	
+
 	code := c.Query("code")
 	state := c.Query("state")
 
@@ -161,7 +161,7 @@ func (h *GitHubHandler) HandleGitHubCallback(c *gin.Context) {
 		accessToken,
 		86400*7, // 7 days
 		"/",
-		"", // Domain will be auto-set
+		"",   // Domain will be auto-set
 		true, // Secure (HTTPS only in production)
 		true, // HttpOnly
 	)
@@ -170,14 +170,14 @@ func (h *GitHubHandler) HandleGitHubCallback(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "GitHub authentication successful",
 		"user_id": userID,
-		"user": resp.User,
+		"user":    resp.User,
 	})
 }
 
 // GetUserRepositories gets GitHub repositories accessible to the user
 func (h *GitHubHandler) GetUserRepositories(c *gin.Context) {
 	userID := getUserIDFromContext(c)
-	
+
 	// Validate user is authenticated
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -227,7 +227,7 @@ func (h *GitHubHandler) GetUserRepositories(c *gin.Context) {
 // CreateIntegration creates a new GitHub integration
 func (h *GitHubHandler) CreateIntegration(c *gin.Context) {
 	userID := getUserIDFromContext(c)
-	
+
 	// Defense-in-depth: Validate user is authenticated
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -456,7 +456,7 @@ func (h *GitHubHandler) GetTaskPullRequests(c *gin.Context) {
 func (h *GitHubHandler) UpdateIntegrationSettings(c *gin.Context) {
 	integrationID := c.Param("integrationId")
 	userID := getUserIDFromContext(c)
-	
+
 	// Validate user is authenticated
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -485,7 +485,7 @@ func (h *GitHubHandler) UpdateIntegrationSettings(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Verify ownership
 	if integration.UserID != userID {
 		c.JSON(http.StatusForbidden, gin.H{
@@ -515,7 +515,7 @@ func (h *GitHubHandler) UpdateIntegrationSettings(c *gin.Context) {
 func (h *GitHubHandler) DeleteIntegration(c *gin.Context) {
 	integrationID := c.Param("integrationId")
 	userID := getUserIDFromContext(c)
-	
+
 	// Validate user is authenticated
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -524,7 +524,7 @@ func (h *GitHubHandler) DeleteIntegration(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	
+
 	// Load the integration to verify ownership
 	integration, err := h.githubService.GetIntegrationByID(c.Request.Context(), integrationID)
 	if err != nil {
@@ -540,7 +540,7 @@ func (h *GitHubHandler) DeleteIntegration(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Verify ownership
 	if integration.UserID != userID {
 		c.JSON(http.StatusForbidden, gin.H{

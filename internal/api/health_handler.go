@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"simple-easy-tasks/internal/services"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
 
 	"github.com/gin-gonic/gin"
 )

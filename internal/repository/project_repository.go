@@ -4,7 +4,7 @@ package repository
 import (
 	"context"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // ProjectRepository defines the interface for project data operations.

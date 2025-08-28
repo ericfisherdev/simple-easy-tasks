@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -265,6 +266,9 @@ func (c *AppConfig) Validate() error {
 	if err := c.validateSecurityConfig(); err != nil {
 		return err
 	}
+	if err := c.validateGitHubConfig(); err != nil {
+		return err
+	}
 	if err := c.validateRedisConfig(); err != nil {
 		return err
 	}
@@ -337,6 +341,25 @@ func (c *AppConfig) validateRateLimitConfig() error {
 	}
 	if c.rateLimitCacheCapacity <= 0 {
 		return fmt.Errorf("rate limit cache capacity must be positive")
+	}
+	return nil
+}
+
+// validateGitHubConfig validates GitHub integration configuration.
+func (c *AppConfig) validateGitHubConfig() error {
+	// Allow empty in non-prod to ease local dev.
+	if !c.IsProduction() {
+		return nil
+	}
+	if c.githubClientID == "" || c.githubClientSecret == "" {
+		return fmt.Errorf("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are required in production")
+	}
+	if c.githubWebhookSecret == "" {
+		return fmt.Errorf("GITHUB_WEBHOOK_SECRET is required in production")
+	}
+	u, err := url.Parse(c.githubRedirectURL)
+	if err != nil || !u.IsAbs() || u.Scheme != "https" {
+		return fmt.Errorf("GITHUB_REDIRECT_URL must be a valid absolute https URL in production")
 	}
 	return nil
 }

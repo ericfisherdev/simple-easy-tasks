@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
 )
 
 // CommentService defines the interface for comment-related business logic.

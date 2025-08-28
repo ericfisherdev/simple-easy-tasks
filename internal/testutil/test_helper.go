@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 
 	"github.com/gin-gonic/gin"
 )

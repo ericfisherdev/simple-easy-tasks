@@ -5,7 +5,7 @@ package middleware
 import (
 	"net/http"
 
-	"simple-easy-tasks/internal/validation"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/validation"
 
 	"github.com/gin-gonic/gin"
 )

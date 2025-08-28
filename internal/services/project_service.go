@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
 )
 
 // ProjectService defines the interface for project-related business logic.

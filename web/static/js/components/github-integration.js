@@ -7,7 +7,6 @@ class GitHubIntegration {
         this.projectId = options.projectId;
         this.apiBaseUrl = options.apiBaseUrl || '/api/v1';
         this.currentIntegration = null;
-        this.accessToken = null;
         this.repositories = [];
         
         this.init();
@@ -143,10 +142,7 @@ class GitHubIntegration {
                 throw new Error('OAuth callback failed');
             }
 
-            const data = await response.json();
-            this.accessToken = data.access_token;
-            
-            // Show repository selection
+            // Expect 204/200 with no token; server associates token with the user/session.
             await this.showRepositorySelection();
             
         } catch (error) {
@@ -178,10 +174,6 @@ class GitHubIntegration {
         const response = await this.apiCall('/github/repositories?' + new URLSearchParams({
             page: page.toString(),
             per_page: '50'
-        }), {
-            headers: {
-                'X-GitHub-Token': this.accessToken
-            }
         });
 
         if (!response.ok) {
@@ -273,7 +265,6 @@ class GitHubIntegration {
             const response = await this.apiCall('/github/integrations', {
                 method: 'POST',
                 body: JSON.stringify({
-                    access_token: this.accessToken,
                     project_id: this.projectId,
                     repo_owner: owner,
                     repo_name: name

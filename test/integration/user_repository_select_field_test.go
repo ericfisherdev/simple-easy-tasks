@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"simple-easy-tasks/internal/domain"
-	testutil "simple-easy-tasks/internal/testutil/integration"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	testutil "github.com/ericfisherdev/simple-easy-tasks/internal/testutil/integration"
 )
 
 // TestUserRepository_SelectFieldBehavior tests PocketBase select field handling

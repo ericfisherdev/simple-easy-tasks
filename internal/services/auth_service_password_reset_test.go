@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/testutil"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/testutil"
 )
 
 func TestAuthService_ForgotPassword(t *testing.T) {

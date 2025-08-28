@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"simple-easy-tasks/internal/api"
-	"simple-easy-tasks/internal/api/middleware"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
-	"simple-easy-tasks/internal/services"
-	"simple-easy-tasks/internal/testutil"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/api"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/api/middleware"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/testutil"
 
 	"github.com/gin-gonic/gin"
 )

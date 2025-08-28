@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"simple-easy-tasks/internal/api/middleware"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/services"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/api/middleware"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
 )
 
 // AuthHandler handles authentication-related HTTP requests.

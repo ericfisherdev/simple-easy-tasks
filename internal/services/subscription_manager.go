@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // SubscriptionManager defines the interface for managing real-time subscriptions

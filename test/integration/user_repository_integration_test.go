@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"simple-easy-tasks/internal/domain"
-	testutil "simple-easy-tasks/internal/testutil/integration"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	testutil "github.com/ericfisherdev/simple-easy-tasks/internal/testutil/integration"
 )
 
 func TestUserRepository_Integration(t *testing.T) {

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // CommentRepository defines the interface for comment data access operations.

@@ -410,11 +410,11 @@ func (s *GitHubService) generateBranchName(task *domain.Task) string {
 	}
 
 	branchName := cleaned.String()
-	
+
 	// Collapse repeated hyphens to single hyphens
 	re := regexp.MustCompile("-+")
 	branchName = re.ReplaceAllString(branchName, "-")
-	
+
 	// Remove leading/trailing hyphens
 	branchName = strings.Trim(branchName, "-")
 

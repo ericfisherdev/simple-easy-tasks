@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -13,7 +14,7 @@ type GitHubIntegration struct {
 	RepoName    string         `json:"repo_name"`
 	RepoID      int64          `json:"repo_id"`
 	InstallID   *int64         `json:"install_id,omitempty"`
-	AccessToken string         `json:"access_token"`
+	AccessToken string         `json:"-"` // Never expose in JSON
 	Settings    GitHubSettings `json:"settings"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
@@ -30,14 +31,14 @@ type GitHubSettings struct {
 
 // GitHubWebhookEvent represents a webhook event from GitHub
 type GitHubWebhookEvent struct {
-	ID              string     `json:"id"`
-	IntegrationID   string     `json:"integration_id"`
-	EventType       string     `json:"event_type"`
-	Action          string     `json:"action"`
-	Payload         string     `json:"payload"`
-	ProcessedAt     *time.Time `json:"processed_at,omitempty"`
-	ProcessingError *string    `json:"processing_error,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
+	ID              string          `json:"id"`
+	IntegrationID   string          `json:"integration_id"`
+	EventType       string          `json:"event_type"`
+	Action          string          `json:"action"`
+	Payload         json.RawMessage `json:"payload"`
+	ProcessedAt     *time.Time      `json:"processed_at,omitempty"`
+	ProcessingError *string         `json:"processing_error,omitempty"`
+	CreatedAt       time.Time       `json:"created_at"`
 }
 
 // GitHubIssueMapping links tasks to GitHub issues
@@ -108,6 +109,14 @@ func (g *GitHubIntegration) Validate() error {
 	if g.AccessToken == "" {
 		return NewValidationError("access_token", "Access token is required", nil)
 	}
+	// Validate RepoID
+	if g.RepoID <= 0 {
+		return NewValidationError("repo_id", "Repository ID must be a positive integer", nil)
+	}
+	// Validate InstallID if present
+	if g.InstallID != nil && *g.InstallID <= 0 {
+		return NewValidationError("install_id", "Installation ID must be a positive integer", nil)
+	}
 	return nil
 }
 
@@ -138,6 +147,42 @@ func (g *GitHubCommitLink) Validate() error {
 	}
 	if g.CommitSHA == "" {
 		return NewValidationError("commit_sha", "Commit SHA is required", nil)
+	}
+	return nil
+}
+
+// Validate validates the GitHub PR mapping fields
+func (g *GitHubPRMapping) Validate() error {
+	if g.IntegrationID == "" {
+		return NewValidationError("integration_id", "Integration ID is required", nil)
+	}
+	if g.TaskID == "" {
+		return NewValidationError("task_id", "Task ID is required", nil)
+	}
+	if g.PRNumber <= 0 {
+		return NewValidationError("pr_number", "PR number must be positive", nil)
+	}
+	if g.PRStatus == "" {
+		return NewValidationError("pr_status", "PR status is required", nil)
+	}
+	// Validate PR status values
+	validStatuses := map[string]bool{"open": true, "closed": true, "merged": true}
+	if !validStatuses[g.PRStatus] {
+		return NewValidationError("pr_status", "PR status must be 'open', 'closed', or 'merged'", nil)
+	}
+	return nil
+}
+
+// Validate validates the OAuth state (optional but useful before persist)
+func (s *GitHubOAuthState) Validate() error {
+	if s.State == "" {
+		return NewValidationError("state", "State is required", nil)
+	}
+	if s.UserID == "" {
+		return NewValidationError("user_id", "User ID is required", nil)
+	}
+	if time.Now().After(s.ExpiresAt) {
+		return NewValidationError("expires_at", "OAuth state has expired", nil)
 	}
 	return nil
 }

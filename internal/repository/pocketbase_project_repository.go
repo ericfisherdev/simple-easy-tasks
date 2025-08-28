@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"

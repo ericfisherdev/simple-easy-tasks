@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
 )
 
 // AuthService defines the interface for authentication operations.

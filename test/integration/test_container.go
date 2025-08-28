@@ -8,11 +8,11 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/container"
-	"simple-easy-tasks/internal/repository"
-	"simple-easy-tasks/internal/services"
-	testutil "simple-easy-tasks/internal/testutil/integration"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/container"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
+	testutil "github.com/ericfisherdev/simple-easy-tasks/internal/testutil/integration"
 )
 
 // TestContainer provides a configured DI container for integration tests

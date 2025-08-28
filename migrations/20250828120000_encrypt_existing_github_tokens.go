@@ -12,7 +12,7 @@ func init() {
 	m.Register(func(app core.App) error {
 		// This migration will encrypt existing plaintext tokens
 		// Implementation placeholder - requires encryption service integration
-		
+
 		// Find records with deprecated plaintext tokens
 		records, err := app.FindRecordsByFilter("github_integrations", "access_token_deprecated != ''", "", 1000, 0)
 		if err != nil {
@@ -39,7 +39,7 @@ func init() {
 			record.Set("access_token_encrypted", fmt.Sprintf("NEEDS_ENCRYPTION:%s", plaintextToken))
 			record.Set("token_type", "bearer")
 			record.Set("key_version", "v1")
-			
+
 			// Clear the deprecated field
 			record.Set("access_token_deprecated", "")
 

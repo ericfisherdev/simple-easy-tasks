@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"simple-easy-tasks/internal/api/middleware"
-	"simple-easy-tasks/internal/testutil"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/api/middleware"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/testutil"
 
 	"github.com/gin-gonic/gin"
 )

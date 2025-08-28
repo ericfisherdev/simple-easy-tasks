@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // EventBroadcaster defines the interface for broadcasting task events to subscribed clients

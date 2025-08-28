@@ -156,7 +156,7 @@ func (s *GitHubWebhookService) HandleWebhook(w http.ResponseWriter, r *http.Requ
 	if err := s.webhookEventRepo.Create(ctx, webhookEvent); err != nil {
 		// Log the full error
 		fmt.Printf("Failed to store webhook event: %v\n", err)
-		
+
 		// Determine appropriate error response based on error type
 		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
 			http.Error(w, "Duplicate webhook delivery", http.StatusConflict)
@@ -315,19 +315,19 @@ func (h *PushEventHandler) Handle(ctx context.Context, integration *domain.GitHu
 func (h *PushEventHandler) extractTaskIDFromReference(ref string) string {
 	// Normalize: lowercase and trim whitespace
 	ref = strings.ToLower(strings.TrimSpace(ref))
-	
+
 	// Remove surrounding quotes and punctuation
 	ref = strings.Trim(ref, "\"'`()[]{}.,;:")
-	
+
 	// Use regex to match optional prefix followed by alphanumeric ID
 	// Accepts prefixes: task-, t-, #, or no prefix
 	re := regexp.MustCompile(`^(?:task-|t-|#)?([0-9A-Za-z]+)`)
 	matches := re.FindStringSubmatch(ref)
-	
+
 	if len(matches) > 1 {
 		return matches[1] // Return the captured ID group
 	}
-	
+
 	return ""
 }
 
@@ -520,14 +520,14 @@ func (h *IssuesEventHandler) handleEditedIssue(ctx context.Context, _ *domain.Gi
 	// Create local variables to avoid temporary addresses and empty overwrites
 	title := issue.GetTitle()
 	body := issue.GetBody()
-	
+
 	// Update task with issue changes, only setting non-empty values
 	updateReq := domain.UpdateTaskRequest{}
-	
+
 	if title != "" {
 		updateReq.Title = &title
 	}
-	
+
 	if body != "" {
 		updateReq.Description = &body
 	}
