@@ -78,15 +78,27 @@ func initConfig() {
 }
 
 // getConfigPath returns the path to the configuration file
-func getConfigPath() string {
+func getConfigPath() (string, error) {
 	if cfgFile != "" {
-		return cfgFile
+		// Convert to absolute path
+		absPath, err := filepath.Abs(cfgFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve absolute path for config file: %w", err)
+		}
+		return absPath, nil
 	}
 
+	// Try user home directory first
 	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
+	if err == nil {
+		return filepath.Join(home, ".set-cli.yaml"), nil
 	}
 
-	return filepath.Join(home, ".set-cli.yaml")
+	// Fallback to user config directory
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine config directory: both UserHomeDir and UserConfigDir failed")
+	}
+
+	return filepath.Join(configDir, ".set-cli.yaml"), nil
 }

@@ -308,10 +308,11 @@ func renderTaskDetailsYAML(task interface{}) error {
 // CSV rendering functions
 func renderProjectsCSV(projects []domain.Project) error {
 	writer := csv.NewWriter(os.Stdout)
-	defer writer.Flush()
 
 	// Header
-	_ = writer.Write([]string{"ID", "Title", "Description", "Created", "Updated"})
+	if err := writer.Write([]string{"ID", "Title", "Description", "Created", "Updated"}); err != nil {
+		return fmt.Errorf("failed to write CSV header: %w", err)
+	}
 
 	// Data
 	for _, project := range projects {
@@ -325,13 +326,20 @@ func renderProjectsCSV(projects []domain.Project) error {
 			updatedAt = project.UpdatedAt.Format(time.RFC3339)
 		}
 
-		_ = writer.Write([]string{
+		if err := writer.Write([]string{
 			project.ID,
 			project.Title,
 			project.Description,
 			createdAt,
 			updatedAt,
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to write CSV row: %w", err)
+		}
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return fmt.Errorf("failed to flush CSV writer: %w", err)
 	}
 
 	return nil
@@ -339,10 +347,11 @@ func renderProjectsCSV(projects []domain.Project) error {
 
 func renderTasksCSV(tasks []domain.Task) error {
 	writer := csv.NewWriter(os.Stdout)
-	defer writer.Flush()
 
 	// Header
-	_ = writer.Write([]string{"ID", "Title", "Description", "Status", "Priority", "AssigneeID", "Created", "Updated"})
+	if err := writer.Write([]string{"ID", "Title", "Description", "Status", "Priority", "AssigneeID", "Created", "Updated"}); err != nil {
+		return fmt.Errorf("failed to write CSV header: %w", err)
+	}
 
 	// Data
 	for _, task := range tasks {
@@ -361,7 +370,7 @@ func renderTasksCSV(tasks []domain.Task) error {
 			assigneeID = *task.AssigneeID
 		}
 
-		_ = writer.Write([]string{
+		if err := writer.Write([]string{
 			task.ID,
 			task.Title,
 			task.Description,
@@ -370,7 +379,14 @@ func renderTasksCSV(tasks []domain.Task) error {
 			assigneeID,
 			createdAt,
 			updatedAt,
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to write CSV row: %w", err)
+		}
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return fmt.Errorf("failed to flush CSV writer: %w", err)
 	}
 
 	return nil

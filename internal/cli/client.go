@@ -33,6 +33,9 @@ func NewAPIClient(baseURL, token string) *APIClient {
 
 // NewAPIClientFromProfile creates an API client from a profile
 func NewAPIClientFromProfile(profile *Profile) *APIClient {
+	if profile == nil {
+		return nil
+	}
 	return NewAPIClient(profile.ServerURL, profile.Token)
 }
 
@@ -62,14 +65,26 @@ func (c *APIClient) doRequest(ctx context.Context, method, endpoint string, body
 		reqBody = bytes.NewBuffer(jsonData)
 	}
 
-	url := fmt.Sprintf("%s%s", c.BaseURL, endpoint)
-	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+	baseURL, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse base URL: %w", err)
+	}
+
+	fullURL, err := url.JoinPath(baseURL.String(), endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to join URL path: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
 	}
@@ -84,6 +99,8 @@ func (c *APIClient) doRequest(ctx context.Context, method, endpoint string, body
 
 // handleResponse processes the HTTP response and handles errors
 // Note: This function automatically closes the response body
+//
+//nolint:bodyclose // Response body is closed by this function
 func (c *APIClient) handleResponse(resp *http.Response, result interface{}) error {
 	defer func() { _ = resp.Body.Close() }()
 
@@ -129,11 +146,12 @@ func (c *APIClient) handleResponse(resp *http.Response, result interface{}) erro
 // Health checks the API health
 func (c *APIClient) Health() error {
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "GET", "/api/health", nil)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var healthResp map[string]interface{}
 	return c.handleResponse(resp, &healthResp)
@@ -147,11 +165,11 @@ func (c *APIClient) Login(email, password string) (*LoginResponse, error) {
 	}
 
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "POST", "/api/auth/login", loginReq)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var loginResp LoginResponse
 	err = c.handleResponse(resp, &loginResp)
@@ -174,11 +192,11 @@ type LoginResponse struct {
 // GetProjects retrieves all projects
 func (c *APIClient) GetProjects() ([]domain.Project, error) {
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "GET", "/api/projects", nil)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var projects []domain.Project
 	err = c.handleResponse(resp, &projects)
@@ -187,13 +205,13 @@ func (c *APIClient) GetProjects() ([]domain.Project, error) {
 
 // GetProject retrieves a specific project
 func (c *APIClient) GetProject(projectID string) (*domain.Project, error) {
-	endpoint := fmt.Sprintf("/api/projects/%s", projectID)
+	endpoint := fmt.Sprintf("/api/projects/%s", url.PathEscape(projectID))
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var project domain.Project
 	err = c.handleResponse(resp, &project)
@@ -203,11 +221,11 @@ func (c *APIClient) GetProject(projectID string) (*domain.Project, error) {
 // CreateProject creates a new project
 func (c *APIClient) CreateProject(req *CreateProjectRequest) (*domain.Project, error) {
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "POST", "/api/projects", req)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var project domain.Project
 	err = c.handleResponse(resp, &project)
@@ -222,7 +240,7 @@ type CreateProjectRequest struct {
 
 // GetTasks retrieves tasks for a project
 func (c *APIClient) GetTasks(projectID string, options *TaskListOptions) ([]domain.Task, error) {
-	endpoint := fmt.Sprintf("/api/projects/%s/tasks", projectID)
+	endpoint := fmt.Sprintf("/api/projects/%s/tasks", url.PathEscape(projectID))
 
 	// Add query parameters
 	if options != nil {
@@ -240,6 +258,11 @@ func (c *APIClient) GetTasks(projectID string, options *TaskListOptions) ([]doma
 				params.Add("priority", priority)
 			}
 		}
+		if len(options.Tags) > 0 {
+			for _, tag := range options.Tags {
+				params.Add("tags", tag)
+			}
+		}
 		if options.Search != "" {
 			params.Add("search", options.Search)
 		}
@@ -253,11 +276,11 @@ func (c *APIClient) GetTasks(projectID string, options *TaskListOptions) ([]doma
 	}
 
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var tasks []domain.Task
 	err = c.handleResponse(resp, &tasks)
@@ -276,13 +299,13 @@ type TaskListOptions struct {
 
 // CreateTask creates a new task
 func (c *APIClient) CreateTask(projectID string, req *CreateTaskRequest) (*domain.Task, error) {
-	endpoint := fmt.Sprintf("/api/projects/%s/tasks", projectID)
+	endpoint := fmt.Sprintf("/api/projects/%s/tasks", url.PathEscape(projectID))
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "POST", endpoint, req)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var task domain.Task
 	err = c.handleResponse(resp, &task)
@@ -300,13 +323,13 @@ type CreateTaskRequest struct {
 
 // UpdateTask updates an existing task
 func (c *APIClient) UpdateTask(projectID, taskID string, req *UpdateTaskRequest) (*domain.Task, error) {
-	endpoint := fmt.Sprintf("/api/projects/%s/tasks/%s", projectID, taskID)
+	endpoint := fmt.Sprintf("/api/projects/%s/tasks/%s", url.PathEscape(projectID), url.PathEscape(taskID))
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "PUT", endpoint, req)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var task domain.Task
 	err = c.handleResponse(resp, &task)
@@ -324,13 +347,13 @@ type UpdateTaskRequest struct {
 
 // DeleteTask deletes a task
 func (c *APIClient) DeleteTask(projectID, taskID string) error {
-	endpoint := fmt.Sprintf("/api/projects/%s/tasks/%s", projectID, taskID)
+	endpoint := fmt.Sprintf("/api/projects/%s/tasks/%s", url.PathEscape(projectID), url.PathEscape(taskID))
 	ctx := context.Background()
+	//nolint:bodyclose // Response body is closed by handleResponse
 	resp, err := c.doRequest(ctx, "DELETE", endpoint, nil)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	return c.handleResponse(resp, nil)
 }

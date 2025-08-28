@@ -175,30 +175,11 @@ var taskShowCmd = &cobra.Command{
 			return fmt.Errorf("failed to get tasks: %w", err)
 		}
 
-		// Find the specific task
-		var task *struct {
-			ID          string              `json:"id"`
-			Title       string              `json:"title"`
-			Description string              `json:"description"`
-			Status      domain.TaskStatus   `json:"status"`
-			Priority    domain.TaskPriority `json:"priority"`
-		}
-
-		for _, t := range tasks {
-			if t.ID == taskID {
-				task = &struct {
-					ID          string              `json:"id"`
-					Title       string              `json:"title"`
-					Description string              `json:"description"`
-					Status      domain.TaskStatus   `json:"status"`
-					Priority    domain.TaskPriority `json:"priority"`
-				}{
-					ID:          t.ID,
-					Title:       t.Title,
-					Description: t.Description,
-					Status:      t.Status,
-					Priority:    t.Priority,
-				}
+		// Find the specific task (use index to avoid taking address of range var)
+		var task *domain.Task
+		for i := range tasks {
+			if tasks[i].ID == taskID {
+				task = &tasks[i]
 				break
 			}
 		}
@@ -322,9 +303,9 @@ var taskCommentCmd = &cobra.Command{
 		taskID := args[0]
 		comment := args[1]
 
-		fmt.Printf("Comment added to task %s: %s\n", taskID, comment)
-		fmt.Println("Note: Comment functionality requires API endpoint implementation")
-		return nil
+		fmt.Printf("Comment not added to task %s: feature not implemented\n", taskID)
+		fmt.Printf("Requested comment: %s\n", comment)
+		return fmt.Errorf("comment functionality not implemented: API endpoints required")
 	},
 }
 

@@ -45,19 +45,22 @@ func validateConfigPath(path string) error {
 
 // LoadConfig loads the configuration from file
 func LoadConfig() (*Config, error) {
-	configPath := getConfigPath()
+	configPath, err := getConfigPath()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config path: %w", err)
+	}
 
 	config := &Config{
 		Profiles: make(map[string]Profile),
 	}
 
 	// Validate config path for security
-	if err := validateConfigPath(configPath); err != nil {
-		return nil, fmt.Errorf("config path validation failed: %w", err)
+	if validateErr := validateConfigPath(configPath); validateErr != nil {
+		return nil, fmt.Errorf("config path validation failed: %w", validateErr)
 	}
 
 	// If config file doesn't exist, return empty config
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
 		return config, nil
 	}
 
@@ -75,16 +78,19 @@ func LoadConfig() (*Config, error) {
 
 // SaveConfig saves the configuration to file
 func SaveConfig(config *Config) error {
-	configPath := getConfigPath()
+	configPath, err := getConfigPath()
+	if err != nil {
+		return fmt.Errorf("failed to get config path: %w", err)
+	}
 
 	// Validate config path for security
-	if err := validateConfigPath(configPath); err != nil {
-		return fmt.Errorf("config path validation failed: %w", err)
+	if validateErr := validateConfigPath(configPath); validateErr != nil {
+		return fmt.Errorf("config path validation failed: %w", validateErr)
 	}
 
 	// Create config directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(configPath), 0750); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+	if mkdirErr := os.MkdirAll(filepath.Dir(configPath), 0750); mkdirErr != nil {
+		return fmt.Errorf("failed to create config directory: %w", mkdirErr)
 	}
 
 	data, err := yaml.Marshal(config)

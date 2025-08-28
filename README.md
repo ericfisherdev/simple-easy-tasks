@@ -181,13 +181,18 @@ default_profile: default
 profiles:
   default:
     name: default
-    server_url: http://localhost:8090
-    token: your-jwt-token
+    server_url: "http://localhost:8090"
+    token: "<YOUR_JWT_TOKEN>"
   staging:
     name: staging 
-    server_url: https://staging.api.com
-    token: staging-token
+    server_url: "https://staging.api.com"
+    token: "<YOUR_STAGING_JWT_TOKEN>"
 ```
+
+**⚠️ Security Note:** Never commit real tokens to version control repositories. For production use:
+- Use environment variables or OS keychains/secret managers
+- Rotate/revoke tokens immediately if accidentally committed
+- Consider using `.gitignore` to exclude config files containing secrets
 
 ### Environment Variables
 

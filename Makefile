@@ -1,6 +1,6 @@
 # Simple Easy Tasks - Makefile
 
-.PHONY: help build build-server build-cli build-pocketbase build-linux install test test-verbose test-coverage clean lint run dev docker-build docker-run
+.PHONY: all help build build-server build-cli build-pocketbase build-linux install test test-verbose test-coverage clean lint run dev docker-build docker-run
 
 # Default target
 help: ## Show this help message
@@ -8,6 +8,8 @@ help: ## Show this help message
 	@echo ''
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+all: build ## Build all binaries (default target)
 
 # Build targets
 build: build-server build-cli build-pocketbase ## Build all binaries (server, CLI, pocketbase)

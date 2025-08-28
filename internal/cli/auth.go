@@ -102,7 +102,13 @@ The authentication token will be stored securely for future use.`,
 		}
 
 		fmt.Printf("✓ Successfully authenticated as %s\n", loginResp.User.Email)
-		fmt.Printf("✓ Profile '%s' created and set as default\n", profileName)
+
+		// Try to set as default profile
+		if err := SetCurrentProfile(profileName); err != nil {
+			fmt.Printf("✓ Profile '%s' created but could not set as default: %v\n", profileName, err)
+		} else {
+			fmt.Printf("✓ Profile '%s' created and set as default\n", profileName)
+		}
 
 		return nil
 	},
@@ -327,9 +333,33 @@ var profileShowCmd = &cobra.Command{
 
 		// Mask token
 		if profile.Token != "" {
-			fmt.Printf("Token: %s...%s\n",
-				profile.Token[:8],
-				strings.Repeat("*", len(profile.Token)-16)+profile.Token[len(profile.Token)-8:])
+			tokenLen := len(profile.Token)
+			if tokenLen <= 16 {
+				// For short tokens, show first 1-4 and last 0-3 chars based on length
+				switch {
+				case tokenLen <= 4:
+					fmt.Printf("Token: %s\n", strings.Repeat("*", tokenLen))
+				case tokenLen <= 8:
+					fmt.Printf("Token: %s%s\n", profile.Token[:1], strings.Repeat("*", tokenLen-1))
+				default:
+					fmt.Printf("Token: %s%s%s\n",
+						profile.Token[:2],
+						strings.Repeat("*", tokenLen-5),
+						profile.Token[tokenLen-3:])
+				}
+			} else {
+				// For normal tokens, show first 8 and last 8 with asterisks in between
+				visiblePrefix := 8
+				visibleSuffix := 8
+				repeatCount := tokenLen - visiblePrefix - visibleSuffix
+				if repeatCount < 0 {
+					repeatCount = 0
+				}
+				fmt.Printf("Token: %s%s%s\n",
+					profile.Token[:visiblePrefix],
+					strings.Repeat("*", repeatCount),
+					profile.Token[tokenLen-visibleSuffix:])
+			}
 		} else {
 			fmt.Printf("Token: Not set\n")
 		}
