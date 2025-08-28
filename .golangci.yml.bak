@@ -1,0 +1,78 @@
+version: "2"
+
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  modules-download-mode: readonly
+
+output:
+  formats:
+    text:
+      path: stdout
+      colors: true
+
+linters:
+  default: none
+  enable:
+    - errcheck      # Check for unchecked errors
+    - staticcheck   # Static analysis (includes gosimple)
+    - govet         # Reports suspicious constructs
+    - ineffassign   # Detect ineffectual assignments
+    - unused        # Check for unused constants, variables, functions
+    - gocyclo       # Cyclomatic complexity
+    - dupl          # Code clone detection
+    - goconst       # Find repeated strings that could be constants
+    - misspell      # Find misspelled English words
+    - revive        # Replacement for golint
+    - unconvert     # Remove unnecessary type conversions
+    - lll           # Line length checker
+    - gocritic      # Various static analysis checks
+    - gosec         # Security checker
+    - bodyclose     # Check if HTTP response body is closed
+    - noctx         # Find sending http request without context.Context
+  
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    govet:
+      enable:
+        - shadow
+      enable-all: true
+      disable:
+        - fieldalignment  # Disable fieldalignment for better readability
+    gocyclo:
+      min-complexity: 15
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    misspell:
+      locale: US
+    lll:
+      line-length: 120
+    revive:
+      confidence: 0
+    staticcheck:
+      checks: ["all"]
+  
+  exclusions:
+    rules:
+      # Exclude some linters from running on tests files
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - errcheck
+          - dupl
+          - gosec
+          - goconst
+      # Exclude line length check for long lines with URLs or file paths
+      - linters:
+          - lll
+        source: "https?://|/[^ ]+"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -9,15 +9,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/container"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/container"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
-	"simple-easy-tasks/internal/services"
 )
 
 // DatabaseTestSuite provides comprehensive testing infrastructure for database integration tests

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

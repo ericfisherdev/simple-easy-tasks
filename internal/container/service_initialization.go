@@ -5,7 +5,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
 )
 
 // InitializeServices initializes the service container with all dependencies

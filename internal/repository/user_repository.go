@@ -5,7 +5,7 @@ package repository
 import (
 	"context"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // UserRepository defines the interface for user data operations.

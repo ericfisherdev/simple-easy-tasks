@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 var (

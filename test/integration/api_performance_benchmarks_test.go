@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // APIPerformanceBenchmarkSuite provides performance testing for API endpoints

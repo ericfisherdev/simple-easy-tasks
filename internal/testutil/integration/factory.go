@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 	"github.com/google/uuid"
-	"simple-easy-tasks/internal/domain"
 )
 
 // TestDataFactory provides consistent test data creation with deterministic patterns

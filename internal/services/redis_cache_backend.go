@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // RedisCacheBackend implements CacheBackend using Redis

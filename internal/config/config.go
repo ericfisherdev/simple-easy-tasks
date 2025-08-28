@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -62,6 +63,14 @@ type RateLimitConfig interface {
 	GetRedisDB() int
 }
 
+// GitHubConfig interface for GitHub integration configuration.
+type GitHubConfig interface {
+	GetGitHubClientID() string
+	GetGitHubClientSecret() string
+	GetGitHubRedirectURL() string
+	GetGitHubWebhookSecret() string
+}
+
 // AppConfig implements all configuration interfaces.
 type AppConfig struct {
 	serverPort                 string
@@ -72,6 +81,10 @@ type AppConfig struct {
 	logLevel                   string
 	redisAddr                  string
 	redisPassword              string
+	githubClientID             string
+	githubClientSecret         string
+	githubRedirectURL          string
+	githubWebhookSecret        string
 	readTimeout                time.Duration
 	writeTimeout               time.Duration
 	idleTimeout                time.Duration
@@ -99,6 +112,10 @@ func NewConfig() *AppConfig {
 		passwordResetSecret:        getPasswordResetSecret(environment),
 		environment:                environment,
 		logLevel:                   getEnvString("LOG_LEVEL", "info"),
+		githubClientID:             getEnvString("GITHUB_CLIENT_ID", ""),
+		githubClientSecret:         getEnvString("GITHUB_CLIENT_SECRET", ""),
+		githubRedirectURL:          getEnvString("GITHUB_REDIRECT_URL", "http://localhost:8090/api/v1/github/callback"),
+		githubWebhookSecret:        getEnvString("GITHUB_WEBHOOK_SECRET", ""),
 		readTimeout:                getEnvDuration("READ_TIMEOUT", "15s"),
 		writeTimeout:               getEnvDuration("WRITE_TIMEOUT", "15s"),
 		idleTimeout:                getEnvDuration("IDLE_TIMEOUT", "60s"),
@@ -221,12 +238,35 @@ func (c *AppConfig) GetRedisDB() int {
 	return c.redisDB
 }
 
+// GetGitHubClientID returns the GitHub OAuth client ID.
+func (c *AppConfig) GetGitHubClientID() string {
+	return c.githubClientID
+}
+
+// GetGitHubClientSecret returns the GitHub OAuth client secret.
+func (c *AppConfig) GetGitHubClientSecret() string {
+	return c.githubClientSecret
+}
+
+// GetGitHubRedirectURL returns the GitHub OAuth redirect URL.
+func (c *AppConfig) GetGitHubRedirectURL() string {
+	return c.githubRedirectURL
+}
+
+// GetGitHubWebhookSecret returns the GitHub webhook secret.
+func (c *AppConfig) GetGitHubWebhookSecret() string {
+	return c.githubWebhookSecret
+}
+
 // Validate checks if the configuration is valid.
 func (c *AppConfig) Validate() error {
 	if err := c.validateBasicConfig(); err != nil {
 		return err
 	}
 	if err := c.validateSecurityConfig(); err != nil {
+		return err
+	}
+	if err := c.validateGitHubConfig(); err != nil {
 		return err
 	}
 	if err := c.validateRedisConfig(); err != nil {
@@ -301,6 +341,25 @@ func (c *AppConfig) validateRateLimitConfig() error {
 	}
 	if c.rateLimitCacheCapacity <= 0 {
 		return fmt.Errorf("rate limit cache capacity must be positive")
+	}
+	return nil
+}
+
+// validateGitHubConfig validates GitHub integration configuration.
+func (c *AppConfig) validateGitHubConfig() error {
+	// Allow empty in non-prod to ease local dev.
+	if !c.IsProduction() {
+		return nil
+	}
+	if c.githubClientID == "" || c.githubClientSecret == "" {
+		return fmt.Errorf("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are required in production")
+	}
+	if c.githubWebhookSecret == "" {
+		return fmt.Errorf("GITHUB_WEBHOOK_SECRET is required in production")
+	}
+	u, err := url.Parse(c.githubRedirectURL)
+	if err != nil || !u.IsAbs() || u.Scheme != "https" {
+		return fmt.Errorf("GITHUB_REDIRECT_URL must be a valid absolute https URL in production")
 	}
 	return nil
 }

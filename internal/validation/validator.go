@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // Error represents a validation error with field-specific details.

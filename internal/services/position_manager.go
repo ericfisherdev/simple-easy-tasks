@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math"
 
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
 )
 
 // PositionManager handles sophisticated position management for drag-and-drop functionality

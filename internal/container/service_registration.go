@@ -6,10 +6,10 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
-	"simple-easy-tasks/internal/services"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
 )
 
 // ServiceNames contains constants for service names used in DI container
@@ -21,12 +21,25 @@ const (
 	CommentRepositoryService            = "comment_repository"
 	TokenBlacklistRepositoryService     = "token_blacklist_repository"
 	PasswordResetTokenRepositoryService = "password_reset_token_repository"
-	AuthService                         = "auth_service"
-	UserService                         = "user_service"
-	ProjectService                      = "project_service"
-	TaskService                         = "task_service"
-	CommentService                      = "comment_service"
-	HealthService                       = "health_service"
+	// GitHub repositories
+	GitHubIntegrationRepositoryService  = "github_integration_repository"
+	GitHubOAuthStateRepositoryService   = "github_oauth_state_repository"
+	GitHubAuthSessionRepositoryService  = "github_auth_session_repository"
+	GitHubIssueMappingRepositoryService = "github_issue_mapping_repository"
+	GitHubCommitLinkRepositoryService   = "github_commit_link_repository"
+	GitHubPRMappingRepositoryService    = "github_pr_mapping_repository"
+	GitHubWebhookEventRepositoryService = "github_webhook_event_repository"
+	// Services
+	AuthService    = "auth_service"
+	UserService    = "user_service"
+	ProjectService = "project_service"
+	TaskService    = "task_service"
+	CommentService = "comment_service"
+	HealthService  = "health_service"
+	// GitHub services
+	GitHubOAuthService   = "github_oauth_service"
+	GitHubService        = "github_service"
+	GitHubWebhookService = "github_webhook_service"
 )
 
 // resolveCommonRepositories resolves commonly used repositories
@@ -208,6 +221,11 @@ func registerRepositories(container Container, app core.App) error {
 		})
 	if err != nil {
 		return fmt.Errorf("failed to register password reset token repository: %w", err)
+	}
+
+	// GitHub repositories
+	if err := registerGitHubRepositories(container, app); err != nil {
+		return fmt.Errorf("failed to register GitHub repositories: %w", err)
 	}
 
 	return nil
@@ -399,6 +417,9 @@ func registerBusinessServices(container Container) error {
 	if err := registerHealthService(container); err != nil {
 		return err
 	}
+	if err := registerGitHubServices(container); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -478,4 +499,242 @@ func ResolveHealthService(container Container) (services.HealthServiceInterface,
 		return nil, fmt.Errorf("failed to cast service to HealthServiceInterface")
 	}
 	return serviceTyped, nil
+}
+
+// registerGitHubRepositories registers all GitHub-related repositories
+func registerGitHubRepositories(container Container, app core.App) error {
+	// GitHub Integration Repository
+	err := container.RegisterSingleton(
+		GitHubIntegrationRepositoryService,
+		func(_ context.Context, _ Container) (interface{}, error) {
+			return repository.NewPocketBaseGitHubIntegrationRepository(app), nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub integration repository: %w", err)
+	}
+
+	// GitHub OAuth State Repository
+	err = container.RegisterSingleton(
+		GitHubOAuthStateRepositoryService,
+		func(_ context.Context, _ Container) (interface{}, error) {
+			return repository.NewPocketBaseGitHubOAuthStateRepository(app), nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub OAuth state repository: %w", err)
+	}
+
+	// GitHub Auth Session Repository (in-memory for temporary sessions)
+	err = container.RegisterSingleton(
+		GitHubAuthSessionRepositoryService,
+		func(_ context.Context, _ Container) (interface{}, error) {
+			return repository.NewMemoryGitHubAuthSessionRepository(), nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub auth session repository: %w", err)
+	}
+
+	// GitHub Issue Mapping Repository
+	err = container.RegisterSingleton(
+		GitHubIssueMappingRepositoryService,
+		func(_ context.Context, _ Container) (interface{}, error) {
+			return repository.NewPocketBaseGitHubIssueMappingRepository(app), nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub issue mapping repository: %w", err)
+	}
+
+	// GitHub Commit Link Repository
+	err = container.RegisterSingleton(
+		GitHubCommitLinkRepositoryService,
+		func(_ context.Context, _ Container) (interface{}, error) {
+			return repository.NewPocketBaseGitHubCommitLinkRepository(app), nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub commit link repository: %w", err)
+	}
+
+	// GitHub PR Mapping Repository
+	err = container.RegisterSingleton(
+		GitHubPRMappingRepositoryService,
+		func(_ context.Context, _ Container) (interface{}, error) {
+			return repository.NewPocketBaseGitHubPRMappingRepository(app), nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub PR mapping repository: %w", err)
+	}
+
+	// GitHub Webhook Event Repository
+	err = container.RegisterSingleton(
+		GitHubWebhookEventRepositoryService,
+		func(_ context.Context, _ Container) (interface{}, error) {
+			return repository.NewPocketBaseGitHubWebhookEventRepository(app), nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub webhook event repository: %w", err)
+	}
+
+	return nil
+}
+
+// registerGitHubServices registers all GitHub-related services
+func registerGitHubServices(container Container) error {
+	// GitHub OAuth Service
+	err := container.RegisterSingleton(GitHubOAuthService, func(ctx context.Context, c Container) (interface{}, error) {
+		oauthStateRepo, err := resolveAndCast[services.GitHubOAuthStateRepository](
+			ctx, c, GitHubOAuthStateRepositoryService, "GitHub OAuth state repository")
+		if err != nil {
+			return nil, err
+		}
+
+		authSessionRepo, err := resolveAndCast[repository.GitHubAuthSessionRepository](
+			ctx, c, GitHubAuthSessionRepositoryService, "GitHub auth session repository")
+		if err != nil {
+			return nil, err
+		}
+
+		userService, err := resolveAndCast[services.UserService](
+			ctx, c, UserService, "user service")
+		if err != nil {
+			return nil, err
+		}
+
+		cfg, cfgErr := resolveAndCast[config.GitHubConfig](
+			ctx, c, ConfigService, "config")
+		if cfgErr != nil {
+			return nil, cfgErr
+		}
+
+		clientID := cfg.GetGitHubClientID()
+		clientSecret := cfg.GetGitHubClientSecret()
+		redirectURL := cfg.GetGitHubRedirectURL()
+
+		// Validate GitHub OAuth configuration
+		if clientID == "" {
+			return nil, fmt.Errorf("GitHub client ID is missing in configuration")
+		}
+		if clientSecret == "" {
+			return nil, fmt.Errorf("GitHub client secret is missing in configuration")
+		}
+		if redirectURL == "" {
+			return nil, fmt.Errorf("GitHub redirect URL is missing in configuration")
+		}
+
+		return services.NewGitHubOAuthService(
+			clientID,
+			clientSecret,
+			redirectURL,
+			oauthStateRepo,
+			authSessionRepo,
+			userService,
+		), nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub OAuth service: %w", err)
+	}
+
+	// GitHub Service
+	err = container.RegisterSingleton(GitHubService, func(ctx context.Context, c Container) (interface{}, error) {
+		integrationRepo, resolveErr := resolveAndCast[services.GitHubIntegrationRepository](
+			ctx, c, GitHubIntegrationRepositoryService, "GitHub integration repository")
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+
+		issueMappingRepo, mappingErr := resolveAndCast[services.GitHubIssueMappingRepository](
+			ctx, c, GitHubIssueMappingRepositoryService, "GitHub issue mapping repository")
+		if mappingErr != nil {
+			return nil, mappingErr
+		}
+
+		commitLinkRepo, commitErr := resolveAndCast[services.GitHubCommitLinkRepository](
+			ctx, c, GitHubCommitLinkRepositoryService, "GitHub commit link repository")
+		if commitErr != nil {
+			return nil, commitErr
+		}
+
+		prMappingRepo, prErr := resolveAndCast[services.GitHubPRMappingRepository](
+			ctx, c, GitHubPRMappingRepositoryService, "GitHub PR mapping repository")
+		if prErr != nil {
+			return nil, prErr
+		}
+
+		cfg, cfgErr := resolveAndCast[config.GitHubConfig](
+			ctx, c, ConfigService, "config")
+		if cfgErr != nil {
+			return nil, cfgErr
+		}
+
+		webhookSecret := cfg.GetGitHubWebhookSecret()
+
+		return services.NewGitHubService(
+			integrationRepo,
+			issueMappingRepo,
+			commitLinkRepo,
+			prMappingRepo,
+			webhookSecret,
+		), nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub service: %w", err)
+	}
+
+	// GitHub Webhook Service
+	err = container.RegisterSingleton(GitHubWebhookService, func(ctx context.Context, c Container) (interface{}, error) {
+		integrationRepo, resolveErr := resolveAndCast[services.GitHubIntegrationRepository](
+			ctx, c, GitHubIntegrationRepositoryService, "GitHub integration repository")
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+
+		webhookEventRepo, webhookErr := resolveAndCast[services.GitHubWebhookEventRepository](
+			ctx, c, GitHubWebhookEventRepositoryService, "GitHub webhook event repository")
+		if webhookErr != nil {
+			return nil, webhookErr
+		}
+
+		githubService, serviceErr := resolveAndCast[*services.GitHubService](
+			ctx, c, GitHubService, "GitHub service")
+		if serviceErr != nil {
+			return nil, serviceErr
+		}
+
+		taskService, taskErr := resolveAndCast[services.TaskService](
+			ctx, c, TaskService, "task service")
+		if taskErr != nil {
+			return nil, taskErr
+		}
+
+		cfg, cfgErr := resolveAndCast[config.GitHubConfig](
+			ctx, c, ConfigService, "config")
+		if cfgErr != nil {
+			return nil, cfgErr
+		}
+
+		webhookSecret := cfg.GetGitHubWebhookSecret()
+
+		// For security: never allow unsigned webhooks in production
+		// This could be made configurable if needed for development
+		allowUnsigned := false
+
+		return services.NewGitHubWebhookService(
+			webhookSecret,
+			allowUnsigned,
+			integrationRepo,
+			webhookEventRepo,
+			githubService,
+			taskService,
+		), nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to register GitHub webhook service: %w", err)
+	}
+
+	return nil
 }

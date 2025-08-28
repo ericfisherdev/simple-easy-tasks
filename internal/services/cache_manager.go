@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
 )
 
 // CacheManager handles caching strategies for improved performance

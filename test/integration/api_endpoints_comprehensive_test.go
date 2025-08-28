@@ -18,11 +18,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"simple-easy-tasks/internal/api"
-	"simple-easy-tasks/internal/api/middleware"
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/services"
-	"simple-easy-tasks/internal/testutil/integration"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/api"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/api/middleware"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/testutil/integration"
 )
 
 // APIEndpointsTestSuite provides comprehensive API endpoint testing

@@ -13,13 +13,13 @@ import (
 	"syscall"
 	"time"
 
-	"simple-easy-tasks/internal/api"
-	"simple-easy-tasks/internal/api/middleware"
-	"simple-easy-tasks/internal/config"
-	"simple-easy-tasks/internal/container"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/api"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/api/middleware"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/config"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/container"
 
 	// Import migrations to register them with PocketBase
-	_ "simple-easy-tasks/migrations"
+	_ "github.com/ericfisherdev/simple-easy-tasks/migrations"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pocketbase/pocketbase/core"

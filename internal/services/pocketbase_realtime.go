@@ -10,7 +10,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // EnhancedRealtimeService provides comprehensive real-time functionality
