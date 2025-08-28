@@ -18,6 +18,17 @@ function taskBoard() {
         isLoading: false,
         error: null,
         
+        // Mobile touch state
+        touchStartPos: { x: 0, y: 0 },
+        touchCurrentPos: { x: 0, y: 0 },
+        isTouchDragging: false,
+        touchStartTime: 0,
+        currentMobileColumn: 0,
+        
+        // View modes
+        viewMode: 'board',
+        searchQuery: '',
+        
         // Configuration
         projectId: null,
         enableRealtime: true,
@@ -507,6 +518,223 @@ function taskBoard() {
         
         getColumnColor(columnKey) {
             return this.columns[columnKey]?.color || 'gray';
+        },
+        
+        // Mobile Touch Events
+        onMobileTouchStart(event, task) {
+            if (window.innerWidth >= 768) return; // Only on mobile
+            
+            const touch = event.touches[0];
+            this.touchStartPos = { x: touch.clientX, y: touch.clientY };
+            this.touchCurrentPos = { x: touch.clientX, y: touch.clientY };
+            this.touchStartTime = Date.now();
+            this.isTouchDragging = false;
+            
+            // Store task reference
+            this.draggedTask = task;
+            this.draggedFrom = event.target.closest('.column').dataset.status;
+            
+            // Prevent default to avoid scrolling
+            event.preventDefault();
+        },
+        
+        onMobileTouchMove(event) {
+            if (window.innerWidth >= 768) return; // Only on mobile
+            if (!this.draggedTask) return;
+            
+            const touch = event.touches[0];
+            this.touchCurrentPos = { x: touch.clientX, y: touch.clientY };
+            
+            const deltaX = Math.abs(this.touchCurrentPos.x - this.touchStartPos.x);
+            const deltaY = Math.abs(this.touchCurrentPos.y - this.touchStartPos.y);
+            
+            // Start dragging if moved enough
+            if (!this.isTouchDragging && (deltaX > 10 || deltaY > 10)) {
+                this.isTouchDragging = true;
+                this.startMobileDrag(event.target);
+            }
+            
+            if (this.isTouchDragging) {
+                this.updateMobileDrag(event.target);
+                this.updateMobileDropZones();
+                event.preventDefault();
+            }
+        },
+        
+        onMobileTouchEnd(event) {
+            if (window.innerWidth >= 768) return; // Only on mobile
+            if (!this.draggedTask) return;
+            
+            const touchDuration = Date.now() - this.touchStartTime;
+            
+            if (this.isTouchDragging) {
+                this.endMobileDrag(event.target);
+            } else if (touchDuration < 300) {
+                // Quick tap - open task details
+                this.openTaskDetails(this.draggedTask);
+            }
+            
+            // Reset touch state
+            this.resetMobileDragState();
+        },
+        
+        startMobileDrag(element) {
+            element.classList.add('dragging');
+            
+            // Haptic feedback if available
+            if ('vibrate' in navigator) {
+                navigator.vibrate(50);
+            }
+            
+            // Add visual feedback
+            if (window.gsap) {
+                window.gsap.to(element, {
+                    scale: 1.05,
+                    zIndex: 1000,
+                    boxShadow: '0 20px 40px -8px rgba(0, 0, 0, 0.3)',
+                    duration: 0.2
+                });
+            }
+        },
+        
+        updateMobileDrag(element) {
+            const deltaX = this.touchCurrentPos.x - this.touchStartPos.x;
+            const deltaY = this.touchCurrentPos.y - this.touchStartPos.y;
+            
+            if (window.gsap) {
+                window.gsap.set(element, {
+                    x: deltaX,
+                    y: deltaY
+                });
+            } else {
+                element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            }
+        },
+        
+        updateMobileDropZones() {
+            const columns = document.querySelectorAll('.column');
+            
+            columns.forEach(column => {
+                const columnRect = column.getBoundingClientRect();
+                const isOver = (
+                    this.touchCurrentPos.x >= columnRect.left &&
+                    this.touchCurrentPos.x <= columnRect.right &&
+                    this.touchCurrentPos.y >= columnRect.top &&
+                    this.touchCurrentPos.y <= columnRect.bottom
+                );
+                
+                if (isOver) {
+                    column.classList.add('drop-zone-active');
+                } else {
+                    column.classList.remove('drop-zone-active');
+                }
+            });
+        },
+        
+        endMobileDrag(element) {
+            const dropColumn = this.getMobileDropColumn();
+            
+            element.classList.remove('dragging');
+            
+            if (dropColumn && dropColumn !== this.draggedFrom) {
+                // Move task
+                this.moveTask(this.draggedTask.id, dropColumn);
+                
+                // Animate to new position
+                if (window.gsap) {
+                    window.gsap.to(element, {
+                        x: 0,
+                        y: 0,
+                        scale: 1,
+                        duration: 0.3
+                    });
+                }
+            } else {
+                // Animate back to original position
+                if (window.gsap) {
+                    window.gsap.to(element, {
+                        x: 0,
+                        y: 0,
+                        scale: 1,
+                        duration: 0.3
+                    });
+                } else {
+                    element.style.transform = '';
+                }
+            }
+            
+            // Reset visual states
+            document.querySelectorAll('.column').forEach(col => {
+                col.classList.remove('drop-zone-active');
+            });
+        },
+        
+        getMobileDropColumn() {
+            const columns = document.querySelectorAll('.column');
+            
+            for (const column of columns) {
+                const columnRect = column.getBoundingClientRect();
+                if (
+                    this.touchCurrentPos.x >= columnRect.left &&
+                    this.touchCurrentPos.x <= columnRect.right &&
+                    this.touchCurrentPos.y >= columnRect.top &&
+                    this.touchCurrentPos.y <= columnRect.bottom
+                ) {
+                    return column.dataset.status;
+                }
+            }
+            return null;
+        },
+        
+        resetMobileDragState() {
+            this.touchStartPos = { x: 0, y: 0 };
+            this.touchCurrentPos = { x: 0, y: 0 };
+            this.isTouchDragging = false;
+            this.touchStartTime = 0;
+            this.draggedTask = null;
+            this.draggedFrom = null;
+        },
+        
+        // Search and Filter
+        filterTasks() {
+            // This will be handled by the search input's HTMX functionality
+            // but we can add client-side filtering as backup
+            if (!this.searchQuery.trim()) {
+                this.organizeTasks();
+                return;
+            }
+            
+            const query = this.searchQuery.toLowerCase();
+            const filteredTasks = this.tasks.filter(task => 
+                task.title.toLowerCase().includes(query) ||
+                task.description?.toLowerCase().includes(query) ||
+                task.tags?.some(tag => tag.name.toLowerCase().includes(query))
+            );
+            
+            // Reset columns and organize filtered tasks
+            Object.keys(this.columns).forEach(key => {
+                this.columns[key].tasks = [];
+            });
+            
+            filteredTasks.forEach(task => {
+                const status = task.status?.toLowerCase() || 'backlog';
+                if (this.columns[status]) {
+                    this.columns[status].tasks.push(task);
+                }
+            });
+        },
+        
+        // Modal and UI interactions
+        openTaskDetails(task) {
+            this.$dispatch('open-task-details', { task });
+        },
+        
+        editTask(taskId) {
+            this.$dispatch('edit-task', { taskId });
+        },
+        
+        openCreateTaskModal(status = null) {
+            this.$dispatch('open-create-task', { status });
         }
     }
 }
