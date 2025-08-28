@@ -16,7 +16,7 @@ require (
 	golang.org/x/oauth2 v0.30.0
 )
 
-require github.com/jedib0t/go-pretty/v6 v6.6.8 // indirect
+require github.com/jedib0t/go-pretty/v6 v6.6.8
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
@@ -24,8 +24,6 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/olekukonko/errors v1.1.0 // indirect
-	github.com/olekukonko/ll v0.0.9 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
