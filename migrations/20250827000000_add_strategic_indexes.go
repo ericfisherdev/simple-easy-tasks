@@ -27,14 +27,16 @@ func init() {
 			{
 				name:  "idx_tasks_assignee_status",
 				table: "tasks",
-				query: "CREATE INDEX IF NOT EXISTS idx_tasks_assignee_status ON tasks(assignee, status) WHERE assignee IS NOT NULL;",
-				desc:  "Optimizes user task queries filtered by assignment and status",
+				query: "CREATE INDEX IF NOT EXISTS idx_tasks_assignee_status ON tasks(assignee, status) " +
+					"WHERE assignee IS NOT NULL;",
+				desc: "Optimizes user task queries filtered by assignment and status",
 			},
 			{
 				name:  "idx_tasks_due_date_status",
 				table: "tasks",
-				query: "CREATE INDEX IF NOT EXISTS idx_tasks_due_date_status ON tasks(due_date, status) WHERE due_date IS NOT NULL;",
-				desc:  "Optimizes overdue task queries and due date filtering",
+				query: "CREATE INDEX IF NOT EXISTS idx_tasks_due_date_status ON tasks(due_date, status) " +
+					"WHERE due_date IS NOT NULL;",
+				desc: "Optimizes overdue task queries and due date filtering",
 			},
 			{
 				name:  "idx_tasks_reporter_created",
@@ -97,8 +99,9 @@ func init() {
 			{
 				name:  "idx_tasks_complex_kanban",
 				table: "tasks",
-				query: "CREATE INDEX IF NOT EXISTS idx_tasks_complex_kanban ON tasks(project, status, priority, position) WHERE archived = false;",
-				desc:  "Comprehensive index for kanban board queries with priority filtering",
+				query: "CREATE INDEX IF NOT EXISTS idx_tasks_complex_kanban ON tasks(project, status, priority, position) " +
+					"WHERE archived = false;",
+				desc: "Comprehensive index for kanban board queries with priority filtering",
 			},
 			{
 				name:  "idx_tasks_search_optimization",
@@ -109,8 +112,9 @@ func init() {
 			{
 				name:  "idx_tasks_assignment_workload",
 				table: "tasks",
-				query: "CREATE INDEX IF NOT EXISTS idx_tasks_assignment_workload ON tasks(assignee, status, priority) WHERE assignee IS NOT NULL AND archived = false;",
-				desc:  "Optimizes workload queries for assigned tasks",
+				query: "CREATE INDEX IF NOT EXISTS idx_tasks_assignment_workload ON tasks(assignee, status, priority) " +
+					"WHERE assignee IS NOT NULL AND archived = false;",
+				desc: "Optimizes workload queries for assigned tasks",
 			},
 		}
 

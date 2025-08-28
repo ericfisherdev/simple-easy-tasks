@@ -556,7 +556,9 @@ func (b *bulkOperationService) generateTasksFromTemplate(
 
 // Process individual bulk operations
 
-func (b *bulkOperationService) processBulkTaskUpdate(ctx context.Context, op BulkTaskOperation, userID string, _ int, result *BulkResult) error {
+func (b *bulkOperationService) processBulkTaskUpdate(
+	ctx context.Context, op BulkTaskOperation, userID string, _ int, result *BulkResult,
+) error {
 	for _, taskID := range op.TaskIDs {
 		updateReq := domain.UpdateTaskRequest{}
 
@@ -582,7 +584,9 @@ func (b *bulkOperationService) processBulkTaskUpdate(ctx context.Context, op Bul
 	return nil
 }
 
-func (b *bulkOperationService) processBulkStatusUpdate(ctx context.Context, op BulkTaskOperation, userID string, _ int, result *BulkResult) error {
+func (b *bulkOperationService) processBulkStatusUpdate(
+	ctx context.Context, op BulkTaskOperation, userID string, _ int, _ *BulkResult,
+) error {
 	status, ok := op.Data["status"].(string)
 	if !ok {
 		return fmt.Errorf("status field is required for status operation")
@@ -592,7 +596,9 @@ func (b *bulkOperationService) processBulkStatusUpdate(ctx context.Context, op B
 	return err
 }
 
-func (b *bulkOperationService) processBulkAssign(ctx context.Context, op BulkTaskOperation, userID string, _ int, result *BulkResult) error {
+func (b *bulkOperationService) processBulkAssign(
+	ctx context.Context, op BulkTaskOperation, userID string, _ int, _ *BulkResult,
+) error {
 	assigneeID, _ := op.Data["assignee_id"].(string) // Empty string for unassign
 	_, err := b.BulkAssign(ctx, op.TaskIDs, assigneeID, userID)
 	return err

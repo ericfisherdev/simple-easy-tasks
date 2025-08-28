@@ -11,13 +11,14 @@ import (
 // Note: This is a placeholder implementation that would require a Redis client library
 // In a real implementation, you would use github.com/redis/go-redis/v9 or similar
 
+// RedisCacheBackend provides a Redis-based cache implementation (placeholder)
 type RedisCacheBackend struct {
 	// client redis.Client // Placeholder - would be actual Redis client
 	prefix string
 }
 
 // NewRedisCacheBackend creates a new Redis cache backend
-func NewRedisCacheBackend(addr, password string, db int, prefix string) *RedisCacheBackend {
+func NewRedisCacheBackend(_, _ string, _ int, prefix string) *RedisCacheBackend {
 	// In a real implementation:
 	// client := redis.NewClient(&redis.Options{
 	//     Addr:     addr,
@@ -32,7 +33,7 @@ func NewRedisCacheBackend(addr, password string, db int, prefix string) *RedisCa
 }
 
 // Set stores a value in Redis with TTL
-func (r *RedisCacheBackend) Set(_ context.Context, key string, value []byte, ttl time.Duration) error {
+func (r *RedisCacheBackend) Set(_ context.Context, _ string, _ []byte, _ time.Duration) error {
 	// Placeholder implementation
 	// In a real implementation:
 	// fullKey := r.prefix + key
@@ -42,7 +43,7 @@ func (r *RedisCacheBackend) Set(_ context.Context, key string, value []byte, ttl
 }
 
 // Get retrieves a value from Redis
-func (r *RedisCacheBackend) Get(_ context.Context, key string) ([]byte, error) {
+func (r *RedisCacheBackend) Get(_ context.Context, _ string) ([]byte, error) {
 	// Placeholder implementation
 	// In a real implementation:
 	// fullKey := r.prefix + key
@@ -52,7 +53,7 @@ func (r *RedisCacheBackend) Get(_ context.Context, key string) ([]byte, error) {
 }
 
 // Delete removes a key from Redis
-func (r *RedisCacheBackend) Delete(_ context.Context, key string) error {
+func (r *RedisCacheBackend) Delete(_ context.Context, _ string) error {
 	// Placeholder implementation
 	// In a real implementation:
 	// fullKey := r.prefix + key
@@ -62,7 +63,7 @@ func (r *RedisCacheBackend) Delete(_ context.Context, key string) error {
 }
 
 // DeletePattern deletes keys matching a pattern
-func (r *RedisCacheBackend) DeletePattern(_ context.Context, pattern string) error {
+func (r *RedisCacheBackend) DeletePattern(_ context.Context, _ string) error {
 	// Placeholder implementation
 	// In a real implementation:
 	// fullPattern := r.prefix + pattern
@@ -78,7 +79,7 @@ func (r *RedisCacheBackend) DeletePattern(_ context.Context, pattern string) err
 }
 
 // Exists checks if a key exists in Redis
-func (r *RedisCacheBackend) Exists(_ context.Context, key string) bool {
+func (r *RedisCacheBackend) Exists(_ context.Context, _ string) bool {
 	// Placeholder implementation
 	// In a real implementation:
 	// fullKey := r.prefix + key

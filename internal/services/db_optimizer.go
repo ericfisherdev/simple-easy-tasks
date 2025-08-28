@@ -271,7 +271,7 @@ func (do *dbOptimizer) OptimizeQueries(ctx context.Context) (*QueryOptimizationR
 }
 
 // GetSlowQueries returns queries that exceed the specified duration threshold
-func (do *dbOptimizer) GetSlowQueries(ctx context.Context, threshold time.Duration) ([]*SlowQuery, error) {
+func (do *dbOptimizer) GetSlowQueries(_ context.Context, threshold time.Duration) ([]*SlowQuery, error) {
 	// This is a placeholder implementation
 	// In a real implementation, you would need to enable query logging
 	// and parse the log files or use database-specific monitoring tables
@@ -359,7 +359,7 @@ func (do *dbOptimizer) AnalyzeQueryPlan(ctx context.Context, query string, args 
 }
 
 // OptimizeConnectionPool optimizes database connection pool settings
-func (do *dbOptimizer) OptimizeConnectionPool(ctx context.Context, config *ConnectionPoolConfig) error {
+func (do *dbOptimizer) OptimizeConnectionPool(_ context.Context, config *ConnectionPoolConfig) error {
 	if config == nil {
 		// Use default optimized settings
 		config = &ConnectionPoolConfig{
@@ -386,7 +386,7 @@ func (do *dbOptimizer) OptimizeConnectionPool(ctx context.Context, config *Conne
 }
 
 // GetConnectionStats returns current connection pool statistics
-func (do *dbOptimizer) GetConnectionStats(ctx context.Context) (*ConnectionStats, error) {
+func (do *dbOptimizer) GetConnectionStats(_ context.Context) (*ConnectionStats, error) {
 	dbStats := do.db.Stats()
 
 	return &ConnectionStats{
@@ -533,7 +533,7 @@ func (do *dbOptimizer) getAllIndexes(ctx context.Context) ([]IndexInfo, error) {
 	return indexes, nil
 }
 
-func (do *dbOptimizer) getIndexUsageStat(ctx context.Context, indexName string) (*IndexUsageStat, error) {
+func (do *dbOptimizer) getIndexUsageStat(_ context.Context, indexName string) (*IndexUsageStat, error) {
 	// This is a placeholder - SQLite doesn't provide built-in index usage statistics
 	// In a real implementation, you would need to implement custom tracking
 	return &IndexUsageStat{
@@ -557,20 +557,22 @@ func (do *dbOptimizer) getRecommendedIndexes() []RecommendedIndex {
 			Priority: 9,
 		},
 		{
-			Table:    "tasks",
-			Columns:  []string{"assignee", "status"},
-			Type:     "partial",
-			Reason:   "Optimizes user task queries",
-			Query:    "CREATE INDEX IF NOT EXISTS idx_tasks_assignee_status ON tasks(assignee, status) WHERE assignee IS NOT NULL;",
+			Table:   "tasks",
+			Columns: []string{"assignee", "status"},
+			Type:    "partial",
+			Reason:  "Optimizes user task queries",
+			Query: "CREATE INDEX IF NOT EXISTS idx_tasks_assignee_status ON tasks(assignee, status) " +
+				"WHERE assignee IS NOT NULL;",
 			Impact:   "Medium - improves user dashboard by 60%",
 			Priority: 7,
 		},
 		{
-			Table:    "tasks",
-			Columns:  []string{"due_date", "status"},
-			Type:     "partial",
-			Reason:   "Optimizes overdue task detection",
-			Query:    "CREATE INDEX IF NOT EXISTS idx_tasks_due_date_status ON tasks(due_date, status) WHERE due_date IS NOT NULL;",
+			Table:   "tasks",
+			Columns: []string{"due_date", "status"},
+			Type:    "partial",
+			Reason:  "Optimizes overdue task detection",
+			Query: "CREATE INDEX IF NOT EXISTS idx_tasks_due_date_status ON tasks(due_date, status) " +
+				"WHERE due_date IS NOT NULL;",
 			Impact:   "Medium - improves deadline tracking by 50%",
 			Priority: 6,
 		},
@@ -582,7 +584,10 @@ func (do *dbOptimizer) generateIndexRecommendations(report *IndexAnalysisReport)
 
 	if len(report.UnusedIndexes) > 0 {
 		recommendations = append(recommendations,
-			fmt.Sprintf("Consider dropping %d unused indexes to save space and improve write performance", len(report.UnusedIndexes)))
+			fmt.Sprintf(
+				"Consider dropping %d unused indexes to save space and improve write performance",
+				len(report.UnusedIndexes),
+			))
 	}
 
 	if len(report.MissingIndexes) > 0 {

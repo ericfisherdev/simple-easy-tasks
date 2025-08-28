@@ -346,7 +346,9 @@ func (s *kanbanService) reorderColumnTasks(ctx context.Context, projectID string
 }
 
 // UpdateWIPLimits updates work-in-progress limits for a column
-func (s *kanbanService) UpdateWIPLimits(ctx context.Context, projectID string, status domain.TaskStatus, limits WIPLimits, userID string) error {
+func (s *kanbanService) UpdateWIPLimits(
+	ctx context.Context, projectID string, _ domain.TaskStatus, limits WIPLimits, userID string,
+) error {
 	// Check if user has access to the project
 	project, err := s.projectRepo.GetByID(ctx, projectID)
 	if err != nil {
@@ -377,7 +379,9 @@ func (s *kanbanService) UpdateWIPLimits(ctx context.Context, projectID string, s
 }
 
 // GetBoardStatistics returns analytics for the board
-func (s *kanbanService) GetBoardStatistics(ctx context.Context, projectID string, userID string) (*BoardStatistics, error) {
+func (s *kanbanService) GetBoardStatistics(
+	ctx context.Context, projectID string, userID string,
+) (*BoardStatistics, error) {
 	if projectID == "" {
 		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}

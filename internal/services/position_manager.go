@@ -131,7 +131,9 @@ func (pm *positionManager) calculatePositionAtIndex(columnTasks []*domain.Task, 
 }
 
 // calculatePositionRelative calculates position relative to specific tasks
-func (pm *positionManager) calculatePositionRelative(columnTasks []*domain.Task, beforeTaskID, afterTaskID *string) (int, error) {
+func (pm *positionManager) calculatePositionRelative(
+	columnTasks []*domain.Task, beforeTaskID, afterTaskID *string,
+) (int, error) {
 	var beforePos, afterPos int
 	var beforeFound, afterFound bool
 
@@ -271,7 +273,9 @@ func (pm *positionManager) RebalanceColumn(ctx context.Context, projectID string
 }
 
 // ValidatePosition checks if a position is valid and doesn't conflict
-func (pm *positionManager) ValidatePosition(ctx context.Context, projectID string, status domain.TaskStatus, position int) error {
+func (pm *positionManager) ValidatePosition(
+	ctx context.Context, projectID string, status domain.TaskStatus, position int,
+) error {
 	if position < MinPosition || position > MaxPosition {
 		return domain.NewValidationError("INVALID_POSITION",
 			fmt.Sprintf("Position must be between %d and %d", MinPosition, MaxPosition), nil)
@@ -300,7 +304,9 @@ func (pm *positionManager) ValidatePosition(ctx context.Context, projectID strin
 }
 
 // ShouldRebalance determines if a column needs rebalancing based on position density
-func (pm *positionManager) ShouldRebalance(ctx context.Context, projectID string, status domain.TaskStatus) (bool, error) {
+func (pm *positionManager) ShouldRebalance(
+	ctx context.Context, projectID string, status domain.TaskStatus,
+) (bool, error) {
 	filters := repository.TaskFilters{
 		Status:    []domain.TaskStatus{status},
 		SortBy:    "position",

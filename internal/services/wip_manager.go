@@ -50,10 +50,12 @@ type WIPOverrideReason string
 
 const (
 	// OverrideEmergency allows bypassing WIP limits for emergency tasks
-	OverrideEmergency  WIPOverrideReason = "emergency"
-	OverrideHotfix     WIPOverrideReason = "hotfix"
-	OverrideBlocker    WIPOverrideReason = "blocker"
-	OverrideManagement WIPOverrideReason = "management"
+	OverrideEmergency WIPOverrideReason = "emergency"
+	// OverrideHotfix allows bypassing WIP limits for critical hotfixes
+	OverrideHotfix WIPOverrideReason = "hotfix"
+	// OverrideBlocker allows bypassing WIP limits for blocking issues
+	OverrideBlocker WIPOverrideReason = "blocker"
+	// OverrideManagement allows bypassing WIP limits for management requests\n	OverrideManagement WIPOverrideReason = "management"
 )
 
 // WIPOverride represents a WIP limit override request
@@ -131,7 +133,9 @@ func (wm *wipManager) ValidateWIPLimit(ctx context.Context, projectID string, ta
 }
 
 // GetWIPLimits retrieves WIP limits for a project column
-func (wm *wipManager) GetWIPLimits(ctx context.Context, projectID string, status domain.TaskStatus) (*WIPLimits, error) {
+func (wm *wipManager) GetWIPLimits(
+	ctx context.Context, projectID string, status domain.TaskStatus,
+) (*WIPLimits, error) {
 	if projectID == "" {
 		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
