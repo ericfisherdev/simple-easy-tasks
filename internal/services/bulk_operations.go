@@ -17,25 +17,27 @@ import (
 type BulkOperationService interface {
 	// BulkUpdate performs multiple update operations in a single transaction
 	BulkUpdate(ctx context.Context, ops []BulkTaskOperation, userID string) (*BulkResult, error)
-	
+
 	// BulkCreate creates multiple tasks from a list or CSV data
 	BulkCreate(ctx context.Context, req BulkCreateRequest, userID string) (*BulkResult, error)
-	
+
 	// BulkStatusUpdate updates the status of multiple tasks
-	BulkStatusUpdate(ctx context.Context, taskIDs []string, newStatus domain.TaskStatus, userID string) (*BulkResult, error)
-	
+	BulkStatusUpdate(
+		ctx context.Context, taskIDs []string, newStatus domain.TaskStatus, userID string,
+	) (*BulkResult, error)
+
 	// BulkAssign assigns multiple tasks to a user
 	BulkAssign(ctx context.Context, taskIDs []string, assigneeID string, userID string) (*BulkResult, error)
-	
+
 	// BulkTagUpdate adds or removes tags from multiple tasks
 	BulkTagUpdate(ctx context.Context, req BulkTagUpdateRequest, userID string) (*BulkResult, error)
-	
+
 	// BulkDelete deletes multiple tasks with cascade handling
 	BulkDelete(ctx context.Context, taskIDs []string, options BulkDeleteOptions, userID string) (*BulkResult, error)
-	
+
 	// ImportFromCSV creates tasks from CSV data
 	ImportFromCSV(ctx context.Context, csvData io.Reader, projectID string, userID string) (*BulkResult, error)
-	
+
 	// ExportToCSV exports tasks to CSV format
 	ExportToCSV(ctx context.Context, projectID string, filters repository.TaskFilters, userID string) ([]byte, error)
 }
@@ -49,25 +51,25 @@ type BulkTaskOperation struct {
 
 // BulkCreateRequest represents a request to create multiple tasks
 type BulkCreateRequest struct {
-	ProjectID string                      `json:"project_id"`
-	Tasks     []domain.CreateTaskRequest  `json:"tasks"`
-	Template  *BulkCreateTemplate         `json:"template,omitempty"`
+	ProjectID string                     `json:"project_id"`
+	Tasks     []domain.CreateTaskRequest `json:"tasks"`
+	Template  *BulkCreateTemplate        `json:"template,omitempty"`
 }
 
 // BulkCreateTemplate defines a template for bulk task creation
 type BulkCreateTemplate struct {
-	TitlePattern    string                 `json:"title_pattern"`    // e.g., "Task {index}: {title}"
-	CommonFields    map[string]interface{} `json:"common_fields"`    // Fields applied to all tasks
-	Count           int                    `json:"count"`            // Number of tasks to create
-	StartIndex      int                    `json:"start_index"`      // Starting index for numbering
+	TitlePattern string                 `json:"title_pattern"` // e.g., "Task {index}: {title}"
+	CommonFields map[string]interface{} `json:"common_fields"` // Fields applied to all tasks
+	Count        int                    `json:"count"`         // Number of tasks to create
+	StartIndex   int                    `json:"start_index"`   // Starting index for numbering
 }
 
 // BulkTagUpdateRequest represents a request to update tags on multiple tasks
 type BulkTagUpdateRequest struct {
-	TaskIDs   []string `json:"task_ids"`
-	TagsToAdd []string `json:"tags_to_add,omitempty"`
+	TaskIDs      []string `json:"task_ids"`
+	TagsToAdd    []string `json:"tags_to_add,omitempty"`
 	TagsToRemove []string `json:"tags_to_remove,omitempty"`
-	ReplaceAll bool     `json:"replace_all"` // If true, replace all tags with tags_to_add
+	ReplaceAll   bool     `json:"replace_all"` // If true, replace all tags with tags_to_add
 }
 
 // BulkDeleteOptions controls how bulk deletion is performed
@@ -116,7 +118,9 @@ func NewBulkOperationService(
 }
 
 // BulkUpdate performs multiple update operations in a single transaction
-func (b *bulkOperationService) BulkUpdate(ctx context.Context, ops []BulkTaskOperation, userID string) (*BulkResult, error) {
+func (b *bulkOperationService) BulkUpdate(
+	ctx context.Context, ops []BulkTaskOperation, userID string,
+) (*BulkResult, error) {
 	startTime := time.Now()
 	result := &BulkResult{
 		TotalRequested: len(ops),
@@ -177,9 +181,11 @@ func (b *bulkOperationService) BulkUpdate(ctx context.Context, ops []BulkTaskOpe
 }
 
 // BulkCreate creates multiple tasks from a list or template
-func (b *bulkOperationService) BulkCreate(ctx context.Context, req BulkCreateRequest, userID string) (*BulkResult, error) {
+func (b *bulkOperationService) BulkCreate(
+	ctx context.Context, req BulkCreateRequest, userID string,
+) (*BulkResult, error) {
 	startTime := time.Now()
-	
+
 	if req.ProjectID == "" {
 		return nil, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
@@ -212,7 +218,7 @@ func (b *bulkOperationService) BulkCreate(ctx context.Context, req BulkCreateReq
 	// Create tasks
 	for i, taskReq := range tasksToCreate {
 		taskReq.ProjectID = req.ProjectID // Ensure project ID is set
-		
+
 		task, err := b.taskService.CreateTask(ctx, taskReq, userID)
 		if err != nil {
 			result.Errors = append(result.Errors, BulkOperationError{
@@ -232,9 +238,11 @@ func (b *bulkOperationService) BulkCreate(ctx context.Context, req BulkCreateReq
 }
 
 // BulkStatusUpdate updates the status of multiple tasks
-func (b *bulkOperationService) BulkStatusUpdate(ctx context.Context, taskIDs []string, newStatus domain.TaskStatus, userID string) (*BulkResult, error) {
+func (b *bulkOperationService) BulkStatusUpdate(
+	ctx context.Context, taskIDs []string, newStatus domain.TaskStatus, userID string,
+) (*BulkResult, error) {
 	startTime := time.Now()
-	
+
 	if !newStatus.IsValid() {
 		return nil, domain.NewValidationError("INVALID_STATUS", "Invalid task status", nil)
 	}
@@ -266,7 +274,9 @@ func (b *bulkOperationService) BulkStatusUpdate(ctx context.Context, taskIDs []s
 }
 
 // BulkAssign assigns multiple tasks to a user
-func (b *bulkOperationService) BulkAssign(ctx context.Context, taskIDs []string, assigneeID string, userID string) (*BulkResult, error) {
+func (b *bulkOperationService) BulkAssign(
+	ctx context.Context, taskIDs []string, assigneeID string, userID string,
+) (*BulkResult, error) {
 	startTime := time.Now()
 
 	result := &BulkResult{
@@ -278,7 +288,7 @@ func (b *bulkOperationService) BulkAssign(ctx context.Context, taskIDs []string,
 	for i, taskID := range taskIDs {
 		var task *domain.Task
 		var err error
-		
+
 		if assigneeID == "" {
 			// Unassign task
 			task, err = b.taskService.UnassignTask(ctx, taskID, userID)
@@ -286,7 +296,7 @@ func (b *bulkOperationService) BulkAssign(ctx context.Context, taskIDs []string,
 			// Assign task
 			task, err = b.taskService.AssignTask(ctx, taskID, assigneeID, userID)
 		}
-		
+
 		if err != nil {
 			result.Errors = append(result.Errors, BulkOperationError{
 				TaskID:    taskID,
@@ -306,7 +316,9 @@ func (b *bulkOperationService) BulkAssign(ctx context.Context, taskIDs []string,
 }
 
 // BulkTagUpdate adds or removes tags from multiple tasks
-func (b *bulkOperationService) BulkTagUpdate(ctx context.Context, req BulkTagUpdateRequest, userID string) (*BulkResult, error) {
+func (b *bulkOperationService) BulkTagUpdate(
+	ctx context.Context, req BulkTagUpdateRequest, userID string,
+) (*BulkResult, error) {
 	startTime := time.Now()
 
 	result := &BulkResult{
@@ -331,12 +343,12 @@ func (b *bulkOperationService) BulkTagUpdate(ctx context.Context, req BulkTagUpd
 
 		// Update tags
 		newTags := b.calculateNewTags(task.Tags, req)
-		
+
 		// Update task with new tags
 		updateReq := domain.UpdateTaskRequest{
 			Tags: newTags,
 		}
-		
+
 		updatedTask, err := b.taskService.UpdateTask(ctx, taskID, updateReq, userID)
 		if err != nil {
 			result.Errors = append(result.Errors, BulkOperationError{
@@ -357,7 +369,9 @@ func (b *bulkOperationService) BulkTagUpdate(ctx context.Context, req BulkTagUpd
 }
 
 // BulkDelete deletes multiple tasks with cascade handling
-func (b *bulkOperationService) BulkDelete(ctx context.Context, taskIDs []string, options BulkDeleteOptions, userID string) (*BulkResult, error) {
+func (b *bulkOperationService) BulkDelete(
+	ctx context.Context, taskIDs []string, options BulkDeleteOptions, userID string,
+) (*BulkResult, error) {
 	startTime := time.Now()
 
 	result := &BulkResult{
@@ -398,11 +412,13 @@ func (b *bulkOperationService) BulkDelete(ctx context.Context, taskIDs []string,
 }
 
 // ImportFromCSV creates tasks from CSV data
-func (b *bulkOperationService) ImportFromCSV(ctx context.Context, csvData io.Reader, projectID string, userID string) (*BulkResult, error) {
+func (b *bulkOperationService) ImportFromCSV(
+	ctx context.Context, csvData io.Reader, projectID string, userID string,
+) (*BulkResult, error) {
 	startTime := time.Now()
-	
+
 	reader := csv.NewReader(csvData)
-	
+
 	// Read header
 	header, err := reader.Read()
 	if err != nil {
@@ -411,16 +427,16 @@ func (b *bulkOperationService) ImportFromCSV(ctx context.Context, csvData io.Rea
 
 	// Map header columns
 	columnMap := b.mapCSVColumns(header)
-	
+
 	var tasks []domain.CreateTaskRequest
-	
+
 	// Read data rows
 	for {
-		record, err := reader.Read()
-		if err == io.EOF {
+		record, readErr := reader.Read()
+		if readErr == io.EOF {
 			break
 		}
-		if err != nil {
+		if readErr != nil {
 			return nil, domain.NewValidationError("CSV_READ_ERROR", "Failed to read CSV data", nil)
 		}
 
@@ -429,7 +445,7 @@ func (b *bulkOperationService) ImportFromCSV(ctx context.Context, csvData io.Rea
 			// Skip invalid rows but continue processing
 			continue
 		}
-		
+
 		tasks = append(tasks, task)
 	}
 
@@ -449,7 +465,9 @@ func (b *bulkOperationService) ImportFromCSV(ctx context.Context, csvData io.Rea
 }
 
 // ExportToCSV exports tasks to CSV format
-func (b *bulkOperationService) ExportToCSV(ctx context.Context, projectID string, filters repository.TaskFilters, userID string) ([]byte, error) {
+func (b *bulkOperationService) ExportToCSV(
+	ctx context.Context, projectID string, filters repository.TaskFilters, userID string,
+) ([]byte, error) {
 	// Get tasks to export
 	tasks, err := b.taskService.GetProjectTasksFiltered(ctx, projectID, filters, userID)
 	if err != nil {
@@ -461,7 +479,10 @@ func (b *bulkOperationService) ExportToCSV(ctx context.Context, projectID string
 	writer := csv.NewWriter(&csvContent)
 
 	// Write header
-	header := []string{"ID", "Title", "Description", "Status", "Priority", "Assignee", "Reporter", "Due Date", "Created", "Updated"}
+	header := []string{
+		"ID", "Title", "Description", "Status", "Priority",
+		"Assignee", "Reporter", "Due Date", "Created", "Updated",
+	}
 	if err := writer.Write(header); err != nil {
 		return nil, domain.NewInternalError("CSV_WRITE_ERROR", "Failed to write CSV header", err)
 	}
@@ -480,7 +501,7 @@ func (b *bulkOperationService) ExportToCSV(ctx context.Context, projectID string
 			task.CreatedAt.Format(time.RFC3339),
 			task.UpdatedAt.Format(time.RFC3339),
 		}
-		
+
 		if err := writer.Write(record); err != nil {
 			return nil, domain.NewInternalError("CSV_WRITE_ERROR", "Failed to write CSV record", err)
 		}
@@ -497,12 +518,14 @@ func (b *bulkOperationService) ExportToCSV(ctx context.Context, projectID string
 // Helper methods
 
 // generateTasksFromTemplate creates tasks from a template
-func (b *bulkOperationService) generateTasksFromTemplate(template *BulkCreateTemplate, projectID string) []domain.CreateTaskRequest {
+func (b *bulkOperationService) generateTasksFromTemplate(
+	template *BulkCreateTemplate, projectID string,
+) []domain.CreateTaskRequest {
 	var tasks []domain.CreateTaskRequest
 
 	for i := 0; i < template.Count; i++ {
 		index := template.StartIndex + i
-		
+
 		// Generate title from pattern
 		title := strings.ReplaceAll(template.TitlePattern, "{index}", strconv.Itoa(index))
 		title = strings.ReplaceAll(title, "{number}", strconv.Itoa(i+1))
@@ -533,10 +556,10 @@ func (b *bulkOperationService) generateTasksFromTemplate(template *BulkCreateTem
 
 // Process individual bulk operations
 
-func (b *bulkOperationService) processBulkTaskUpdate(ctx context.Context, op BulkTaskOperation, userID string, index int, result *BulkResult) error {
+func (b *bulkOperationService) processBulkTaskUpdate(ctx context.Context, op BulkTaskOperation, userID string, _ int, result *BulkResult) error {
 	for _, taskID := range op.TaskIDs {
 		updateReq := domain.UpdateTaskRequest{}
-		
+
 		// Map data fields to update request
 		if title, ok := op.Data["title"].(string); ok {
 			updateReq.Title = &title
@@ -548,27 +571,28 @@ func (b *bulkOperationService) processBulkTaskUpdate(ctx context.Context, op Bul
 			p := domain.TaskPriority(priority)
 			updateReq.Priority = &p
 		}
-		
+
 		task, err := b.taskService.UpdateTask(ctx, taskID, updateReq, userID)
 		if err != nil {
 			return err
 		}
-		
+
 		result.Results = append(result.Results, task)
 	}
 	return nil
 }
 
-func (b *bulkOperationService) processBulkStatusUpdate(ctx context.Context, op BulkTaskOperation, userID string, index int, result *BulkResult) error {
+func (b *bulkOperationService) processBulkStatusUpdate(ctx context.Context, op BulkTaskOperation, userID string, _ int, result *BulkResult) error {
 	status, ok := op.Data["status"].(string)
 	if !ok {
 		return fmt.Errorf("status field is required for status operation")
 	}
-	
-	return b.BulkStatusUpdate(ctx, op.TaskIDs, domain.TaskStatus(status), userID)
+
+	_, err := b.BulkStatusUpdate(ctx, op.TaskIDs, domain.TaskStatus(status), userID)
+	return err
 }
 
-func (b *bulkOperationService) processBulkAssign(ctx context.Context, op BulkTaskOperation, userID string, index int, result *BulkResult) error {
+func (b *bulkOperationService) processBulkAssign(ctx context.Context, op BulkTaskOperation, userID string, _ int, result *BulkResult) error {
 	assigneeID, _ := op.Data["assignee_id"].(string) // Empty string for unassign
 	_, err := b.BulkAssign(ctx, op.TaskIDs, assigneeID, userID)
 	return err
@@ -606,9 +630,11 @@ func (b *bulkOperationService) calculateNewTags(currentTags []string, req BulkTa
 }
 
 // expandWithSubtasks recursively finds all subtasks
-func (b *bulkOperationService) expandWithSubtasks(ctx context.Context, taskIDs []string, userID string) ([]string, error) {
+func (b *bulkOperationService) expandWithSubtasks(
+	ctx context.Context, taskIDs []string, userID string,
+) ([]string, error) {
 	allIDs := make(map[string]bool)
-	
+
 	// Add original task IDs
 	for _, id := range taskIDs {
 		allIDs[id] = true
@@ -620,11 +646,11 @@ func (b *bulkOperationService) expandWithSubtasks(ctx context.Context, taskIDs [
 		if err != nil {
 			continue // Skip if we can't get subtasks
 		}
-		
+
 		for _, subtask := range subtasks {
 			if !allIDs[subtask.ID] {
 				allIDs[subtask.ID] = true
-				
+
 				// Recursively get subtasks of subtasks
 				subSubtasks, err := b.expandWithSubtasks(ctx, []string{subtask.ID}, userID)
 				if err == nil {
@@ -655,7 +681,9 @@ func (b *bulkOperationService) mapCSVColumns(header []string) map[string]int {
 	return columnMap
 }
 
-func (b *bulkOperationService) parseCSVRecord(record []string, columnMap map[string]int, projectID string) (domain.CreateTaskRequest, error) {
+func (b *bulkOperationService) parseCSVRecord(
+	record []string, columnMap map[string]int, projectID string,
+) (domain.CreateTaskRequest, error) {
 	task := domain.CreateTaskRequest{
 		ProjectID: projectID,
 	}

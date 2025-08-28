@@ -12,27 +12,27 @@ import (
 type WIPManager interface {
 	// ValidateWIPLimit checks if moving a task would violate WIP limits
 	ValidateWIPLimit(ctx context.Context, projectID string, targetStatus domain.TaskStatus) error
-	
+
 	// GetWIPLimits retrieves WIP limits for a project column
 	GetWIPLimits(ctx context.Context, projectID string, status domain.TaskStatus) (*WIPLimits, error)
-	
+
 	// SetWIPLimits configures WIP limits for a project column
 	SetWIPLimits(ctx context.Context, projectID string, status domain.TaskStatus, limits WIPLimits) error
-	
+
 	// GetWIPStatus returns current WIP status for all columns
 	GetWIPStatus(ctx context.Context, projectID string) (map[domain.TaskStatus]*WIPStatus, error)
-	
+
 	// CheckWIPViolations identifies columns that are violating WIP limits
 	CheckWIPViolations(ctx context.Context, projectID string) ([]*WIPViolation, error)
 }
 
 // WIPStatus represents the current WIP status for a column
 type WIPStatus struct {
-	Status      domain.TaskStatus `json:"status"`
-	CurrentCount int              `json:"current_count"`
-	Limits      *WIPLimits        `json:"limits"`
-	IsViolating bool              `json:"is_violating"`
-	ViolationType string          `json:"violation_type,omitempty"` // "soft" or "hard"
+	Status        domain.TaskStatus `json:"status"`
+	CurrentCount  int               `json:"current_count"`
+	Limits        *WIPLimits        `json:"limits"`
+	IsViolating   bool              `json:"is_violating"`
+	ViolationType string            `json:"violation_type,omitempty"` // "soft" or "hard"
 }
 
 // WIPViolation represents a WIP limit violation
@@ -49,6 +49,7 @@ type WIPViolation struct {
 type WIPOverrideReason string
 
 const (
+	// OverrideEmergency allows bypassing WIP limits for emergency tasks
 	OverrideEmergency  WIPOverrideReason = "emergency"
 	OverrideHotfix     WIPOverrideReason = "hotfix"
 	OverrideBlocker    WIPOverrideReason = "blocker"
@@ -58,9 +59,9 @@ const (
 // WIPOverride represents a WIP limit override request
 type WIPOverride struct {
 	Reason    WIPOverrideReason `json:"reason"`
-	Comment   string           `json:"comment"`
-	UserID    string           `json:"user_id"`
-	ExpiresAt *string          `json:"expires_at,omitempty"`
+	Comment   string            `json:"comment"`
+	UserID    string            `json:"user_id"`
+	ExpiresAt *string           `json:"expires_at,omitempty"`
 }
 
 // wipManager implements WIP limit management
@@ -117,11 +118,11 @@ func (wm *wipManager) ValidateWIPLimit(ctx context.Context, projectID string, ta
 		// Soft limit violation - could be allowed with warning or override
 		return domain.NewValidationError("WIP_SOFT_LIMIT_VIOLATED",
 			fmt.Sprintf("Moving task would exceed soft WIP limit (%d) for %s column",
-				limits.SoftLimit, string(targetStatus)), 
+				limits.SoftLimit, string(targetStatus)),
 			map[string]interface{}{
-				"current_count": currentCount,
-				"soft_limit":   limits.SoftLimit,
-				"column":       string(targetStatus),
+				"current_count":      currentCount,
+				"soft_limit":         limits.SoftLimit,
+				"column":             string(targetStatus),
 				"override_available": true,
 			})
 	}
@@ -144,12 +145,12 @@ func (wm *wipManager) GetWIPLimits(ctx context.Context, projectID string, status
 	// TODO: In a real implementation, retrieve from WIP configuration storage
 	// For now, return default limits based on column type
 	limits := wm.getDefaultWIPLimits(status)
-	
+
 	return limits, nil
 }
 
 // SetWIPLimits configures WIP limits for a project column
-func (wm *wipManager) SetWIPLimits(ctx context.Context, projectID string, status domain.TaskStatus, limits WIPLimits) error {
+func (wm *wipManager) SetWIPLimits(ctx context.Context, projectID string, _ domain.TaskStatus, limits WIPLimits) error {
 	if projectID == "" {
 		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
@@ -168,7 +169,7 @@ func (wm *wipManager) SetWIPLimits(ctx context.Context, projectID string, status
 	// TODO: In a real implementation, store in WIP configuration storage
 	// For now, this is a placeholder
 	// return wm.wipConfigRepo.SetLimits(ctx, projectID, status, limits)
-	
+
 	return nil
 }
 
@@ -210,7 +211,7 @@ func (wm *wipManager) GetWIPStatus(ctx context.Context, projectID string) (map[d
 		// Determine violation status
 		isViolating := false
 		violationType := ""
-		
+
 		if limits.Enabled {
 			if limits.HardLimit > 0 && currentCount >= limits.HardLimit {
 				isViolating = true

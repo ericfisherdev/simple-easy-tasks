@@ -10,28 +10,28 @@ import (
 
 // KanbanBoard represents the complete kanban board state
 type KanbanBoard struct {
-	ProjectID string                    `json:"project_id"`
-	Columns   map[domain.TaskStatus]*Column    `json:"columns"`
-	Stats     *BoardStatistics         `json:"stats"`
-	UpdatedAt time.Time                `json:"updated_at"`
+	ProjectID string                        `json:"project_id"`
+	Columns   map[domain.TaskStatus]*Column `json:"columns"`
+	Stats     *BoardStatistics              `json:"stats"`
+	UpdatedAt time.Time                     `json:"updated_at"`
 }
 
 // Column represents a single column in the kanban board
 type Column struct {
-	Status TaskStatus  `json:"status"`
-	Title  string      `json:"title"`
-	Tasks  []*domain.Task     `json:"tasks"`
-	Count  int         `json:"count"`
-	WIP    *WIPLimits  `json:"wip_limits"`
+	Status TaskStatus     `json:"status"`
+	Title  string         `json:"title"`
+	Tasks  []*domain.Task `json:"tasks"`
+	Count  int            `json:"count"`
+	WIP    *WIPLimits     `json:"wip_limits"`
 }
 
 // BoardStatistics provides analytics about the board state
 type BoardStatistics struct {
-	TotalTasks      int                        `json:"total_tasks"`
-	TasksByStatus   map[domain.TaskStatus]int       `json:"tasks_by_status"`
-	TasksByPriority map[domain.TaskPriority]int     `json:"tasks_by_priority"`
-	OverdueTasks    int                        `json:"overdue_tasks"`
-	UnassignedTasks int                        `json:"unassigned_tasks"`
+	TotalTasks      int                         `json:"total_tasks"`
+	TasksByStatus   map[domain.TaskStatus]int   `json:"tasks_by_status"`
+	TasksByPriority map[domain.TaskPriority]int `json:"tasks_by_priority"`
+	OverdueTasks    int                         `json:"overdue_tasks"`
+	UnassignedTasks int                         `json:"unassigned_tasks"`
 }
 
 // WIPLimits defines work-in-progress limits for a column
@@ -48,16 +48,16 @@ type TaskStatus = domain.TaskStatus
 type KanbanService interface {
 	// GetBoard retrieves the complete kanban board for a project
 	GetBoard(ctx context.Context, projectID string, userID string) (*KanbanBoard, error)
-	
+
 	// MoveTask moves a task between columns with position management
 	MoveTask(ctx context.Context, req MoveTaskRequest, userID string) error
-	
+
 	// UpdateWIPLimits updates work-in-progress limits for a column
 	UpdateWIPLimits(ctx context.Context, projectID string, status domain.TaskStatus, limits WIPLimits, userID string) error
-	
+
 	// GetBoardStatistics returns analytics for the board
 	GetBoardStatistics(ctx context.Context, projectID string, userID string) (*BoardStatistics, error)
-	
+
 	// ValidateMove checks if a move is allowed based on WIP limits and business rules
 	ValidateMove(ctx context.Context, req MoveTaskRequest, userID string) error
 }
@@ -104,7 +104,7 @@ func (s *kanbanService) GetBoard(ctx context.Context, projectID string, userID s
 		SortOrder: "asc",
 		Limit:     1000, // Set a reasonable limit
 	}
-	
+
 	tasks, err := s.taskRepo.GetByProject(ctx, projectID, filters)
 	if err != nil {
 		return nil, domain.NewInternalError("BOARD_LOAD_FAILED", "Failed to load board tasks", err)
@@ -112,10 +112,10 @@ func (s *kanbanService) GetBoard(ctx context.Context, projectID string, userID s
 
 	// Organize tasks into columns
 	columns := s.organizeTasks(tasks)
-	
+
 	// Calculate statistics
 	stats := s.calculateStatistics(tasks)
-	
+
 	// Create board
 	board := &KanbanBoard{
 		ProjectID: projectID,
@@ -130,7 +130,7 @@ func (s *kanbanService) GetBoard(ctx context.Context, projectID string, userID s
 // organizeTasks groups tasks by status into columns
 func (s *kanbanService) organizeTasks(tasks []*domain.Task) map[domain.TaskStatus]*Column {
 	columns := make(map[domain.TaskStatus]*Column)
-	
+
 	// Initialize all columns
 	statuses := []domain.TaskStatus{
 		domain.StatusBacklog,
@@ -139,7 +139,7 @@ func (s *kanbanService) organizeTasks(tasks []*domain.Task) map[domain.TaskStatu
 		domain.StatusReview,
 		domain.StatusComplete,
 	}
-	
+
 	titles := map[domain.TaskStatus]string{
 		domain.StatusBacklog:    "Backlog",
 		domain.StatusTodo:       "To Do",
@@ -147,7 +147,7 @@ func (s *kanbanService) organizeTasks(tasks []*domain.Task) map[domain.TaskStatu
 		domain.StatusReview:     "Review",
 		domain.StatusComplete:   "Complete",
 	}
-	
+
 	for _, status := range statuses {
 		columns[status] = &Column{
 			Status: status,
@@ -157,19 +157,19 @@ func (s *kanbanService) organizeTasks(tasks []*domain.Task) map[domain.TaskStatu
 			WIP:    &WIPLimits{Enabled: false}, // Default WIP limits off
 		}
 	}
-	
+
 	// Group tasks by status
 	for _, task := range tasks {
 		if task.IsArchived() {
 			continue // Skip archived tasks
 		}
-		
+
 		if column, exists := columns[task.Status]; exists {
 			column.Tasks = append(column.Tasks, task)
 			column.Count++
 		}
 	}
-	
+
 	return columns
 }
 
@@ -179,29 +179,29 @@ func (s *kanbanService) calculateStatistics(tasks []*domain.Task) *BoardStatisti
 		TasksByStatus:   make(map[domain.TaskStatus]int),
 		TasksByPriority: make(map[domain.TaskPriority]int),
 	}
-	
+
 	now := time.Now()
-	
+
 	for _, task := range tasks {
 		if task.IsArchived() {
 			continue // Skip archived tasks in statistics
 		}
-		
+
 		stats.TotalTasks++
 		stats.TasksByStatus[task.Status]++
 		stats.TasksByPriority[task.Priority]++
-		
+
 		// Check if task is overdue
 		if task.DueDate != nil && task.DueDate.Before(now) && task.Status != domain.StatusComplete {
 			stats.OverdueTasks++
 		}
-		
+
 		// Check if task is unassigned
 		if task.AssigneeID == nil {
 			stats.UnassignedTasks++
 		}
 	}
-	
+
 	return stats
 }
 
@@ -211,13 +211,13 @@ func (s *kanbanService) MoveTask(ctx context.Context, req MoveTaskRequest, userI
 	if err := s.ValidateMove(ctx, req, userID); err != nil {
 		return err
 	}
-	
+
 	// Get the task to move
 	task, err := s.taskRepo.GetByID(ctx, req.TaskID)
 	if err != nil {
 		return err
 	}
-	
+
 	// Calculate new position if needed
 	newPosition := req.NewPosition
 	if newPosition == 0 {
@@ -228,40 +228,40 @@ func (s *kanbanService) MoveTask(ctx context.Context, req MoveTaskRequest, userI
 			SortOrder: "desc",
 			Limit:     1,
 		}
-		
+
 		columnTasks, err := s.taskRepo.GetByProject(ctx, req.ProjectID, filters)
 		if err != nil {
 			return domain.NewInternalError("POSITION_CALC_FAILED", "Failed to calculate new position", err)
 		}
-		
+
 		if len(columnTasks) > 0 {
 			newPosition = columnTasks[0].Position + 1000 // Use large increments for easy reordering
 		} else {
 			newPosition = 1000 // First task in column
 		}
 	}
-	
+
 	// Update task status and position using business logic
 	if err := task.UpdateStatus(req.NewStatus); err != nil {
 		return err
 	}
-	
+
 	// Update position
 	task.Position = newPosition
 	task.UpdatedAt = time.Now().UTC()
-	
+
 	// Save changes
 	if err := s.taskRepo.Update(ctx, task); err != nil {
 		return domain.NewInternalError("TASK_MOVE_FAILED", "Failed to move task", err)
 	}
-	
+
 	// Reorder other tasks in the target column if necessary
 	if err := s.reorderColumnTasks(ctx, req.ProjectID, req.NewStatus); err != nil {
 		// Log error but don't fail the move
 		// In production, use structured logging here
 		_ = err
 	}
-	
+
 	return nil
 }
 
@@ -301,8 +301,8 @@ func (s *kanbanService) ValidateMove(ctx context.Context, req MoveTaskRequest, u
 
 	// Check if status transition is allowed
 	if !task.CanTransitionTo(req.NewStatus) {
-		return domain.NewConflictError("INVALID_TRANSITION", 
-			"Task cannot transition from " + string(task.Status) + " to " + string(req.NewStatus))
+		return domain.NewConflictError("INVALID_TRANSITION",
+			"Task cannot transition from "+string(task.Status)+" to "+string(req.NewStatus))
 	}
 
 	// TODO: Check WIP limits when they are implemented
@@ -322,26 +322,26 @@ func (s *kanbanService) reorderColumnTasks(ctx context.Context, projectID string
 		SortOrder: "asc",
 		Limit:     1000,
 	}
-	
+
 	tasks, err := s.taskRepo.GetByProject(ctx, projectID, filters)
 	if err != nil {
 		return err
 	}
-	
+
 	// Reassign positions with proper spacing
 	for i, task := range tasks {
 		newPosition := (i + 1) * 1000 // 1000, 2000, 3000, etc.
 		if task.Position != newPosition {
 			task.Position = newPosition
 			task.UpdatedAt = time.Now().UTC()
-			
+
 			// Update in repository
 			if err := s.taskRepo.Update(ctx, task); err != nil {
 				return err
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -372,7 +372,7 @@ func (s *kanbanService) UpdateWIPLimits(ctx context.Context, projectID string, s
 	// For now, this is a placeholder implementation
 	// In a real implementation, you'd store these in the database
 	// associated with the project and column status
-	
+
 	return nil
 }
 
@@ -396,7 +396,7 @@ func (s *kanbanService) GetBoardStatistics(ctx context.Context, projectID string
 	filters := repository.TaskFilters{
 		Limit: 10000, // Large limit to get all tasks
 	}
-	
+
 	tasks, err := s.taskRepo.GetByProject(ctx, projectID, filters)
 	if err != nil {
 		return nil, domain.NewInternalError("STATS_LOAD_FAILED", "Failed to load board statistics", err)

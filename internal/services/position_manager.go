@@ -13,13 +13,13 @@ import (
 type PositionManager interface {
 	// CalculateNewPosition calculates the optimal position for a task being moved
 	CalculateNewPosition(ctx context.Context, req PositionRequest) (int, error)
-	
+
 	// RebalanceColumn rebalances positions in a column to prevent overflow
 	RebalanceColumn(ctx context.Context, projectID string, status domain.TaskStatus) error
-	
+
 	// GetPositionBetween calculates a position between two existing positions
 	GetPositionBetween(beforePos, afterPos int) int
-	
+
 	// ValidatePosition checks if a position is valid and available
 	ValidatePosition(ctx context.Context, projectID string, status domain.TaskStatus, position int) error
 }
@@ -48,10 +48,10 @@ func NewPositionManager(taskRepo repository.TaskRepository) PositionManager {
 
 // Position constants for calculation
 const (
-	MinPosition       = 1000      // Minimum position value
-	MaxPosition       = 999999000 // Maximum position value
-	DefaultIncrement  = 1000      // Default increment between positions
-	RebalanceThreshold = 100      // Minimum space before rebalancing
+	MinPosition        = 1000      // Minimum position value
+	MaxPosition        = 999999000 // Maximum position value
+	DefaultIncrement   = 1000      // Default increment between positions
+	RebalanceThreshold = 100       // Minimum space before rebalancing
 )
 
 // CalculateNewPosition calculates the optimal position for a task being moved
@@ -59,7 +59,7 @@ func (pm *positionManager) CalculateNewPosition(ctx context.Context, req Positio
 	if req.ProjectID == "" {
 		return 0, domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
-	
+
 	if !req.TargetStatus.IsValid() {
 		return 0, domain.NewValidationError("INVALID_STATUS", "Invalid target status", nil)
 	}
@@ -71,7 +71,7 @@ func (pm *positionManager) CalculateNewPosition(ctx context.Context, req Positio
 		SortOrder: "asc",
 		Limit:     1000,
 	}
-	
+
 	columnTasks, err := pm.taskRepo.GetByProject(ctx, req.ProjectID, filters)
 	if err != nil {
 		return 0, domain.NewInternalError("POSITION_CALC_FAILED", "Failed to get column tasks", err)
@@ -109,7 +109,7 @@ func (pm *positionManager) CalculateNewPosition(ctx context.Context, req Positio
 // calculatePositionAtIndex calculates position for insertion at a specific index
 func (pm *positionManager) calculatePositionAtIndex(columnTasks []*domain.Task, index int) (int, error) {
 	numTasks := len(columnTasks)
-	
+
 	// Insert at beginning
 	if index <= 0 {
 		if numTasks == 0 {
@@ -117,16 +117,16 @@ func (pm *positionManager) calculatePositionAtIndex(columnTasks []*domain.Task, 
 		}
 		return pm.getPrevPosition(columnTasks[0].Position), nil
 	}
-	
+
 	// Insert at end
 	if index >= numTasks {
 		return pm.getNextPosition(columnTasks[numTasks-1].Position), nil
 	}
-	
+
 	// Insert in middle
 	beforePos := columnTasks[index-1].Position
 	afterPos := columnTasks[index].Position
-	
+
 	return pm.GetPositionBetween(beforePos, afterPos), nil
 }
 
@@ -134,7 +134,7 @@ func (pm *positionManager) calculatePositionAtIndex(columnTasks []*domain.Task, 
 func (pm *positionManager) calculatePositionRelative(columnTasks []*domain.Task, beforeTaskID, afterTaskID *string) (int, error) {
 	var beforePos, afterPos int
 	var beforeFound, afterFound bool
-	
+
 	// Find the reference tasks and their positions
 	for _, task := range columnTasks {
 		if beforeTaskID != nil && task.ID == *beforeTaskID {
@@ -146,7 +146,7 @@ func (pm *positionManager) calculatePositionRelative(columnTasks []*domain.Task,
 			beforeFound = true
 		}
 	}
-	
+
 	// Validate that reference tasks were found
 	if beforeTaskID != nil && !afterFound {
 		return 0, domain.NewValidationError("BEFORE_TASK_NOT_FOUND", "Before task not found in column", nil)
@@ -154,22 +154,22 @@ func (pm *positionManager) calculatePositionRelative(columnTasks []*domain.Task,
 	if afterTaskID != nil && !beforeFound {
 		return 0, domain.NewValidationError("AFTER_TASK_NOT_FOUND", "After task not found in column", nil)
 	}
-	
+
 	// Calculate position between reference tasks
 	if beforeFound && afterFound {
 		return pm.GetPositionBetween(beforePos, afterPos), nil
 	}
-	
+
 	// Position before a specific task
 	if afterFound {
 		return pm.getPrevPosition(afterPos), nil
 	}
-	
+
 	// Position after a specific task
 	if beforeFound {
 		return pm.getNextPosition(beforePos), nil
 	}
-	
+
 	// This shouldn't happen due to validation above
 	return MinPosition, nil
 }
@@ -179,10 +179,10 @@ func (pm *positionManager) GetPositionBetween(beforePos, afterPos int) int {
 	if beforePos >= afterPos {
 		return afterPos + DefaultIncrement
 	}
-	
+
 	// Calculate midpoint
 	midpoint := beforePos + (afterPos-beforePos)/2
-	
+
 	// Ensure minimum gap
 	if midpoint <= beforePos {
 		midpoint = beforePos + 1
@@ -190,13 +190,13 @@ func (pm *positionManager) GetPositionBetween(beforePos, afterPos int) int {
 	if midpoint >= afterPos {
 		midpoint = afterPos - 1
 	}
-	
+
 	// If no space for midpoint, trigger rebalancing
 	if midpoint <= beforePos || midpoint >= afterPos {
 		// Return a position that will trigger rebalancing
 		return beforePos + 1
 	}
-	
+
 	return midpoint
 }
 
@@ -225,7 +225,7 @@ func (pm *positionManager) RebalanceColumn(ctx context.Context, projectID string
 	if projectID == "" {
 		return domain.NewValidationError("INVALID_PROJECT_ID", "Project ID cannot be empty", nil)
 	}
-	
+
 	// Get all tasks in the column, ordered by current position
 	filters := repository.TaskFilters{
 		Status:    []domain.TaskStatus{status},
@@ -233,69 +233,69 @@ func (pm *positionManager) RebalanceColumn(ctx context.Context, projectID string
 		SortOrder: "asc",
 		Limit:     1000,
 	}
-	
+
 	tasks, err := pm.taskRepo.GetByProject(ctx, projectID, filters)
 	if err != nil {
 		return domain.NewInternalError("REBALANCE_FAILED", "Failed to get tasks for rebalancing", err)
 	}
-	
+
 	if len(tasks) == 0 {
 		return nil // Nothing to rebalance
 	}
-	
+
 	// Calculate new evenly spaced positions
 	totalRange := MaxPosition - MinPosition
 	increment := totalRange / (len(tasks) + 1)
-	
+
 	// Ensure minimum increment
 	if increment < DefaultIncrement {
 		increment = DefaultIncrement
 	}
-	
+
 	// Update positions
 	for i, task := range tasks {
 		newPosition := MinPosition + (i+1)*increment
-		
+
 		// Only update if position changed significantly
 		if abs(task.Position-newPosition) > RebalanceThreshold {
 			task.Position = newPosition
-			
+
 			if err := pm.taskRepo.Update(ctx, task); err != nil {
-				return domain.NewInternalError("REBALANCE_UPDATE_FAILED", 
+				return domain.NewInternalError("REBALANCE_UPDATE_FAILED",
 					fmt.Sprintf("Failed to update position for task %s", task.ID), err)
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 // ValidatePosition checks if a position is valid and doesn't conflict
 func (pm *positionManager) ValidatePosition(ctx context.Context, projectID string, status domain.TaskStatus, position int) error {
 	if position < MinPosition || position > MaxPosition {
-		return domain.NewValidationError("INVALID_POSITION", 
+		return domain.NewValidationError("INVALID_POSITION",
 			fmt.Sprintf("Position must be between %d and %d", MinPosition, MaxPosition), nil)
 	}
-	
+
 	// Check for position conflicts (optional strict validation)
 	filters := repository.TaskFilters{
 		Status: []domain.TaskStatus{status},
 		Limit:  1000,
 	}
-	
+
 	tasks, err := pm.taskRepo.GetByProject(ctx, projectID, filters)
 	if err != nil {
 		return domain.NewInternalError("POSITION_VALIDATION_FAILED", "Failed to validate position", err)
 	}
-	
+
 	// Check for exact position conflicts
 	for _, task := range tasks {
 		if task.Position == position {
-			return domain.NewConflictError("POSITION_CONFLICT", 
+			return domain.NewConflictError("POSITION_CONFLICT",
 				fmt.Sprintf("Position %d is already occupied", position))
 		}
 	}
-	
+
 	return nil
 }
 
@@ -307,16 +307,16 @@ func (pm *positionManager) ShouldRebalance(ctx context.Context, projectID string
 		SortOrder: "asc",
 		Limit:     1000,
 	}
-	
+
 	tasks, err := pm.taskRepo.GetByProject(ctx, projectID, filters)
 	if err != nil {
 		return false, err
 	}
-	
+
 	if len(tasks) < 2 {
 		return false, nil
 	}
-	
+
 	// Check if any adjacent positions are too close
 	for i := 1; i < len(tasks); i++ {
 		gap := tasks[i].Position - tasks[i-1].Position
@@ -324,13 +324,13 @@ func (pm *positionManager) ShouldRebalance(ctx context.Context, projectID string
 			return true, nil
 		}
 	}
-	
+
 	// Check for position overflow risk
 	lastPos := tasks[len(tasks)-1].Position
 	if lastPos > MaxPosition-DefaultIncrement {
 		return true, nil
 	}
-	
+
 	return false, nil
 }
 

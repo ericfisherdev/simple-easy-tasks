@@ -1,17 +1,16 @@
 package migrations
 
 import (
-	"database/sql"
 	"log/slog"
 
-	"github.com/pocketbase/pocketbase/daos"
+	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
 )
 
 func init() {
-	m.Register(func(db *sql.DB) error {
+	m.Register(func(app core.App) error {
 		slog.Info("Starting strategic index creation for performance optimization")
-		
+
 		// Strategic indexes for task queries based on Week 8 requirements
 		indexes := []struct {
 			name  string
@@ -67,7 +66,7 @@ func init() {
 				query: "CREATE INDEX IF NOT EXISTS idx_tasks_archived_project ON tasks(archived, project);",
 				desc:  "Optimizes queries that exclude archived tasks",
 			},
-			
+
 			// Indexes for supporting collections
 			{
 				name:  "idx_comments_task_created",
@@ -93,7 +92,7 @@ func init() {
 				query: "CREATE INDEX IF NOT EXISTS idx_tags_project_usage ON tags(project, usage_count);",
 				desc:  "Optimizes tag queries by project ordered by usage count",
 			},
-			
+
 			// Composite indexes for complex queries
 			{
 				name:  "idx_tasks_complex_kanban",
@@ -118,26 +117,26 @@ func init() {
 		// Create indexes
 		for _, idx := range indexes {
 			slog.Info("Creating index", "name", idx.name, "table", idx.table, "description", idx.desc)
-			
-			if _, err := db.Exec(idx.query); err != nil {
-				slog.Error("Failed to create index", 
-					"name", idx.name, 
-					"table", idx.table, 
+
+			if _, err := app.DB().NewQuery(idx.query).Execute(); err != nil {
+				slog.Error("Failed to create index",
+					"name", idx.name,
+					"table", idx.table,
 					"error", err.Error(),
 					"query", idx.query,
 				)
 				return err
 			}
-			
+
 			slog.Info("Successfully created index", "name", idx.name, "table", idx.table)
 		}
 
 		slog.Info("Strategic indexes created successfully")
 		return nil
-	}, func(db *sql.DB) error {
+	}, func(app core.App) error {
 		// Rollback: Drop the created indexes
 		slog.Info("Rolling back strategic indexes")
-		
+
 		indexes := []string{
 			"DROP INDEX IF EXISTS idx_tasks_project_status_position;",
 			"DROP INDEX IF EXISTS idx_tasks_assignee_status;",
@@ -157,7 +156,7 @@ func init() {
 		}
 
 		for _, query := range indexes {
-			if _, err := db.Exec(query); err != nil {
+			if _, err := app.DB().NewQuery(query).Execute(); err != nil {
 				slog.Warn("Failed to drop index during rollback", "error", err.Error(), "query", query)
 				// Continue with other indexes even if one fails
 			}
@@ -212,25 +211,25 @@ func AnalyzeQueryPerformance() []string {
 		SELECT * FROM tasks 
 		WHERE project = ? AND status = ? 
 		ORDER BY position;`,
-		
+
 		`-- Analyze user assignment queries  
 		EXPLAIN QUERY PLAN
 		SELECT * FROM tasks 
 		WHERE assignee = ? AND archived = false
 		ORDER BY priority, due_date;`,
-		
+
 		`-- Analyze due date queries
 		EXPLAIN QUERY PLAN
 		SELECT * FROM tasks 
 		WHERE due_date < datetime('now') AND status != 'complete'
 		ORDER BY due_date;`,
-		
+
 		`-- Analyze subtask queries
 		EXPLAIN QUERY PLAN
 		SELECT * FROM tasks 
 		WHERE parent_task = ?
 		ORDER BY position;`,
-		
+
 		`-- Analyze search queries
 		EXPLAIN QUERY PLAN
 		SELECT * FROM tasks 

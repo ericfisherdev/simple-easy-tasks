@@ -18,27 +18,27 @@ type CacheManager interface {
 	CacheTask(ctx context.Context, task *domain.Task) error
 	GetCachedTask(ctx context.Context, taskID string) (*domain.Task, error)
 	InvalidateTask(ctx context.Context, taskID string) error
-	
+
 	// Board state caching
 	CacheBoardState(ctx context.Context, projectID string, board *KanbanBoard) error
 	GetCachedBoardState(ctx context.Context, projectID string) (*KanbanBoard, error)
 	InvalidateBoardState(ctx context.Context, projectID string) error
-	
+
 	// Query result caching
 	CacheQueryResult(ctx context.Context, key string, result interface{}, ttl time.Duration) error
 	GetCachedQueryResult(ctx context.Context, key string, dest interface{}) error
 	InvalidateQueryPattern(ctx context.Context, pattern string) error
-	
+
 	// Statistics caching
 	CacheStatistics(ctx context.Context, projectID string, stats *BoardStatistics) error
 	GetCachedStatistics(ctx context.Context, projectID string) (*BoardStatistics, error)
 	InvalidateStatistics(ctx context.Context, projectID string) error
-	
+
 	// User-specific caching
 	CacheUserTasks(ctx context.Context, userID string, tasks []*domain.Task) error
 	GetCachedUserTasks(ctx context.Context, userID string) ([]*domain.Task, error)
 	InvalidateUserCache(ctx context.Context, userID string) error
-	
+
 	// Cache management
 	FlushCache(ctx context.Context) error
 	GetCacheStats(ctx context.Context) (*CacheStats, error)
@@ -77,13 +77,13 @@ type BackendStats struct {
 
 // CacheConfig configures cache behavior
 type CacheConfig struct {
-	TaskTTL       time.Duration `json:"task_ttl"`
-	BoardTTL      time.Duration `json:"board_ttl"`
-	StatsTTL      time.Duration `json:"stats_ttl"`
-	QueryTTL      time.Duration `json:"query_ttl"`
-	UserTasksTTL  time.Duration `json:"user_tasks_ttl"`
-	MaxMemory     int64         `json:"max_memory_bytes"`
-	Partitioning  bool          `json:"partitioning"`
+	TaskTTL      time.Duration `json:"task_ttl"`
+	BoardTTL     time.Duration `json:"board_ttl"`
+	StatsTTL     time.Duration `json:"stats_ttl"`
+	QueryTTL     time.Duration `json:"query_ttl"`
+	UserTasksTTL time.Duration `json:"user_tasks_ttl"`
+	MaxMemory    int64         `json:"max_memory_bytes"`
+	Partitioning bool          `json:"partitioning"`
 }
 
 // cacheManager implements sophisticated caching strategies
@@ -95,25 +95,25 @@ type cacheManager struct {
 
 // cacheStats tracks cache performance internally
 type cacheStats struct {
-	hits    int64
-	misses  int64
+	hits      int64
+	misses    int64
 	evictions int64
 }
 
 // Cache key constants and patterns
 const (
-	TaskCachePrefix       = "task:"
-	BoardCachePrefix      = "board:"
-	StatsCachePrefix      = "stats:"
-	QueryCachePrefix      = "query:"
-	UserTasksCachePrefix  = "user_tasks:"
-	
+	TaskCachePrefix      = "task:"
+	BoardCachePrefix     = "board:"
+	StatsCachePrefix     = "stats:"
+	QueryCachePrefix     = "query:"
+	UserTasksCachePrefix = "user_tasks:"
+
 	// Cache key patterns for invalidation
-	TaskPattern       = "task:*"
-	BoardPattern      = "board:*"
-	StatsPattern      = "stats:*"
-	UserPattern       = "user_tasks:*"
-	ProjectPattern    = "project:%s:*" // Format with project ID
+	TaskPattern    = "task:*"
+	BoardPattern   = "board:*"
+	StatsPattern   = "stats:*"
+	UserPattern    = "user_tasks:*"
+	ProjectPattern = "project:%s:*" // Format with project ID
 )
 
 // NewCacheManager creates a new cache manager
@@ -139,8 +139,8 @@ func (cm *cacheManager) CacheTask(ctx context.Context, task *domain.Task) error 
 	}
 
 	if err := cm.backend.Set(ctx, key, data, cm.config.TaskTTL); err != nil {
-		slog.Warn("Failed to cache task", 
-			"task_id", task.ID, 
+		slog.Warn("Failed to cache task",
+			"task_id", task.ID,
 			"error", err.Error(),
 		)
 		// Don't fail the operation if caching fails
@@ -165,7 +165,7 @@ func (cm *cacheManager) GetCachedTask(ctx context.Context, taskID string) (*doma
 	var task domain.Task
 	if err := json.Unmarshal(data, &task); err != nil {
 		// Invalid cached data, delete it
-		cm.backend.Delete(ctx, key)
+		_ = cm.backend.Delete(ctx, key) // Ignore error when cleaning up invalid cache
 		cm.stats.misses++
 		return nil, nil
 	}
@@ -213,20 +213,11 @@ func (cm *cacheManager) GetCachedBoardState(ctx context.Context, projectID strin
 	}
 
 	key := cm.buildBoardKey(projectID)
-	data, err := cm.backend.Get(ctx, key)
-	if err != nil {
-		cm.stats.misses++
-		return nil, nil
-	}
-
 	var board KanbanBoard
-	if err := json.Unmarshal(data, &board); err != nil {
-		cm.backend.Delete(ctx, key)
-		cm.stats.misses++
+	if err := cm.getCachedData(ctx, key, &board); err != nil {
 		return nil, nil
 	}
 
-	cm.stats.hits++
 	return &board, nil
 }
 
@@ -272,7 +263,7 @@ func (cm *cacheManager) GetCachedQueryResult(ctx context.Context, key string, de
 	}
 
 	if err := json.Unmarshal(data, dest); err != nil {
-		cm.backend.Delete(ctx, cacheKey)
+		_ = cm.backend.Delete(ctx, cacheKey) // Ignore error when cleaning up invalid cache
 		cm.stats.misses++
 		return nil
 	}
@@ -312,20 +303,11 @@ func (cm *cacheManager) GetCachedStatistics(ctx context.Context, projectID strin
 	}
 
 	key := cm.buildStatsKey(projectID)
-	data, err := cm.backend.Get(ctx, key)
-	if err != nil {
-		cm.stats.misses++
-		return nil, nil
-	}
-
 	var stats BoardStatistics
-	if err := json.Unmarshal(data, &stats); err != nil {
-		cm.backend.Delete(ctx, key)
-		cm.stats.misses++
+	if err := cm.getCachedData(ctx, key, &stats); err != nil {
 		return nil, nil
 	}
 
-	cm.stats.hits++
 	return &stats, nil
 }
 
@@ -368,7 +350,7 @@ func (cm *cacheManager) GetCachedUserTasks(ctx context.Context, userID string) (
 
 	var tasks []*domain.Task
 	if err := json.Unmarshal(data, &tasks); err != nil {
-		cm.backend.Delete(ctx, key)
+		_ = cm.backend.Delete(ctx, key) // Ignore error when cleaning up invalid cache
 		cm.stats.misses++
 		return nil, nil
 	}
@@ -515,38 +497,56 @@ func (cm *cacheManager) BuildProjectQueryKey(projectID string, operation string,
 	return key
 }
 
+// getCachedData is a generic helper for retrieving and unmarshaling cached data
+func (cm *cacheManager) getCachedData(ctx context.Context, key string, dest interface{}) error {
+	data, err := cm.backend.Get(ctx, key)
+	if err != nil {
+		cm.stats.misses++
+		return err
+	}
+
+	if err := json.Unmarshal(data, dest); err != nil {
+		_ = cm.backend.Delete(ctx, key) // Ignore error when cleaning up invalid cache
+		cm.stats.misses++
+		return err
+	}
+
+	cm.stats.hits++
+	return nil
+}
+
 // BuildFiltersKey creates a cache key from task filters
 func (cm *cacheManager) BuildFiltersKey(filters repository.TaskFilters) string {
 	key := "filters"
-	
+
 	if len(filters.Status) > 0 {
 		key += ":status"
 		for _, s := range filters.Status {
 			key += "-" + string(s)
 		}
 	}
-	
+
 	if len(filters.Priority) > 0 {
 		key += ":priority"
 		for _, p := range filters.Priority {
 			key += "-" + string(p)
 		}
 	}
-	
+
 	if filters.AssigneeID != nil {
 		key += ":assignee-" + *filters.AssigneeID
 	}
-	
+
 	if filters.Search != "" {
 		key += ":search-" + filters.Search
 	}
-	
+
 	if filters.SortBy != "" {
 		key += ":sort-" + filters.SortBy + "-" + filters.SortOrder
 	}
-	
+
 	key += ":limit-" + strconv.Itoa(filters.Limit)
 	key += ":offset-" + strconv.Itoa(filters.Offset)
-	
+
 	return key
 }
