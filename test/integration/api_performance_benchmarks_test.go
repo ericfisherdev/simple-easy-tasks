@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/testutil/integration"
 )
 
 // APIPerformanceBenchmarkSuite provides performance testing for API endpoints
@@ -739,7 +738,6 @@ func (s *APIPerformanceBenchmarkSuite) createTestTasks(b *testing.B, count int) 
 			Description: "Task for performance testing",
 			ProjectID:   s.testProject.ID,
 			Priority:    domain.PriorityMedium,
-			Status:      domain.BacklogTask,
 		}
 
 		task, err := taskService.CreateTask(ctx, req, s.testUser.ID)

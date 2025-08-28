@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -21,8 +20,8 @@ import (
 
 	"simple-easy-tasks/internal/api"
 	"simple-easy-tasks/internal/api/middleware"
-	"simple-easy-tasks/internal/config"
 	"simple-easy-tasks/internal/domain"
+	"simple-easy-tasks/internal/services"
 	"simple-easy-tasks/internal/testutil/integration"
 )
 
@@ -77,7 +76,7 @@ func setupAPITestSuite(t *testing.T) *APIEndpointsTestSuite {
 	userHandler := api.NewUserHandler(userRepo)
 	projectHandler := api.NewProjectHandler(projectService, projectRepo)
 	taskHandler := api.NewTaskHandler(taskService, taskRepo)
-	healthHandler := api.NewHealthHandler(healthService)
+	healthHandler := api.NewHealthHandler(healthService.(*services.HealthService))
 	realtimeHandler := api.NewRealtimeHandler(subscriptionManager, eventBroadcaster, app)
 
 	// Register routes

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"simple-easy-tasks/internal/config"
@@ -41,12 +42,14 @@ type RepositorySet struct {
 
 // ServiceSet holds all service instances for testing
 type ServiceSet struct {
-	Auth    services.AuthService
-	User    services.UserService
-	Project services.ProjectService
-	Task    services.TaskService
-	Comment services.CommentService
-	Health  services.HealthServiceInterface
+	Auth                services.AuthService
+	User                services.UserService
+	Project             services.ProjectService
+	Task                services.TaskService
+	Comment             services.CommentService
+	Health              services.HealthServiceInterface
+	SubscriptionManager services.SubscriptionManager
+	EventBroadcaster    services.EventBroadcaster
 }
 
 // TestSuiteOptions configures test suite behavior
@@ -131,6 +134,11 @@ func SetupDatabaseTestWithOptions(t *testing.T, options *TestSuiteOptions) *Data
 		} else {
 			serviceSet.Health = healthService
 		}
+
+		// TODO: Add resolution for SubscriptionManager and EventBroadcaster when available in container
+		// For now, these will be nil and tests should handle gracefully
+		// serviceSet.SubscriptionManager = nil 
+		// serviceSet.EventBroadcaster = nil
 
 		// Also resolve repositories from container for backward compatibility
 		repos = &RepositorySet{}
@@ -226,34 +234,120 @@ func (s *DatabaseTestSuite) RequireServices(t *testing.T) {
 	}
 }
 
+// RequireServicesT ensures this suite has services configured, fails the test if not (generic version)
+func (s *DatabaseTestSuite) RequireServicesT(t TestingT) {
+	if !s.HasServices() {
+		t.Fatal("Test requires DI services but suite was not configured with UseDependencyInjection=true")
+	}
+}
+
+// TestingT is an interface that both *testing.T and *testing.B implement
+type TestingT interface {
+	Helper()
+	Fatal(args ...interface{})
+	Fatalf(format string, args ...interface{})
+	Skip(args ...interface{})
+	Skipf(format string, args ...interface{})
+}
+
 // GetTaskService returns the task service, ensuring it's available
-func (s *DatabaseTestSuite) GetTaskService(t *testing.T) services.TaskService {
+func (s *DatabaseTestSuite) GetTaskService(t TestingT) services.TaskService {
+	s.RequireServicesT(t)
+	return s.Services.Task
+}
+
+// GetTaskServiceT is the original method for backward compatibility
+func (s *DatabaseTestSuite) GetTaskServiceT(t *testing.T) services.TaskService {
 	s.RequireServices(t)
 	return s.Services.Task
 }
 
 // GetProjectService returns the project service, ensuring it's available
-func (s *DatabaseTestSuite) GetProjectService(t *testing.T) services.ProjectService {
-	s.RequireServices(t)
+func (s *DatabaseTestSuite) GetProjectService(t TestingT) services.ProjectService {
+	s.RequireServicesT(t)
 	return s.Services.Project
 }
 
 // GetUserService returns the user service, ensuring it's available
-func (s *DatabaseTestSuite) GetUserService(t *testing.T) services.UserService {
-	s.RequireServices(t)
+func (s *DatabaseTestSuite) GetUserService(t TestingT) services.UserService {
+	s.RequireServicesT(t)
 	return s.Services.User
 }
 
 // GetCommentService returns the comment service, ensuring it's available
-func (s *DatabaseTestSuite) GetCommentService(t *testing.T) services.CommentService {
-	s.RequireServices(t)
+func (s *DatabaseTestSuite) GetCommentService(t TestingT) services.CommentService {
+	s.RequireServicesT(t)
 	return s.Services.Comment
 }
 
 // GetAuthService returns the auth service, ensuring it's available
-func (s *DatabaseTestSuite) GetAuthService(t *testing.T) services.AuthService {
-	s.RequireServices(t)
+func (s *DatabaseTestSuite) GetAuthService(t TestingT) services.AuthService {
+	s.RequireServicesT(t)
 	return s.Services.Auth
+}
+
+// GetHealthService returns the health service, ensuring it's available
+func (s *DatabaseTestSuite) GetHealthService(t TestingT) services.HealthServiceInterface {
+	s.RequireServicesT(t)
+	return s.Services.Health
+}
+
+// GetUserRepository returns the user repository, ensuring it's available
+func (s *DatabaseTestSuite) GetUserRepository(t TestingT) repository.UserRepository {
+	if s.Repos == nil || s.Repos.Users == nil {
+		t.Fatal("User repository not available - ensure suite is configured properly")
+	}
+	return s.Repos.Users
+}
+
+// GetProjectRepository returns the project repository, ensuring it's available
+func (s *DatabaseTestSuite) GetProjectRepository(t TestingT) repository.ProjectRepository {
+	if s.Repos == nil || s.Repos.Projects == nil {
+		t.Fatal("Project repository not available - ensure suite is configured properly")
+	}
+	return s.Repos.Projects
+}
+
+// GetTaskRepository returns the task repository, ensuring it's available
+func (s *DatabaseTestSuite) GetTaskRepository(t TestingT) repository.TaskRepository {
+	if s.Repos == nil || s.Repos.Tasks == nil {
+		t.Fatal("Task repository not available - ensure suite is configured properly")
+	}
+	return s.Repos.Tasks
+}
+
+// GetCommentRepository returns the comment repository, ensuring it's available
+func (s *DatabaseTestSuite) GetCommentRepository(t TestingT) repository.CommentRepository {
+	if s.Repos == nil || s.Repos.Comments == nil {
+		t.Fatal("Comment repository not available - ensure suite is configured properly")
+	}
+	return s.Repos.Comments
+}
+
+// GetSubscriptionManager returns the subscription manager, ensuring it's available
+func (s *DatabaseTestSuite) GetSubscriptionManager(t TestingT) services.SubscriptionManager {
+	s.RequireServicesT(t)
+	if s.Services.SubscriptionManager == nil {
+		t.Skip("SubscriptionManager not available - skipping test")
+	}
+	return s.Services.SubscriptionManager
+}
+
+// GetEventBroadcaster returns the event broadcaster, ensuring it's available
+func (s *DatabaseTestSuite) GetEventBroadcaster(t TestingT) services.EventBroadcaster {
+	s.RequireServicesT(t)
+	if s.Services.EventBroadcaster == nil {
+		t.Skip("EventBroadcaster not available - skipping test")
+	}
+	return s.Services.EventBroadcaster
+}
+
+// GetPocketBaseApp returns the PocketBase app instance
+func (s *DatabaseTestSuite) GetPocketBaseApp(t TestingT) core.App {
+	if s.DB == nil || s.DB.App() == nil {
+		t.Fatal("PocketBase app not available - ensure suite is configured properly")
+	}
+	return s.DB.App()
 }
 
 // AssertDatabaseState provides database-specific assertions

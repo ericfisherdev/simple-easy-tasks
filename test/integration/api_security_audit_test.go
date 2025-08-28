@@ -4,12 +4,9 @@
 package integration
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/testutil/integration"
 )
 
 // SecurityAuditTestSuite provides comprehensive security testing for API endpoints
