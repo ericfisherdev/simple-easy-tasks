@@ -27,11 +27,11 @@ func TestUserRepository_SelectFieldBehavior(t *testing.T) {
 	t.Run("SelectField_MissingFieldGracefulHandling", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange - Create admin user (role field doesn't exist in collection schema)
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("admin@selecttest.com"),
@@ -54,7 +54,7 @@ func TestUserRepository_SelectFieldBehavior(t *testing.T) {
 		assert.Equal(t, domain.RegularUserRole, retrieved.Role, "Retrieved user defaults to RegularUserRole when role field missing from schema")
 		assert.Equal(t, "user", string(retrieved.Role), "Role should default to 'user' string")
 		assert.NotEmpty(t, string(retrieved.Role), "Role should not be empty string")
-		
+
 		// Verify other fields persisted correctly
 		assert.Equal(t, user.Email, retrieved.Email)
 		assert.Equal(t, user.Name, retrieved.Name)
@@ -63,11 +63,11 @@ func TestUserRepository_SelectFieldBehavior(t *testing.T) {
 	t.Run("SelectField_RegularUserBehavior", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange - Create regular user
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("user@selecttest.com"),
@@ -86,7 +86,7 @@ func TestUserRepository_SelectFieldBehavior(t *testing.T) {
 		// Assert - Role correctly defaults to RegularUserRole (matches what we set)
 		assert.Equal(t, domain.RegularUserRole, retrieved.Role, "Retrieved user should have RegularUserRole")
 		assert.Equal(t, "user", string(retrieved.Role), "Role should be 'user' string")
-		
+
 		// Verify other fields persisted correctly
 		assert.Equal(t, user.Email, retrieved.Email)
 		assert.Equal(t, user.Name, retrieved.Name)
@@ -96,7 +96,7 @@ func TestUserRepository_SelectFieldBehavior(t *testing.T) {
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange - Create user with empty role
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("emptyrole@selecttest.com"),
@@ -108,7 +108,7 @@ func TestUserRepository_SelectFieldBehavior(t *testing.T) {
 		// Act - Validate should set default role
 		err := user.Validate()
 		require.NoError(t, err, "Validation should succeed and set default role")
-		
+
 		// Assert - Role should be set to default by validation
 		assert.Equal(t, domain.RegularUserRole, user.Role, "Role should default to RegularUserRole after validation")
 	})
@@ -117,7 +117,7 @@ func TestUserRepository_SelectFieldBehavior(t *testing.T) {
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange - Create user with invalid role
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("invalidrole@selecttest.com"),
@@ -137,11 +137,11 @@ func TestUserRepository_SelectFieldBehavior(t *testing.T) {
 	t.Run("SelectField_RetrieveByEmail", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		email := "emailtest@selecttest.com"
 		user := suite.Factory.CreateUser(

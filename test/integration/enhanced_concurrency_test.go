@@ -373,7 +373,7 @@ func TestConcurrentServiceErrorHandling(t *testing.T) {
 	numGoroutines := 20
 	var wg sync.WaitGroup
 	startBarrier := make(chan struct{})
-	
+
 	var validCreations int64
 	var validationErrors int64
 	var otherErrors int64
@@ -414,9 +414,9 @@ func TestConcurrentServiceErrorHandling(t *testing.T) {
 			} else {
 				// Classify error types
 				errStr := err.Error()
-				if strings.Contains(errStr, "title is required") || 
-				   strings.Contains(errStr, "validation error") ||
-				   strings.Contains(errStr, "INVALID_TITLE") {
+				if strings.Contains(errStr, "title is required") ||
+					strings.Contains(errStr, "validation error") ||
+					strings.Contains(errStr, "INVALID_TITLE") {
 					atomic.AddInt64(&validationErrors, 1)
 				} else {
 					atomic.AddInt64(&otherErrors, 1)
@@ -577,7 +577,7 @@ func TestConcurrentServiceAuthenticationChecks(t *testing.T) {
 	numGoroutines := 20
 	var wg sync.WaitGroup
 	startBarrier := make(chan struct{})
-	
+
 	var authorizedAccess int64
 	var unauthorizedAccess int64
 	var authErrors int64

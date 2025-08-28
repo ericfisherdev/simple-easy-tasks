@@ -24,12 +24,12 @@ import (
 // ErrorHandlingTestSuite provides comprehensive database error handling testing infrastructure
 type ErrorHandlingTestSuite struct {
 	*integration.DatabaseTestSuite
-	maxRetries      int
-	retryDelay      time.Duration
-	connectionPool  int
-	queryTimeout    time.Duration
-	circuitBreaker  *CircuitBreaker
-	errorStats      *ErrorStatistics
+	maxRetries     int
+	retryDelay     time.Duration
+	connectionPool int
+	queryTimeout   time.Duration
+	circuitBreaker *CircuitBreaker
+	errorStats     *ErrorStatistics
 }
 
 // ErrorStatistics tracks error patterns during testing
@@ -165,7 +165,7 @@ func (s *ErrorHandlingTestSuite) simulateConnectionPoolExhaustion(t *testing.T) 
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -200,7 +200,7 @@ func (s *ErrorHandlingTestSuite) simulateDatabaseLock(t *testing.T) func() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		
+
 		// Execute a long-running query to simulate lock
 		for {
 			select {
@@ -233,7 +233,7 @@ func (s *ErrorHandlingTestSuite) simulateDatabaseLock(t *testing.T) func() {
 func (s *ErrorHandlingTestSuite) simulateDiskFullError(t *testing.T) func() {
 	// This is a simplified simulation - in a real test environment,
 	// you might use a test filesystem with limited space
-	
+
 	// For now, we'll create a condition that might trigger disk-related errors
 	// by attempting to create very large temporary data
 	var wg sync.WaitGroup
@@ -242,7 +242,7 @@ func (s *ErrorHandlingTestSuite) simulateDiskFullError(t *testing.T) func() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -306,7 +306,7 @@ func TestDatabaseConnectionFailureScenarios(t *testing.T) {
 
 			// Test basic database operations under failure conditions
 			user := suite.Factory.CreateUser()
-			
+
 			// Attempt to create user with retry logic
 			err := suite.executeWithRetry(func() error {
 				return suite.Repos.Users.Create(suite.Context(), user)
@@ -320,7 +320,7 @@ func TestDatabaseConnectionFailureScenarios(t *testing.T) {
 					assert.Error(t, err)
 					errStr := strings.ToLower(err.Error())
 					if tc.errorType != "" {
-						assert.Contains(t, errStr, tc.errorType, 
+						assert.Contains(t, errStr, tc.errorType,
 							"Error should contain expected type: %s", tc.errorType)
 					}
 				}
@@ -393,10 +393,10 @@ func TestConstraintViolationHandling(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Execute the operation that should violate constraints
 			err := tc.setup()
-			
+
 			// Verify constraint violation occurred
 			require.Error(t, err, "Expected constraint violation error")
-			
+
 			errStr := strings.ToLower(err.Error())
 			assert.Contains(t, errStr, strings.ToLower(tc.expectedError),
 				"Error should indicate constraint violation: %s", tc.expectedError)
@@ -433,7 +433,7 @@ func TestDeadlockDetectionAndRetry(t *testing.T) {
 		integration.WithUserEmail("user1@deadlock.test"))
 	user2 := suite.Factory.CreateUser(
 		integration.WithUserEmail("user2@deadlock.test"))
-	
+
 	require.NoError(t, suite.Repos.Users.Create(suite.Context(), user1))
 	require.NoError(t, suite.Repos.Users.Create(suite.Context(), user2))
 
@@ -442,7 +442,7 @@ func TestDeadlockDetectionAndRetry(t *testing.T) {
 
 	task1 := suite.Factory.CreateTask(project, user1)
 	task2 := suite.Factory.CreateTask(project, user2)
-	
+
 	require.NoError(t, suite.Repos.Tasks.Create(suite.Context(), task1))
 	require.NoError(t, suite.Repos.Tasks.Create(suite.Context(), task2))
 
@@ -459,10 +459,10 @@ func TestDeadlockDetectionAndRetry(t *testing.T) {
 		wg.Add(1)
 		go func(goroutineID int) {
 			defer wg.Done()
-			
+
 			// Wait for start signal
 			<-startBarrier
-			
+
 			// Alternate between updating different tasks to create deadlock potential
 			var targetTask *domain.Task
 			if goroutineID%2 == 0 {
@@ -475,10 +475,10 @@ func TestDeadlockDetectionAndRetry(t *testing.T) {
 			err := suite.executeWithDeadlockRetry(func() error {
 				// Simulate complex update operation
 				updatedTask := *targetTask
-				updatedTask.Title = fmt.Sprintf("Updated by goroutine %d at %v", 
+				updatedTask.Title = fmt.Sprintf("Updated by goroutine %d at %v",
 					goroutineID, time.Now().UnixNano())
 				updatedTask.Description = fmt.Sprintf("Deadlock test update from %d", goroutineID)
-				
+
 				return suite.Repos.Tasks.Update(suite.Context(), &updatedTask)
 			})
 
@@ -543,7 +543,7 @@ func TestLockTimeoutHandling(t *testing.T) {
 	lockingWg.Add(1)
 	go func() {
 		defer lockingWg.Done()
-		
+
 		for {
 			select {
 			case <-lockingCtx.Done():
@@ -604,9 +604,9 @@ func TestLockTimeoutHandling(t *testing.T) {
 				if err != nil {
 					t.Logf("Operation failed as expected due to lock: %v", err)
 					errStr := strings.ToLower(err.Error())
-					if strings.Contains(errStr, "timeout") || 
-					   strings.Contains(errStr, "locked") || 
-					   strings.Contains(errStr, "busy") {
+					if strings.Contains(errStr, "timeout") ||
+						strings.Contains(errStr, "locked") ||
+						strings.Contains(errStr, "busy") {
 						// Expected behavior - lock timeout occurred
 						atomic.AddInt64(&suite.errorStats.TimeoutErrors, 1)
 					}
@@ -652,7 +652,7 @@ func TestTransactionRollbackOnErrors(t *testing.T) {
 			transactionOp: func() error {
 				// Simulate a multi-step operation that fails
 				task1 := suite.Factory.CreateTask(project, user)
-				
+
 				// This should succeed
 				if err := suite.Repos.Tasks.Create(suite.Context(), task1); err != nil {
 					return err
@@ -678,7 +678,7 @@ func TestTransactionRollbackOnErrors(t *testing.T) {
 				}
 
 				taskService := suite.GetTaskService(t)
-				
+
 				// Create a valid task first
 				req1 := domain.CreateTaskRequest{
 					Title:       "First task",
@@ -686,7 +686,7 @@ func TestTransactionRollbackOnErrors(t *testing.T) {
 					ProjectID:   project.ID,
 					Priority:    domain.PriorityMedium,
 				}
-				
+
 				_, err := taskService.CreateTask(suite.Context(), req1, user.ID)
 				if err != nil {
 					return err
@@ -699,7 +699,7 @@ func TestTransactionRollbackOnErrors(t *testing.T) {
 					ProjectID:   project.ID,
 					Priority:    domain.PriorityMedium,
 				}
-				
+
 				_, err = taskService.CreateTask(suite.Context(), req2, user.ID)
 				return err
 			},
@@ -718,19 +718,19 @@ func TestTransactionRollbackOnErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Record initial state
 			initialTaskCount := suite.getTaskCount()
-			
+
 			// Execute the transaction
 			err := tc.transactionOp()
-			
+
 			if tc.shouldRollback {
 				// We expect an error and rollback
 				assert.Error(t, err, "Expected error to trigger rollback")
-				
+
 				// Verify rollback occurred
 				finalTaskCount := suite.getTaskCount()
 				assert.Equal(t, initialTaskCount, finalTaskCount,
 					"Task count should be unchanged after rollback")
-				
+
 				atomic.AddInt64(&suite.errorStats.TransactionRollbacks, 1)
 			}
 
@@ -775,7 +775,7 @@ func TestGracefulDegradationStrategies(t *testing.T) {
 	// Test circuit breaker pattern
 	t.Run("CircuitBreakerPattern", func(t *testing.T) {
 		circuitBreaker := NewCircuitBreaker(3, 5*time.Second)
-		
+
 		// Simulate multiple failures to trip the circuit breaker
 		for i := 0; i < 4; i++ {
 			circuitBreaker.RecordFailure()
@@ -786,7 +786,7 @@ func TestGracefulDegradationStrategies(t *testing.T) {
 		assert.False(t, circuitBreaker.CanExecute())
 
 		atomic.AddInt64(&suite.errorStats.CircuitBreakerTrips, 1)
-		
+
 		t.Log("Circuit breaker tripped after threshold failures")
 	})
 
@@ -821,17 +821,17 @@ func TestErrorRecoveryMechanisms(t *testing.T) {
 	t.Run("AutomaticReconnection", func(t *testing.T) {
 		// Create test data
 		user := suite.Factory.CreateUser()
-		
+
 		// Simulate temporary database failure
 		cleanup := suite.simulateDatabaseFailure(t, "connection_timeout")
-		
+
 		// Attempt operation with retry
 		err := suite.executeWithRetry(func() error {
 			return suite.Repos.Users.Create(suite.Context(), user)
 		}, "create_user_with_recovery")
 
 		cleanup() // Remove failure simulation
-		
+
 		// After cleanup, operation should succeed
 		if err != nil {
 			// Try one more time after cleanup
@@ -854,13 +854,13 @@ func TestErrorRecoveryMechanisms(t *testing.T) {
 		}
 
 		healthService := suite.Services.Health
-		
+
 		// Perform health check
 		healthResponse := healthService.Check(suite.Context())
-		
+
 		t.Logf("Health check status: %s", healthResponse.Status)
 		t.Logf("Health checks performed: %d", len(healthResponse.Checks))
-		
+
 		// Health checks should provide recovery information
 		assert.NotEmpty(t, healthResponse.Status)
 		assert.NotZero(t, healthResponse.Uptime)
@@ -872,7 +872,7 @@ func TestErrorRecoveryMechanisms(t *testing.T) {
 // executeWithRetry executes an operation with retry logic
 func (s *ErrorHandlingTestSuite) executeWithRetry(operation func() error, operationName string) error {
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= s.maxRetries; attempt++ {
 		// Check circuit breaker
 		if !s.circuitBreaker.CanExecute() {
@@ -918,12 +918,12 @@ func (s *ErrorHandlingTestSuite) executeWithDeadlockRetry(operation func() error
 
 		lastErr = err
 		errStr := strings.ToLower(err.Error())
-		
+
 		// Check for deadlock-specific errors
-		if strings.Contains(errStr, "deadlock") || 
-		   strings.Contains(errStr, "database is locked") ||
-		   strings.Contains(errStr, "busy") {
-			
+		if strings.Contains(errStr, "deadlock") ||
+			strings.Contains(errStr, "database is locked") ||
+			strings.Contains(errStr, "busy") {
+
 			if attempt < maxDeadlockRetries {
 				// Randomized backoff for deadlock resolution
 				backoff := time.Duration(attempt+1) * 50 * time.Millisecond
@@ -931,7 +931,7 @@ func (s *ErrorHandlingTestSuite) executeWithDeadlockRetry(operation func() error
 				continue
 			}
 		}
-		
+
 		// Non-deadlock error or max retries reached
 		break
 	}
@@ -946,7 +946,7 @@ func (s *ErrorHandlingTestSuite) isRetryableError(err error) bool {
 	}
 
 	errStr := strings.ToLower(err.Error())
-	
+
 	// Retryable error patterns
 	retryablePatterns := []string{
 		"timeout",
@@ -1001,7 +1001,7 @@ func TestErrorHandlingStatistics(t *testing.T) {
 
 	// Execute various operations to generate statistics
 	user := suite.Factory.CreateUser()
-	
+
 	// Test constraint violation (should increment constraint violations)
 	duplicateUser := suite.Factory.CreateUser(integration.WithUserEmail(user.Email))
 	_ = suite.Repos.Users.Create(suite.Context(), user)
@@ -1017,7 +1017,7 @@ func TestErrorHandlingStatistics(t *testing.T) {
 
 	// Verify statistics
 	stats := suite.errorStats
-	
+
 	t.Logf("Error handling statistics:")
 	t.Logf("  Connection failures: %d", atomic.LoadInt64(&stats.ConnectionFailures))
 	t.Logf("  Timeout errors: %d", atomic.LoadInt64(&stats.TimeoutErrors))
@@ -1029,8 +1029,8 @@ func TestErrorHandlingStatistics(t *testing.T) {
 	t.Logf("  Circuit breaker trips: %d", atomic.LoadInt64(&stats.CircuitBreakerTrips))
 
 	// Verify that some statistics were recorded
-	totalErrors := atomic.LoadInt64(&stats.ConstraintViolations) + 
-	             atomic.LoadInt64(&stats.RetryAttempts)
+	totalErrors := atomic.LoadInt64(&stats.ConstraintViolations) +
+		atomic.LoadInt64(&stats.RetryAttempts)
 	assert.Greater(t, totalErrors, int64(0), "Should have recorded some error statistics")
 }
 
@@ -1051,7 +1051,7 @@ func TestComprehensiveErrorScenario(t *testing.T) {
 	var wg sync.WaitGroup
 	var successCount int64
 	var errorCount int64
-	
+
 	// Various failure simulations
 	cleanupFuncs := []func(){
 		suite.simulateDatabaseFailure(t, "connection_timeout"),
@@ -1069,9 +1069,9 @@ func TestComprehensiveErrorScenario(t *testing.T) {
 		wg.Add(1)
 		go func(goroutineID int) {
 			defer wg.Done()
-			
+
 			<-startBarrier
-			
+
 			// Mix different operations
 			var err error
 			switch goroutineID % 4 {
@@ -1081,7 +1081,7 @@ func TestComprehensiveErrorScenario(t *testing.T) {
 				err = suite.executeWithRetry(func() error {
 					return suite.Repos.Tasks.Create(suite.Context(), task)
 				}, "create_task")
-				
+
 			case 1:
 				// Update project
 				updatedProject := *project
@@ -1089,14 +1089,14 @@ func TestComprehensiveErrorScenario(t *testing.T) {
 				err = suite.executeWithRetry(func() error {
 					return suite.Repos.Projects.Update(suite.Context(), &updatedProject)
 				}, "update_project")
-				
+
 			case 2:
 				// Query operations
 				err = suite.executeWithRetry(func() error {
 					_, queryErr := suite.Repos.Users.GetByID(suite.Context(), user.ID)
 					return queryErr
 				}, "query_user")
-				
+
 			case 3:
 				// Create comment (if tasks exist)
 				if tasks, listErr := suite.Repos.Tasks.ListByProject(suite.Context(), project.ID, 0, 1); listErr == nil && len(tasks) > 0 {

@@ -507,22 +507,39 @@ func generateTaskCardHTML(task Task) string {
 }
 
 func generateTaskListHTML(taskList []Task) string {
+	backlogTasks := []Task{}
 	todoTasks := []Task{}
-	inProgressTasks := []Task{}
-	doneTasks := []Task{}
+	developingTasks := []Task{}
+	reviewTasks := []Task{}
+	completeTasks := []Task{}
 
 	for _, task := range taskList {
 		switch task.Status {
+		case "backlog":
+			backlogTasks = append(backlogTasks, task)
 		case "todo":
 			todoTasks = append(todoTasks, task)
-		case "inprogress":
-			inProgressTasks = append(inProgressTasks, task)
-		case "done":
-			doneTasks = append(doneTasks, task)
+		case "developing", "inprogress": // Support both old and new status names
+			developingTasks = append(developingTasks, task)
+		case "review":
+			reviewTasks = append(reviewTasks, task)
+		case "complete", "done": // Support both old and new status names
+			completeTasks = append(completeTasks, task)
 		}
 	}
 
 	return fmt.Sprintf(`
+<!-- Backlog Column -->
+<div class="bg-white rounded-lg shadow-md" role="region" aria-labelledby="backlog-header">
+    <div class="p-4 border-b border-t-4 border-t-gray-500 bg-gray-50">
+        <h2 id="backlog-header" class="text-xl font-semibold text-gray-700">Backlog</h2>
+        <span class="text-sm text-gray-600" aria-label="%d tasks">(%d)</span>
+    </div>
+    <div class="p-4 space-y-3" role="list" aria-labelledby="backlog-header">
+        %s
+    </div>
+</div>
+
 <!-- To Do Column -->
 <div class="bg-white rounded-lg shadow-md" role="region" aria-labelledby="todo-header">
     <div class="p-4 border-b border-t-4 border-t-blue-500 bg-blue-50">
@@ -535,29 +552,42 @@ func generateTaskListHTML(taskList []Task) string {
 </div>
 
 <!-- In Progress Column -->
-<div class="bg-white rounded-lg shadow-md" role="region" aria-labelledby="inprogress-header">
+<div class="bg-white rounded-lg shadow-md" role="region" aria-labelledby="developing-header">
     <div class="p-4 border-b border-t-4 border-t-yellow-500 bg-yellow-50">
-        <h2 id="inprogress-header" class="text-xl font-semibold text-yellow-700">In Progress</h2>
+        <h2 id="developing-header" class="text-xl font-semibold text-yellow-700">In Progress</h2>
         <span class="text-sm text-gray-600" aria-label="%d tasks">(%d)</span>
     </div>
-    <div class="p-4 space-y-3" role="list" aria-labelledby="inprogress-header">
+    <div class="p-4 space-y-3" role="list" aria-labelledby="developing-header">
+        %s
+    </div>
+</div>
+
+<!-- Review Column -->
+<div class="bg-white rounded-lg shadow-md" role="region" aria-labelledby="review-header">
+    <div class="p-4 border-b border-t-4 border-t-purple-500 bg-purple-50">
+        <h2 id="review-header" class="text-xl font-semibold text-purple-700">Review</h2>
+        <span class="text-sm text-gray-600" aria-label="%d tasks">(%d)</span>
+    </div>
+    <div class="p-4 space-y-3" role="list" aria-labelledby="review-header">
         %s
     </div>
 </div>
 
 <!-- Done Column -->
-<div class="bg-white rounded-lg shadow-md" role="region" aria-labelledby="done-header">
+<div class="bg-white rounded-lg shadow-md" role="region" aria-labelledby="complete-header">
     <div class="p-4 border-b border-t-4 border-t-green-500 bg-green-50">
-        <h2 id="done-header" class="text-xl font-semibold text-green-700">Done</h2>
+        <h2 id="complete-header" class="text-xl font-semibold text-green-700">Done</h2>
         <span class="text-sm text-gray-600" aria-label="%d tasks">(%d)</span>
     </div>
-    <div class="p-4 space-y-3" role="list" aria-labelledby="done-header">
+    <div class="p-4 space-y-3" role="list" aria-labelledby="complete-header">
         %s
     </div>
 </div>`,
+		len(backlogTasks), len(backlogTasks), generateTaskCardsHTML(backlogTasks),
 		len(todoTasks), len(todoTasks), generateTaskCardsHTML(todoTasks),
-		len(inProgressTasks), len(inProgressTasks), generateTaskCardsHTML(inProgressTasks),
-		len(doneTasks), len(doneTasks), generateTaskCardsHTML(doneTasks))
+		len(developingTasks), len(developingTasks), generateTaskCardsHTML(developingTasks),
+		len(reviewTasks), len(reviewTasks), generateTaskCardsHTML(reviewTasks),
+		len(completeTasks), len(completeTasks), generateTaskCardsHTML(completeTasks))
 }
 
 func generateTaskCardsHTML(taskList []Task) string {

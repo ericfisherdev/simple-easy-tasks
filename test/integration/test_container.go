@@ -26,19 +26,19 @@ type TestContainer struct {
 func NewTestContainer(t *testing.T) *TestContainer {
 	// Use the existing DatabaseTestSuite but extract what we need
 	suite := testutil.SetupDatabaseTest(t)
-	
+
 	// Create DI container
 	c := container.NewContainer()
-	
+
 	// Create config for testing using the standard constructor
 	cfg := config.NewConfig()
-	
+
 	// Register services with the test PocketBase app
 	err := container.RegisterServices(c, cfg, suite.DB.App())
 	if err != nil {
 		t.Fatalf("Failed to register services: %v", err)
 	}
-	
+
 	return &TestContainer{
 		Container: c,
 		App:       suite.DB.App(),
@@ -59,12 +59,12 @@ func (tc *TestContainer) GetUserRepository(t *testing.T) repository.UserReposito
 	if err != nil {
 		t.Fatalf("Failed to resolve user repository: %v", err)
 	}
-	
+
 	userRepo, ok := repo.(repository.UserRepository)
 	if !ok {
 		t.Fatalf("Failed to cast to UserRepository")
 	}
-	
+
 	return userRepo
 }
 
@@ -74,12 +74,12 @@ func (tc *TestContainer) GetTaskRepository(t *testing.T) repository.TaskReposito
 	if err != nil {
 		t.Fatalf("Failed to resolve task repository: %v", err)
 	}
-	
+
 	taskRepo, ok := repo.(repository.TaskRepository)
 	if !ok {
 		t.Fatalf("Failed to cast to TaskRepository")
 	}
-	
+
 	return taskRepo
 }
 
@@ -89,12 +89,12 @@ func (tc *TestContainer) GetProjectRepository(t *testing.T) repository.ProjectRe
 	if err != nil {
 		t.Fatalf("Failed to resolve project repository: %v", err)
 	}
-	
+
 	projectRepo, ok := repo.(repository.ProjectRepository)
 	if !ok {
 		t.Fatalf("Failed to cast to ProjectRepository")
 	}
-	
+
 	return projectRepo
 }
 
@@ -104,12 +104,12 @@ func (tc *TestContainer) GetCommentRepository(t *testing.T) repository.CommentRe
 	if err != nil {
 		t.Fatalf("Failed to resolve comment repository: %v", err)
 	}
-	
+
 	commentRepo, ok := repo.(repository.CommentRepository)
 	if !ok {
 		t.Fatalf("Failed to cast to CommentRepository")
 	}
-	
+
 	return commentRepo
 }
 
@@ -156,6 +156,11 @@ func (tc *TestContainer) GetAuthService(t *testing.T) services.AuthService {
 		t.Fatalf("Failed to resolve auth service: %v", err)
 	}
 	return service
+}
+
+// GetPocketBaseApp returns the PocketBase app instance
+func (tc *TestContainer) GetPocketBaseApp(t *testing.T) core.App {
+	return tc.App
 }
 
 // ClearDatabase clears all data from the test database

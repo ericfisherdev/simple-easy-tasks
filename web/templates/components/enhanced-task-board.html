@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ .CSRFToken }}">
+    <title>Enhanced Task Board - {{ .Project.Title }}</title>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/static/css/task-board.css">
+    <link rel="stylesheet" href="/static/css/htmx-styles.css">
+    
+    <style>
+        /* Enhanced Kanban Board Styles */
+        .kanban-board {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            padding: 1rem;
+            min-height: calc(100vh - 120px);
+        }
+        
+        .kanban-column {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1rem;
+            min-height: 500px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .kanban-column.drag-over {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+        
+        .kanban-column.drop-zone-active {
+            min-height: 100px;
+        }
+        
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .column-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .task-count {
+            background: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .task-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e2e8f0;
+            cursor: grab;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .task-card.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+        
+        .task-card:active {
+            cursor: grabbing;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+        
+        .task-title {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+        
+        .task-priority {
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .priority-low { background: #dbeafe; color: #1d4ed8; }
+        .priority-medium { background: #fef3c7; color: #d97706; }
+        .priority-high { background: #fee2e2; color: #dc2626; }
+        .priority-critical { background: #fecaca; color: #991b1b; }
+        
+        .task-description {
+            color: #64748b;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            margin-bottom: 0.75rem;
+        }
+        
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .task-assignee {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .assignee-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .task-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        
+        .drag-handle {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            cursor: grab;
+            color: #9ca3af;
+        }
+        
+        .task-card:hover .drag-handle {
+            opacity: 1;
+        }
+        
+        .drop-zone-indicator {
+            height: 4px;
+            background: #3b82f6;
+            margin: 8px 0;
+            border-radius: 2px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .add-task-btn {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            background: transparent;
+            color: #64748b;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .add-task-btn:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+        
+        /* Real-time updates indicator */
+        .real-time-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .real-time-indicator.connected {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .real-time-indicator.disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .real-time-indicator.reconnecting {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fed7aa;
+        }
+        
+        /* Loading states */
+        .htmx-request .task-card {
+            opacity: 0.7;
+        }
+        
+        .htmx-request .kanban-column {
+            pointer-events: none;
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .kanban-board {
+                grid-template-columns: 1fr;
+                padding: 0.5rem;
+            }
+            
+            .kanban-column {
+                margin-bottom: 1rem;
+            }
+            
+            .task-card {
+                padding: 0.75rem;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">{{ .Project.Title }}</h1>
+                <p class="text-sm text-gray-600">{{ .Project.Description }}</p>
+            </div>
+            
+            <!-- Real-time connection indicator -->
+            <div id="realTimeIndicator" class="real-time-indicator disconnected">
+                <span id="connectionStatus">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Task Board -->
+    <main class="kanban-board" 
+          data-project-id="{{ .Project.ID }}"
+          hx-ext="ws"
+          ws-connect="/api/ws/connect?project_id={{ .Project.ID }}"
+          x-data="taskBoard()">
+        
+        <!-- Backlog Column -->
+        <div class="kanban-column" data-column-id="backlog" data-status="backlog">
+            <div class="column-header">
+                <h2 class="column-title">📋 Backlog</h2>
+                <span class="task-count">{{ len .BacklogTasks }}</span>
+            </div>
+            
+            <div class="drop-zone-indicator"></div>
+            
+            <!-- Backlog Tasks -->
+            {{ range .BacklogTasks }}
+            <div class="task-card" 
+                 data-task-id="{{ .ID }}"
+                 data-status="{{ .Status }}"
+                 draggable="true"
+                 hx-trigger="task:update"
+                 hx-get="/api/projects/{{ $.Project.ID }}/tasks/{{ .ID }}"
+                 hx-target="this"
+                 hx-swap="outerHTML">
+                
+                <div class="drag-handle">⋮⋮</div>
+                
+                <div class="task-header">
+                    <h3 class="task-title">{{ .Title }}</h3>
+                    <span class="task-priority priority-{{ .Priority }}">{{ .Priority }}</span>
+                </div>
+                
+                {{ if .Description }}
+                <p class="task-description">{{ .Description }}</p>
+                {{ end }}
+                
+                <div class="task-footer">
+                    <div class="task-assignee">
+                        {{ if .AssigneeID }}
+                        <div class="assignee-avatar">
+                            {{ index .AssigneeName 0 }}
+                        </div>
+                        <span>{{ .AssigneeName }}</span>
+                        {{ else }}
+                        <span class="text-gray-400">Unassigned</span>
+                        {{ end }}
+                    </div>
+                    
+                    <div class="task-meta">
+                        {{ if .TimeSpent }}
+                        <span>⏱ {{ .TimeSpent }}h</span>
+                        {{ end }}
+                        {{ if .DueDate }}
+                        <span>📅 {{ .DueDate.Format "Jan 2" }}</span>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+            
+            <button class="add-task-btn"
+                    hx-get="/api/projects/{{ .Project.ID }}/tasks/new?status=backlog"
+                    hx-target="#taskModal .modal-content"
+                    hx-trigger="click"
+                    @click="$dispatch('open-modal', 'taskModal')">
+                + Add Task
+            </button>
+        </div>
+
+        <!-- To Do Column -->
+        <div class="kanban-column" data-column-id="todo" data-status="todo">
+            <div class="column-header">
+                <h2 class="column-title">📝 To Do</h2>
+                <span class="task-count">{{ len .TodoTasks }}</span>
+            </div>
+            
+            <div class="drop-zone-indicator"></div>
+            
+            <!-- Todo Tasks -->
+            {{ range .TodoTasks }}
+            <div class="task-card" 
+                 data-task-id="{{ .ID }}"
+                 data-status="{{ .Status }}"
+                 draggable="true"
+                 hx-trigger="task:update"
+                 hx-get="/api/projects/{{ $.Project.ID }}/tasks/{{ .ID }}"
+                 hx-target="this"
+                 hx-swap="outerHTML">
+                
+                <div class="drag-handle">⋮⋮</div>
+                
+                <div class="task-header">
+                    <h3 class="task-title">{{ .Title }}</h3>
+                    <span class="task-priority priority-{{ .Priority }}">{{ .Priority }}</span>
+                </div>
+                
+                {{ if .Description }}
+                <p class="task-description">{{ .Description }}</p>
+                {{ end }}
+                
+                <div class="task-footer">
+                    <div class="task-assignee">
+                        {{ if .AssigneeID }}
+                        <div class="assignee-avatar">
+                            {{ index .AssigneeName 0 }}
+                        </div>
+                        <span>{{ .AssigneeName }}</span>
+                        {{ else }}
+                        <span class="text-gray-400">Unassigned</span>
+                        {{ end }}
+                    </div>
+                    
+                    <div class="task-meta">
+                        {{ if .TimeSpent }}
+                        <span>⏱ {{ .TimeSpent }}h</span>
+                        {{ end }}
+                        {{ if .DueDate }}
+                        <span>📅 {{ .DueDate.Format "Jan 2" }}</span>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+            
+            <button class="add-task-btn"
+                    hx-get="/api/projects/{{ .Project.ID }}/tasks/new?status=todo"
+                    hx-target="#taskModal .modal-content"
+                    hx-trigger="click"
+                    @click="$dispatch('open-modal', 'taskModal')">
+                + Add Task
+            </button>
+        </div>
+
+        <!-- In Progress Column -->
+        <div class="kanban-column" data-column-id="doing" data-status="developing">
+            <div class="column-header">
+                <h2 class="column-title">🚀 In Progress</h2>
+                <span class="task-count">{{ len .DevelopingTasks }}</span>
+            </div>
+            
+            <div class="drop-zone-indicator"></div>
+            
+            <!-- Developing Tasks -->
+            {{ range .DevelopingTasks }}
+            <div class="task-card" 
+                 data-task-id="{{ .ID }}"
+                 data-status="{{ .Status }}"
+                 draggable="true"
+                 hx-trigger="task:update"
+                 hx-get="/api/projects/{{ $.Project.ID }}/tasks/{{ .ID }}"
+                 hx-target="this"
+                 hx-swap="outerHTML">
+                
+                <div class="drag-handle">⋮⋮</div>
+                
+                <div class="task-header">
+                    <h3 class="task-title">{{ .Title }}</h3>
+                    <span class="task-priority priority-{{ .Priority }}">{{ .Priority }}</span>
+                </div>
+                
+                {{ if .Description }}
+                <p class="task-description">{{ .Description }}</p>
+                {{ end }}
+                
+                <div class="task-footer">
+                    <div class="task-assignee">
+                        {{ if .AssigneeID }}
+                        <div class="assignee-avatar">
+                            {{ index .AssigneeName 0 }}
+                        </div>
+                        <span>{{ .AssigneeName }}</span>
+                        {{ else }}
+                        <span class="text-gray-400">Unassigned</span>
+                        {{ end }}
+                    </div>
+                    
+                    <div class="task-meta">
+                        {{ if .TimeSpent }}
+                        <span>⏱ {{ .TimeSpent }}h</span>
+                        {{ end }}
+                        {{ if .DueDate }}
+                        <span>📅 {{ .DueDate.Format "Jan 2" }}</span>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+            
+            <button class="add-task-btn"
+                    hx-get="/api/projects/{{ .Project.ID }}/tasks/new?status=developing"
+                    hx-target="#taskModal .modal-content"
+                    hx-trigger="click"
+                    @click="$dispatch('open-modal', 'taskModal')">
+                + Add Task
+            </button>
+        </div>
+
+        <!-- Review Column -->
+        <div class="kanban-column" data-column-id="review" data-status="review">
+            <div class="column-header">
+                <h2 class="column-title">👀 Review</h2>
+                <span class="task-count">{{ len .ReviewTasks }}</span>
+            </div>
+            
+            <div class="drop-zone-indicator"></div>
+            
+            <!-- Review Tasks -->
+            {{ range .ReviewTasks }}
+            <div class="task-card" 
+                 data-task-id="{{ .ID }}"
+                 data-status="{{ .Status }}"
+                 draggable="true"
+                 hx-trigger="task:update"
+                 hx-get="/api/projects/{{ $.Project.ID }}/tasks/{{ .ID }}"
+                 hx-target="this"
+                 hx-swap="outerHTML">
+                
+                <div class="drag-handle">⋮⋮</div>
+                
+                <div class="task-header">
+                    <h3 class="task-title">{{ .Title }}</h3>
+                    <span class="task-priority priority-{{ .Priority }}">{{ .Priority }}</span>
+                </div>
+                
+                {{ if .Description }}
+                <p class="task-description">{{ .Description }}</p>
+                {{ end }}
+                
+                <div class="task-footer">
+                    <div class="task-assignee">
+                        {{ if .AssigneeID }}
+                        <div class="assignee-avatar">
+                            {{ index .AssigneeName 0 }}
+                        </div>
+                        <span>{{ .AssigneeName }}</span>
+                        {{ else }}
+                        <span class="text-gray-400">Unassigned</span>
+                        {{ end }}
+                    </div>
+                    
+                    <div class="task-meta">
+                        {{ if .TimeSpent }}
+                        <span>⏱ {{ .TimeSpent }}h</span>
+                        {{ end }}
+                        {{ if .DueDate }}
+                        <span>📅 {{ .DueDate.Format "Jan 2" }}</span>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+            
+            <button class="add-task-btn"
+                    hx-get="/api/projects/{{ .Project.ID }}/tasks/new?status=review"
+                    hx-target="#taskModal .modal-content"
+                    hx-trigger="click"
+                    @click="$dispatch('open-modal', 'taskModal')">
+                + Add Task
+            </button>
+        </div>
+
+        <!-- Done Column -->
+        <div class="kanban-column" data-column-id="done" data-status="complete">
+            <div class="column-header">
+                <h2 class="column-title">✅ Done</h2>
+                <span class="task-count">{{ len .CompleteTasks }}</span>
+            </div>
+            
+            <div class="drop-zone-indicator"></div>
+            
+            <!-- Complete Tasks -->
+            {{ range .CompleteTasks }}
+            <div class="task-card" 
+                 data-task-id="{{ .ID }}"
+                 data-status="{{ .Status }}"
+                 draggable="true"
+                 hx-trigger="task:update"
+                 hx-get="/api/projects/{{ $.Project.ID }}/tasks/{{ .ID }}"
+                 hx-target="this"
+                 hx-swap="outerHTML">
+                
+                <div class="drag-handle">⋮⋮</div>
+                
+                <div class="task-header">
+                    <h3 class="task-title">{{ .Title }}</h3>
+                    <span class="task-priority priority-{{ .Priority }}">{{ .Priority }}</span>
+                </div>
+                
+                {{ if .Description }}
+                <p class="task-description">{{ .Description }}</p>
+                {{ end }}
+                
+                <div class="task-footer">
+                    <div class="task-assignee">
+                        {{ if .AssigneeID }}
+                        <div class="assignee-avatar">
+                            {{ index .AssigneeName 0 }}
+                        </div>
+                        <span>{{ .AssigneeName }}</span>
+                        {{ else }}
+                        <span class="text-gray-400">Unassigned</span>
+                        {{ end }}
+                    </div>
+                    
+                    <div class="task-meta">
+                        {{ if .TimeSpent }}
+                        <span>⏱ {{ .TimeSpent }}h</span>
+                        {{ end }}
+                        {{ if .DueDate }}
+                        <span>📅 {{ .DueDate.Format "Jan 2" }}</span>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+            
+            <button class="add-task-btn"
+                    hx-get="/api/projects/{{ .Project.ID }}/tasks/new?status=complete"
+                    hx-target="#taskModal .modal-content"
+                    hx-trigger="click"
+                    @click="$dispatch('open-modal', 'taskModal')">
+                + Add Task
+            </button>
+        </div>
+    </main>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="modal" x-data="{ open: false }" x-show="open" style="display: none;">
+        <div class="modal-backdrop" @click="open = false"></div>
+        <div class="modal-content">
+            <!-- Content will be loaded via HTMX -->
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/websocket-client.js"></script>
+    <script src="/static/js/kanban-drag-drop.js"></script>
+
+    <!-- Alpine.js Components -->
+    <script>
+        function taskBoard() {
+            return {
+                websocketConnected: false,
+                
+                init() {
+                    // Initialize WebSocket connection
+                    this.initWebSocket();
+                    
+                    // Listen for custom events
+                    this.$el.addEventListener('task:moved', (e) => {
+                        console.log('Task moved:', e.detail);
+                        this.updateTaskCounts();
+                    });
+
+                    this.$el.addEventListener('task:move-error', (e) => {
+                        console.error('Task move error:', e.detail.error);
+                        this.showErrorToast('Failed to move task');
+                    });
+                    
+                    // Listen for WebSocket events
+                    document.addEventListener('websocket:connected', () => {
+                        this.websocketConnected = true;
+                        this.updateConnectionIndicator('connected');
+                    });
+                    
+                    document.addEventListener('websocket:disconnected', () => {
+                        this.websocketConnected = false;
+                        this.updateConnectionIndicator('disconnected');
+                    });
+                },
+                
+                initWebSocket() {
+                    if (window.WebSocketManager) {
+                        window.WebSocketManager.init({
+                            projectId: '{{ .Project.ID }}',
+                            onConnect: () => {
+                                this.websocketConnected = true;
+                                this.updateConnectionIndicator('connected');
+                                console.log('WebSocket connected');
+                            },
+                            onDisconnect: () => {
+                                this.websocketConnected = false;
+                                this.updateConnectionIndicator('disconnected');
+                                console.log('WebSocket disconnected');
+                            },
+                            onReconnecting: (data) => {
+                                this.updateConnectionIndicator('reconnecting');
+                                console.log('WebSocket reconnecting:', data);
+                            },
+                            onError: (error) => {
+                                console.error('WebSocket error:', error);
+                            }
+                        });
+                        
+                        // Subscribe to project events
+                        window.WebSocketManager.subscribeToProject('{{ .Project.ID }}');
+                    }
+                },
+                
+                updateConnectionIndicator(status) {
+                    const indicator = document.getElementById('realTimeIndicator');
+                    const statusText = document.getElementById('connectionStatus');
+                    
+                    if (indicator && statusText) {
+                        indicator.className = `real-time-indicator ${status}`;
+                        
+                        switch (status) {
+                            case 'connected':
+                                statusText.textContent = '🟢 Real-time Connected';
+                                break;
+                            case 'disconnected':
+                                statusText.textContent = '🔴 Disconnected';
+                                break;
+                            case 'reconnecting':
+                                statusText.textContent = '🟡 Reconnecting...';
+                                break;
+                        }
+                    }
+                },
+                
+                updateTaskCounts() {
+                    // Update task counts in column headers
+                    document.querySelectorAll('.kanban-column').forEach(column => {
+                        const taskCount = column.querySelectorAll('.task-card').length;
+                        const countElement = column.querySelector('.task-count');
+                        if (countElement) {
+                            countElement.textContent = taskCount;
+                        }
+                    });
+                },
+                
+                showErrorToast(message) {
+                    // Simple toast notification
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+                    toast.textContent = message;
+                    document.body.appendChild(toast);
+                    
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 3000);
+                }
+            }
+        }
+        
+        // Global modal handling
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('modal', () => ({
+                open: false,
+                
+                toggle() {
+                    this.open = !this.open;
+                }
+            }));
+        });
+        
+        // Custom HTMX event handlers
+        document.addEventListener('htmx:afterSwap', (e) => {
+            // Reinitialize drag-drop after HTMX swaps content
+            if (window.kanbanDragDrop) {
+                window.kanbanDragDrop.refreshCards();
+            }
+        });
+        
+        document.addEventListener('htmx:wsAfterMessage', (e) => {
+            console.log('WebSocket message received:', e.detail);
+            
+            // Handle real-time task updates
+            if (e.detail.type === 'event' && e.detail.action === 'task_updated') {
+                const taskId = e.detail.data.task_id;
+                const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+                
+                if (taskElement) {
+                    // Trigger HTMX refresh for the specific task
+                    htmx.trigger(taskElement, 'task:update');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
