@@ -137,7 +137,7 @@ func SetupDatabaseTestWithOptions(t *testing.T, options *TestSuiteOptions) *Data
 
 		// TODO: Add resolution for SubscriptionManager and EventBroadcaster when available in container
 		// For now, these will be nil and tests should handle gracefully
-		// serviceSet.SubscriptionManager = nil 
+		// serviceSet.SubscriptionManager = nil
 		// serviceSet.EventBroadcaster = nil
 
 		// Also resolve repositories from container for backward compatibility
