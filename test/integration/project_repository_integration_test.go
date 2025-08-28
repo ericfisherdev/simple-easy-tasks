@@ -666,7 +666,7 @@ func TestProjectRepository_Integration(t *testing.T) {
 
 		// Assert update timestamps - basic validation that update worked
 		assert.Equal(t, "Updated Timestamp Test", updatedProject.Title)
-		// In a real environment, we'd check: UpdatedAt > CreatedAt 
+		// In a real environment, we'd check: UpdatedAt > CreatedAt
 		// But test environment may not manage timestamps correctly
 	})
 

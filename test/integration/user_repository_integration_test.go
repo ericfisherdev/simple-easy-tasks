@@ -27,11 +27,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("Create_ValidUser_Success", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("create.valid@test.example.com"),
@@ -60,11 +60,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("Create_DuplicateEmail_ConstraintViolation", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		email := "duplicate.email@test.example.com"
 		user1 := suite.Factory.CreateUser(
@@ -91,11 +91,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("Create_DuplicateUsername_ConstraintViolation", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		username := "duplicateuser"
 		user1 := suite.Factory.CreateUser(
@@ -123,7 +123,7 @@ func TestUserRepository_Integration(t *testing.T) {
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail(""), // Invalid: empty email
@@ -143,11 +143,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("GetByID_ExistingUser_ReturnsUser", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("getbyid@test.example.com"),
@@ -190,11 +190,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("GetByEmail_ExistingUser_ReturnsUser", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		email := "getbyemail@test.example.com"
 		user := suite.Factory.CreateUser(
@@ -233,11 +233,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("GetByUsername_ExistingUser_ReturnsUser", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		username := "getbyusername"
 		user := suite.Factory.CreateUser(
@@ -276,11 +276,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("Update_ValidChanges_Success", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("update@test.example.com"),
@@ -319,7 +319,7 @@ func TestUserRepository_Integration(t *testing.T) {
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser()
 		user.ID = "" // Clear ID
@@ -336,7 +336,7 @@ func TestUserRepository_Integration(t *testing.T) {
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser(
 			testutil.WithUserID("nonexistent123"),
@@ -353,11 +353,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("Update_InvalidData_ValidationError", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("updateinvalid@test.example.com"),
@@ -379,11 +379,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("Delete_ExistingUser_Success", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("delete@test.example.com"),
@@ -427,11 +427,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("List_WithPagination_ReturnsUsers", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange - Create multiple users
 		users := make([]*domain.User, 5)
 		for i := 0; i < 5; i++ {
@@ -481,11 +481,11 @@ func TestUserRepository_Integration(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
 		expectedCount := 7
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		for i := 0; i < expectedCount; i++ {
 			user := suite.Factory.CreateUser(
 				testutil.WithUserEmail(fmt.Sprintf("count%d@test.example.com", i)),
@@ -518,11 +518,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("ExistsByEmail_ExistingUser_ReturnsTrue", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		email := "exists@test.example.com"
 		user := suite.Factory.CreateUser(
@@ -560,11 +560,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("ExistsByUsername_ExistingUser_ReturnsTrue", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		username := "existsusername"
 		user := suite.Factory.CreateUser(
@@ -602,20 +602,20 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("UserPreferences_ComplexData_PersistsCorrectly", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		complexPreferences := domain.UserPreferences{
 			Theme:    "dark",
 			Language: "fr",
 			Timezone: "Europe/Paris",
 			Preferences: map[string]string{
-				"notification_email":    "true",
-				"notification_desktop":  "false",
-				"digest_frequency":      "daily",
+				"notification_email":   "true",
+				"notification_desktop": "false",
+				"digest_frequency":     "daily",
 				"date_format":          "DD/MM/YYYY",
 				"time_format":          "24h",
 				"items_per_page":       "50",
@@ -639,7 +639,7 @@ func TestUserRepository_Integration(t *testing.T) {
 		assert.Equal(t, complexPreferences.Language, retrieved.Preferences.Language)
 		assert.Equal(t, complexPreferences.Timezone, retrieved.Preferences.Timezone)
 		assert.Equal(t, len(complexPreferences.Preferences), len(retrieved.Preferences.Preferences))
-		
+
 		for key, value := range complexPreferences.Preferences {
 			assert.Equal(t, value, retrieved.Preferences.Preferences[key], fmt.Sprintf("Preference %s should match", key))
 		}
@@ -648,11 +648,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("ConcurrentUserCreation_DifferentData_BothSucceed", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user1 := suite.Factory.CreateUser(
 			testutil.WithUserEmail("concurrent1@test.example.com"),
@@ -704,11 +704,11 @@ func TestUserRepository_Integration(t *testing.T) {
 			t.Run(string(role), func(t *testing.T) {
 				// Clear database for isolation
 				tc.ClearDatabase(t)
-				
+
 				// Create test database suite for factory access
 				suite := testutil.SetupDatabaseTest(t)
 				defer suite.Cleanup()
-				
+
 				// Arrange
 				user := suite.Factory.CreateUser(
 					testutil.WithUserEmail(fmt.Sprintf("role%d@test.example.com", i)),
@@ -731,11 +731,11 @@ func TestUserRepository_Integration(t *testing.T) {
 	t.Run("TimestampManagement_CreatedAndUpdated_WorkCorrectly", func(t *testing.T) {
 		// Clear database for isolation
 		tc.ClearDatabase(t)
-		
+
 		// Create test database suite for factory access
 		suite := testutil.SetupDatabaseTest(t)
 		defer suite.Cleanup()
-		
+
 		// Arrange
 		user := suite.Factory.CreateUser(
 			testutil.WithUserEmail("timestamp@test.example.com"),
