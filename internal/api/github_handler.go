@@ -8,10 +8,40 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
-	"simple-easy-tasks/internal/services"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/services"
 )
+
+// GitHubIntegrationResponse represents a GitHub integration for API responses (without access token)
+type GitHubIntegrationResponse struct {
+	ID        string                  `json:"id"`
+	ProjectID string                  `json:"project_id"`
+	UserID    string                  `json:"user_id"`
+	RepoOwner string                  `json:"repo_owner"`
+	RepoName  string                  `json:"repo_name"`
+	RepoID    int64                   `json:"repo_id"`
+	InstallID *int64                  `json:"install_id,omitempty"`
+	Settings  domain.GitHubSettings   `json:"settings"`
+	CreatedAt time.Time               `json:"created_at"`
+	UpdatedAt time.Time               `json:"updated_at"`
+}
+
+// toAPIResponse converts a domain GitHubIntegration to API response format
+func toGitHubIntegrationResponse(integration *domain.GitHubIntegration) *GitHubIntegrationResponse {
+	return &GitHubIntegrationResponse{
+		ID:        integration.ID,
+		ProjectID: integration.ProjectID,
+		UserID:    integration.UserID,
+		RepoOwner: integration.RepoOwner,
+		RepoName:  integration.RepoName,
+		RepoID:    integration.RepoID,
+		InstallID: integration.InstallID,
+		Settings:  integration.Settings,
+		CreatedAt: integration.CreatedAt,
+		UpdatedAt: integration.UpdatedAt,
+	}
+}
 
 // GitHubHandler handles GitHub integration endpoints
 type GitHubHandler struct {
@@ -36,6 +66,15 @@ func NewGitHubHandler(
 // InitiateGitHubAuth starts the GitHub OAuth flow
 func (h *GitHubHandler) InitiateGitHubAuth(c *gin.Context) {
 	userID := getUserIDFromContext(c)
+	
+	// Validate user is authenticated
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Authentication required",
+		})
+		c.Abort()
+		return
+	}
 
 	var req struct {
 		ProjectID *string `json:"project_id"`
@@ -71,6 +110,17 @@ func (h *GitHubHandler) InitiateGitHubAuth(c *gin.Context) {
 
 // HandleGitHubCallback processes GitHub OAuth callback
 func (h *GitHubHandler) HandleGitHubCallback(c *gin.Context) {
+	userID := getUserIDFromContext(c)
+	
+	// Validate user is authenticated
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Authentication required",
+		})
+		c.Abort()
+		return
+	}
+	
 	code := c.Query("code")
 	state := c.Query("state")
 
@@ -86,7 +136,7 @@ func (h *GitHubHandler) HandleGitHubCallback(c *gin.Context) {
 		State: state,
 	}
 
-	resp, err := h.githubOAuthService.HandleCallback(c.Request.Context(), callbackReq)
+	resp, err := h.githubOAuthService.HandleCallback(c.Request.Context(), userID, callbackReq)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "OAuth callback failed",
@@ -95,22 +145,60 @@ func (h *GitHubHandler) HandleGitHubCallback(c *gin.Context) {
 		return
 	}
 
+	// Get the stored access token for this user (stored by HandleCallback)
+	accessToken, tokenErr := h.githubOAuthService.GetUserToken(c.Request.Context(), userID)
+	if tokenErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to retrieve access token",
+			"details": tokenErr.Error(),
+		})
+		return
+	}
+
+	// Set the access token as a secure, HttpOnly cookie
+	c.SetCookie(
+		"github_token",
+		accessToken,
+		86400*7, // 7 days
+		"/",
+		"", // Domain will be auto-set
+		true, // Secure (HTTPS only in production)
+		true, // HttpOnly
+	)
+
+	// Return success without exposing the token
 	c.JSON(http.StatusOK, gin.H{
-		"access_token": resp.AccessToken,
-		"user":         resp.User,
-		"emails":       resp.Emails,
-		"project_id":   resp.ProjectID,
+		"message": "GitHub authentication successful",
+		"user_id": userID,
+		"user": resp.User,
 	})
 }
 
 // GetUserRepositories gets GitHub repositories accessible to the user
 func (h *GitHubHandler) GetUserRepositories(c *gin.Context) {
-	accessToken := c.GetHeader("X-GitHub-Token")
-	if accessToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "GitHub access token is required",
+	userID := getUserIDFromContext(c)
+	
+	// Validate user is authenticated
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Authentication required",
 		})
+		c.Abort()
 		return
+	}
+
+	// Try to get token from cookie first, then from service
+	accessToken, err := c.Cookie("github_token")
+	if err != nil || accessToken == "" {
+		// Fallback to stored token
+		accessToken, err = h.githubOAuthService.GetUserToken(c.Request.Context(), userID)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "No active GitHub session",
+				"details": "Please authenticate with GitHub first",
+			})
+			return
+		}
 	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -139,12 +227,20 @@ func (h *GitHubHandler) GetUserRepositories(c *gin.Context) {
 // CreateIntegration creates a new GitHub integration
 func (h *GitHubHandler) CreateIntegration(c *gin.Context) {
 	userID := getUserIDFromContext(c)
+	
+	// Defense-in-depth: Validate user is authenticated
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Authentication required",
+		})
+		c.Abort()
+		return
+	}
 
 	var req struct {
-		AccessToken string `json:"access_token" binding:"required"`
-		ProjectID   string `json:"project_id" binding:"required"`
-		RepoOwner   string `json:"repo_owner" binding:"required"`
-		RepoName    string `json:"repo_name" binding:"required"`
+		ProjectID string `json:"project_id" binding:"required"`
+		RepoOwner string `json:"repo_owner" binding:"required"`
+		RepoName  string `json:"repo_name" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -155,9 +251,23 @@ func (h *GitHubHandler) CreateIntegration(c *gin.Context) {
 		return
 	}
 
+	// Try to get token from cookie first, then from service
+	accessToken, err := c.Cookie("github_token")
+	if err != nil || accessToken == "" {
+		// Fallback to stored token
+		accessToken, err = h.githubOAuthService.GetUserToken(c.Request.Context(), userID)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "No active GitHub session",
+				"details": "Please authenticate with GitHub first",
+			})
+			return
+		}
+	}
+
 	integration, err := h.githubService.CreateIntegration(
 		c.Request.Context(),
-		req.AccessToken,
+		accessToken,
 		req.ProjectID,
 		userID,
 		req.RepoOwner,
@@ -171,7 +281,10 @@ func (h *GitHubHandler) CreateIntegration(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, integration)
+	// Convert to API response format (excludes access token)
+	response := toGitHubIntegrationResponse(integration)
+
+	c.JSON(http.StatusCreated, response)
 }
 
 // GetIntegrationByProject gets GitHub integration for a project
@@ -194,10 +307,10 @@ func (h *GitHubHandler) GetIntegrationByProject(c *gin.Context) {
 		return
 	}
 
-	// Don't return the access token
-	integration.AccessToken = ""
+	// Convert to API response format (excludes access token)
+	response := toGitHubIntegrationResponse(integration)
 
-	c.JSON(http.StatusOK, integration)
+	c.JSON(http.StatusOK, response)
 }
 
 // SyncIssueToTask synchronizes a GitHub issue with a task
@@ -342,6 +455,16 @@ func (h *GitHubHandler) GetTaskPullRequests(c *gin.Context) {
 // UpdateIntegrationSettings updates GitHub integration settings
 func (h *GitHubHandler) UpdateIntegrationSettings(c *gin.Context) {
 	integrationID := c.Param("integrationId")
+	userID := getUserIDFromContext(c)
+	
+	// Validate user is authenticated
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Authentication required",
+		})
+		c.Abort()
+		return
+	}
 
 	var req struct {
 		Settings domain.GitHubSettings `json:"settings" binding:"required"`
@@ -359,6 +482,14 @@ func (h *GitHubHandler) UpdateIntegrationSettings(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "Integration not found",
+		})
+		return
+	}
+	
+	// Verify ownership
+	if integration.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "You are not authorized to update this integration",
 		})
 		return
 	}
@@ -383,8 +514,42 @@ func (h *GitHubHandler) UpdateIntegrationSettings(c *gin.Context) {
 // DeleteIntegration deletes a GitHub integration
 func (h *GitHubHandler) DeleteIntegration(c *gin.Context) {
 	integrationID := c.Param("integrationId")
+	userID := getUserIDFromContext(c)
+	
+	// Validate user is authenticated
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Authentication required",
+		})
+		c.Abort()
+		return
+	}
+	
+	// Load the integration to verify ownership
+	integration, err := h.githubService.GetIntegrationByID(c.Request.Context(), integrationID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Integration not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to get integration",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	// Verify ownership
+	if integration.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "You are not authorized to delete this integration",
+		})
+		return
+	}
 
-	err := h.githubService.DeleteIntegration(c.Request.Context(), integrationID)
+	err = h.githubService.DeleteIntegration(c.Request.Context(), integrationID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to delete integration",

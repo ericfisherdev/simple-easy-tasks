@@ -5,15 +5,16 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"simple-easy-tasks/internal/domain"
-	"simple-easy-tasks/internal/repository"
-	testutil "simple-easy-tasks/internal/testutil/integration"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
+	testutil "github.com/ericfisherdev/simple-easy-tasks/internal/testutil/integration"
 )
 
 func TestGitHubIntegrationRepository_Integration(t *testing.T) {
@@ -304,5 +305,60 @@ func TestGitHubIntegrationRepository_Integration(t *testing.T) {
 		links, err = commitLinkRepo.GetByTaskID(context.Background(), task.ID)
 		require.NoError(t, err)
 		assert.Len(t, links, 0)
+	})
+
+	t.Run("GitHubIntegration_API_Response_Security", func(t *testing.T) {
+		// This test ensures that access tokens are never exposed in API responses
+		// Clear database for isolation
+		tc.ClearDatabase(t)
+
+		// Create test database suite for factory access
+		suite := testutil.SetupDatabaseTest(t)
+		defer suite.Cleanup()
+
+		// Create test data
+		user := suite.Factory.CreateUser()
+		err := tc.GetUserRepository(t).Create(context.Background(), user)
+		require.NoError(t, err)
+
+		project := suite.Factory.CreateProject(user)
+		err = tc.GetProjectRepository(t).Create(context.Background(), project)
+		require.NoError(t, err)
+
+		integrationRepo := repository.NewPocketBaseGitHubIntegrationRepository(tc.GetPocketBaseApp(t))
+		
+		// Create integration with access token
+		integration := &domain.GitHubIntegration{
+			ProjectID:   project.ID,
+			UserID:      user.ID,
+			RepoOwner:   "testowner",
+			RepoName:    "testrepo",
+			RepoID:      12345,
+			AccessToken: "sensitive_access_token_should_not_be_exposed",
+			Settings:    domain.NewDefaultGitHubSettings(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		err = integrationRepo.Create(context.Background(), integration)
+		require.NoError(t, err)
+
+		// Verify that when we retrieve from database, we get the token (for internal use)
+		retrieved, err := integrationRepo.GetByProjectID(context.Background(), project.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "sensitive_access_token_should_not_be_exposed", retrieved.AccessToken)
+
+		// Verify the domain object has json:"-" on AccessToken field
+		// This is tested by marshaling to JSON and ensuring access_token key is not present
+		jsonBytes, err := json.Marshal(retrieved)
+		require.NoError(t, err)
+		
+		var jsonMap map[string]interface{}
+		err = json.Unmarshal(jsonBytes, &jsonMap)
+		require.NoError(t, err)
+		
+		// Ensure access_token key is not in the JSON response
+		_, hasAccessToken := jsonMap["access_token"]
+		assert.False(t, hasAccessToken, "access_token field should not be present in JSON serialization due to json:\"-\" tag")
 	})
 }

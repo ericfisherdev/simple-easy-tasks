@@ -12,14 +12,16 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/endpoints"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/repository"
 )
 
 // GitHubOAuthService handles GitHub OAuth2 authentication
 type GitHubOAuthService struct {
-	config      *oauth2.Config
-	stateStore  GitHubOAuthStateRepository
-	userService UserService
+	config          *oauth2.Config
+	stateStore      GitHubOAuthStateRepository
+	authSessionRepo repository.GitHubAuthSessionRepository
+	userService     UserService
 }
 
 // GitHubOAuthStateRepository defines the interface for storing OAuth states
@@ -34,6 +36,7 @@ type GitHubOAuthStateRepository interface {
 func NewGitHubOAuthService(
 	clientID, clientSecret, redirectURL string,
 	stateStore GitHubOAuthStateRepository,
+	authSessionRepo repository.GitHubAuthSessionRepository,
 	userService UserService,
 ) *GitHubOAuthService {
 	config := &oauth2.Config{
@@ -45,9 +48,10 @@ func NewGitHubOAuthService(
 	}
 
 	return &GitHubOAuthService{
-		config:      config,
-		stateStore:  stateStore,
-		userService: userService,
+		config:          config,
+		stateStore:      stateStore,
+		authSessionRepo: authSessionRepo,
+		userService:     userService,
 	}
 }
 
@@ -71,14 +75,18 @@ type GitHubCallbackRequest struct {
 
 // GitHubCallbackResponse contains the result of OAuth callback processing
 type GitHubCallbackResponse struct {
-	AccessToken string              `json:"access_token"`
-	User        *github.User        `json:"user"`
-	Emails      []*github.UserEmail `json:"emails"`
-	ProjectID   *string             `json:"project_id,omitempty"`
+	User      *github.User        `json:"user"`
+	Emails    []*github.UserEmail `json:"emails"`
+	ProjectID *string             `json:"project_id,omitempty"`
 }
 
 // InitiateAuth starts the GitHub OAuth flow
 func (s *GitHubOAuthService) InitiateAuth(ctx context.Context, req *GitHubAuthRequest) (*GitHubAuthResponse, error) {
+	// Validate that UserID is non-empty
+	if req.UserID == "" {
+		return nil, fmt.Errorf("invalid argument: user ID cannot be empty")
+	}
+
 	// Generate secure random state
 	state, err := s.generateState()
 	if err != nil {
@@ -109,20 +117,21 @@ func (s *GitHubOAuthService) InitiateAuth(ctx context.Context, req *GitHubAuthRe
 }
 
 // HandleCallback processes the OAuth callback
-func (s *GitHubOAuthService) HandleCallback(ctx context.Context, req *GitHubCallbackRequest) (*GitHubCallbackResponse, error) {
-	// Verify state
+func (s *GitHubOAuthService) HandleCallback(ctx context.Context, userID string, req *GitHubCallbackRequest) (*GitHubCallbackResponse, error) {
+	// Verify state and delete immediately for single-use
 	storedState, err := s.stateStore.GetByState(ctx, req.State)
 	if err != nil {
 		return nil, fmt.Errorf("invalid or expired state: %w", err)
 	}
 
+	// Delete state immediately after retrieval for single-use behavior
+	if deleteErr := s.stateStore.DeleteByState(ctx, req.State); deleteErr != nil {
+		// Log but don't fail OAuth flow for cleanup errors
+		_ = deleteErr
+	}
+
 	// Check expiration
 	if time.Now().After(storedState.ExpiresAt) {
-		if deleteErr := s.stateStore.DeleteByState(ctx, req.State); deleteErr != nil {
-			// TODO: Add proper logging for state cleanup error
-			// State cleanup failure is not critical for OAuth flow
-			_ = deleteErr // Acknowledge error without action
-		}
 		return nil, fmt.Errorf("OAuth state has expired")
 	}
 
@@ -147,34 +156,47 @@ func (s *GitHubOAuthService) HandleCallback(ctx context.Context, req *GitHubCall
 		return nil, fmt.Errorf("failed to get user emails: %w", err)
 	}
 
-	// Clean up state
-	if err := s.stateStore.DeleteByState(ctx, req.State); err != nil {
-		// TODO: Add proper logging for state cleanup error
-		// State cleanup failure is not critical for OAuth flow
-		_ = err // Acknowledge error without action
+	// Store the access token server-side with 1 hour expiration
+	authSession := &domain.GitHubAuthSession{
+		ID:          fmt.Sprintf("%s_%d", userID, time.Now().Unix()),
+		UserID:      userID,
+		AccessToken: token.AccessToken,
+		CreatedAt:   time.Now(),
+		ExpiresAt:   time.Now().Add(time.Hour), // 1 hour session
+	}
+
+	if err := s.authSessionRepo.Create(ctx, authSession); err != nil {
+		return nil, fmt.Errorf("failed to store GitHub auth session: %w", err)
 	}
 
 	return &GitHubCallbackResponse{
-		AccessToken: token.AccessToken,
-		User:        user,
-		Emails:      emails,
-		ProjectID:   storedState.ProjectID,
+		User:      user,
+		Emails:    emails,
+		ProjectID: storedState.ProjectID,
 	}, nil
 }
 
-// RefreshToken refreshes an OAuth token if needed
-func (s *GitHubOAuthService) RefreshToken(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
-	token := &oauth2.Token{
-		RefreshToken: refreshToken,
-	}
-
-	tokenSource := s.config.TokenSource(ctx, token)
-	newToken, err := tokenSource.Token()
+// GetUserToken retrieves the stored GitHub token for a user
+func (s *GitHubOAuthService) GetUserToken(ctx context.Context, userID string) (string, error) {
+	session, err := s.authSessionRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to refresh token: %w", err)
+		return "", fmt.Errorf("no active GitHub session for user: %w", err)
 	}
 
-	return newToken, nil
+	if session.IsExpired() {
+		// Clean up expired session
+		_ = s.authSessionRepo.DeleteByUserID(ctx, userID)
+		return "", fmt.Errorf("GitHub session expired for user %s", userID)
+	}
+
+	return session.AccessToken, nil
+}
+
+// RefreshToken is not supported for GitHub OAuth Apps as they don't issue refresh tokens
+// GitHub OAuth Apps tokens do not expire, so refresh is not needed
+// For GitHub App installations, use installation tokens instead
+func (s *GitHubOAuthService) RefreshToken(ctx context.Context, refreshToken string) (*oauth2.Token, error) {
+	return nil, fmt.Errorf("token refresh is not supported for GitHub OAuth Apps; re-authenticate via InitiateAuth/HandleCallback or use GitHub App installation tokens for expiring tokens")
 }
 
 // ValidateToken validates a GitHub access token

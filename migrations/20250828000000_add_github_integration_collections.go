@@ -97,11 +97,80 @@ const githubCollectionsSnapshot = `[
         }
       },
       {
-        "id": "access_token",
-        "name": "access_token",
+        "id": "access_token_encrypted",
+        "name": "access_token_encrypted",
         "type": "text",
         "system": false,
-        "required": true,
+        "required": false,
+        "presentable": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "refresh_token_encrypted",
+        "name": "refresh_token_encrypted",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "presentable": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "token_type",
+        "name": "token_type",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "presentable": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "expires_at",
+        "name": "expires_at",
+        "type": "date",
+        "system": false,
+        "required": false,
+        "presentable": false,
+        "unique": false,
+        "options": {
+          "min": "",
+          "max": ""
+        }
+      },
+      {
+        "id": "key_version",
+        "name": "key_version",
+        "type": "text",
+        "system": false,
+        "required": false,
+        "presentable": false,
+        "unique": false,
+        "options": {
+          "min": null,
+          "max": null,
+          "pattern": ""
+        }
+      },
+      {
+        "id": "access_token_deprecated",
+        "name": "access_token_deprecated",
+        "type": "text",
+        "system": false,
+        "required": false,
         "presentable": false,
         "unique": false,
         "options": {
@@ -577,15 +646,13 @@ const githubCollectionsSnapshot = `[
       {
         "id": "payload",
         "name": "payload",
-        "type": "text",
+        "type": "json",
         "system": false,
         "required": true,
         "presentable": false,
         "unique": false,
         "options": {
-          "min": null,
-          "max": null,
-          "pattern": ""
+          "maxSize": 0
         }
       },
       {

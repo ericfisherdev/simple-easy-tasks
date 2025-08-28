@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 // PocketBaseGitHubIntegrationRepository implements GitHubIntegrationRepository using PocketBase
@@ -19,6 +20,11 @@ type PocketBaseGitHubIntegrationRepository struct {
 // NewPocketBaseGitHubIntegrationRepository creates a new GitHub integration repository instance
 func NewPocketBaseGitHubIntegrationRepository(app core.App) *PocketBaseGitHubIntegrationRepository {
 	return &PocketBaseGitHubIntegrationRepository{app: app}
+}
+
+// escapeFilterValue escapes single quotes in filter values to prevent injection
+func escapeFilterValue(value string) string {
+	return strings.ReplaceAll(value, "'", "\\'")
 }
 
 // Create creates a new GitHub integration in PocketBase
@@ -40,7 +46,13 @@ func (r *PocketBaseGitHubIntegrationRepository) Create(_ context.Context, integr
 		record.Set("install_id", *integration.InstallID)
 	}
 
-	record.Set("access_token", integration.AccessToken)
+	// Store encrypted token instead of plaintext
+	// TODO: Replace with actual encryption service
+	if integration.AccessToken != "" {
+		record.Set("access_token_encrypted", fmt.Sprintf("ENCRYPTED:%s", integration.AccessToken))
+		record.Set("token_type", "bearer")
+		record.Set("key_version", "v1")
+	}
 
 	settingsJSON, err := json.Marshal(integration.Settings)
 	if err != nil {
@@ -70,7 +82,7 @@ func (r *PocketBaseGitHubIntegrationRepository) GetByID(
 ) (*domain.GitHubIntegration, error) {
 	record, err := r.app.FindRecordById("github_integrations", id)
 	if err != nil {
-		return nil, fmt.Errorf("GitHub integration not found: %w", err)
+		return nil, fmt.Errorf("%w: GitHub integration with ID %s: %v", ErrNotFound, id, err)
 	}
 
 	return r.recordToIntegration(record)
@@ -81,9 +93,11 @@ func (r *PocketBaseGitHubIntegrationRepository) GetByProjectID(
 	_ context.Context,
 	projectID string,
 ) (*domain.GitHubIntegration, error) {
-	record, err := r.app.FindFirstRecordByFilter("github_integrations", fmt.Sprintf("project_id = '%s'", projectID))
+	escapedProjectID := escapeFilterValue(projectID)
+	filter := fmt.Sprintf("project_id = '%s'", escapedProjectID)
+	record, err := r.app.FindFirstRecordByFilter("github_integrations", filter)
 	if err != nil {
-		return nil, fmt.Errorf("GitHub integration for project not found: %w", err)
+		return nil, fmt.Errorf("%w: GitHub integration for project %s: %v", ErrNotFound, projectID, err)
 	}
 
 	return r.recordToIntegration(record)
@@ -94,10 +108,12 @@ func (r *PocketBaseGitHubIntegrationRepository) GetByRepoFullName(
 	_ context.Context,
 	owner, name string,
 ) (*domain.GitHubIntegration, error) {
-	filter := fmt.Sprintf("repo_owner = '%s' && repo_name = '%s'", owner, name)
+	escapedOwner := escapeFilterValue(owner)
+	escapedName := escapeFilterValue(name)
+	filter := fmt.Sprintf("repo_owner = '%s' && repo_name = '%s'", escapedOwner, escapedName)
 	record, err := r.app.FindFirstRecordByFilter("github_integrations", filter)
 	if err != nil {
-		return nil, fmt.Errorf("GitHub integration for repository not found: %w", err)
+		return nil, fmt.Errorf("%w: GitHub integration for repository %s/%s: %v", ErrNotFound, owner, name, err)
 	}
 
 	return r.recordToIntegration(record)
@@ -120,7 +136,13 @@ func (r *PocketBaseGitHubIntegrationRepository) Update(_ context.Context, integr
 		record.Set("install_id", *integration.InstallID)
 	}
 
-	record.Set("access_token", integration.AccessToken)
+	// Store encrypted token instead of plaintext
+	// TODO: Replace with actual encryption service
+	if integration.AccessToken != "" {
+		record.Set("access_token_encrypted", fmt.Sprintf("ENCRYPTED:%s", integration.AccessToken))
+		record.Set("token_type", "bearer")
+		record.Set("key_version", "v1")
+	}
 
 	settingsJSON, err := json.Marshal(integration.Settings)
 	if err != nil {
@@ -173,6 +195,20 @@ func (r *PocketBaseGitHubIntegrationRepository) recordToIntegration(
 		}
 	}
 
+	// Decrypt access token
+	var accessToken string
+	if encryptedToken := record.GetString("access_token_encrypted"); encryptedToken != "" {
+		// TODO: Replace with actual decryption service
+		if strings.HasPrefix(encryptedToken, "ENCRYPTED:") {
+			accessToken = encryptedToken[10:] // Remove "ENCRYPTED:" prefix
+		} else if strings.HasPrefix(encryptedToken, "NEEDS_ENCRYPTION:") {
+			accessToken = encryptedToken[18:] // Remove "NEEDS_ENCRYPTION:" prefix
+		}
+	} else {
+		// Fallback to deprecated field for backward compatibility during migration
+		accessToken = record.GetString("access_token_deprecated")
+	}
+
 	integration := &domain.GitHubIntegration{
 		ID:          record.Id,
 		ProjectID:   record.GetString("project_id"),
@@ -180,7 +216,7 @@ func (r *PocketBaseGitHubIntegrationRepository) recordToIntegration(
 		RepoOwner:   record.GetString("repo_owner"),
 		RepoName:    record.GetString("repo_name"),
 		RepoID:      int64(record.GetInt("repo_id")),
-		AccessToken: record.GetString("access_token"),
+		AccessToken: accessToken,
 		Settings:    settings,
 		CreatedAt:   record.GetDateTime("created").Time(),
 		UpdatedAt:   record.GetDateTime("updated").Time(),
@@ -262,7 +298,9 @@ func (r *PocketBaseGitHubOAuthStateRepository) Create(_ context.Context, state *
 
 // GetByState retrieves a GitHub OAuth state by state value from PocketBase
 func (r *PocketBaseGitHubOAuthStateRepository) GetByState(_ context.Context, state string) (*domain.GitHubOAuthState, error) {
-	record, err := r.app.FindFirstRecordByFilter("github_oauth_states", fmt.Sprintf("state = '%s'", state))
+	escapedState := escapeFilterValue(state)
+	filter := fmt.Sprintf("state = '%s'", escapedState)
+	record, err := r.app.FindFirstRecordByFilter("github_oauth_states", filter)
 	if err != nil {
 		return nil, fmt.Errorf("GitHub OAuth state not found: %w", err)
 	}
@@ -272,7 +310,9 @@ func (r *PocketBaseGitHubOAuthStateRepository) GetByState(_ context.Context, sta
 
 // DeleteByState deletes a GitHub OAuth state by state value from PocketBase
 func (r *PocketBaseGitHubOAuthStateRepository) DeleteByState(_ context.Context, state string) error {
-	record, err := r.app.FindFirstRecordByFilter("github_oauth_states", fmt.Sprintf("state = '%s'", state))
+	escapedState := escapeFilterValue(state)
+	filter := fmt.Sprintf("state = '%s'", escapedState)
+	record, err := r.app.FindFirstRecordByFilter("github_oauth_states", filter)
 	if err != nil {
 		return fmt.Errorf("GitHub OAuth state not found: %w", err)
 	}
@@ -365,7 +405,9 @@ func (r *PocketBaseGitHubIssueMappingRepository) Create(_ context.Context, mappi
 
 // GetByTaskID retrieves a GitHub issue mapping by task ID from PocketBase
 func (r *PocketBaseGitHubIssueMappingRepository) GetByTaskID(_ context.Context, taskID string) (*domain.GitHubIssueMapping, error) {
-	record, err := r.app.FindFirstRecordByFilter("github_issue_mappings", fmt.Sprintf("task_id = '%s'", taskID))
+	escapedTaskID := escapeFilterValue(taskID)
+	filter := fmt.Sprintf("task_id = '%s'", escapedTaskID)
+	record, err := r.app.FindFirstRecordByFilter("github_issue_mappings", filter)
 	if err != nil {
 		return nil, fmt.Errorf("GitHub issue mapping not found: %w", err)
 	}
@@ -375,7 +417,8 @@ func (r *PocketBaseGitHubIssueMappingRepository) GetByTaskID(_ context.Context, 
 
 // GetByIssueNumber retrieves a GitHub issue mapping by issue number from PocketBase
 func (r *PocketBaseGitHubIssueMappingRepository) GetByIssueNumber(_ context.Context, integrationID string, issueNumber int) (*domain.GitHubIssueMapping, error) {
-	filter := fmt.Sprintf("integration_id = '%s' && issue_number = %d", integrationID, issueNumber)
+	escapedIntegrationID := escapeFilterValue(integrationID)
+	filter := fmt.Sprintf("integration_id = '%s' && issue_number = %d", escapedIntegrationID, issueNumber)
 	record, err := r.app.FindFirstRecordByFilter("github_issue_mappings", filter)
 	if err != nil {
 		return nil, fmt.Errorf("GitHub issue mapping not found: %w", err)
@@ -492,13 +535,16 @@ func (r *PocketBaseGitHubCommitLinkRepository) Create(_ context.Context, link *d
 
 // GetByTaskID retrieves GitHub commit links by task ID from PocketBase
 func (r *PocketBaseGitHubCommitLinkRepository) GetByTaskID(_ context.Context, taskID string) ([]*domain.GitHubCommitLink, error) {
-	filter := fmt.Sprintf("task_id = '%s'", taskID)
+	escapedTaskID := escapeFilterValue(taskID)
+	filter := fmt.Sprintf("task_id = '%s'", escapedTaskID)
 	return listRecordsByFilter(r.app, "github_commit_links", filter, "-created", 100, 0, r.recordToCommitLink)
 }
 
 // GetByCommitSHA retrieves a GitHub commit link by commit SHA from PocketBase
 func (r *PocketBaseGitHubCommitLinkRepository) GetByCommitSHA(_ context.Context, integrationID, commitSHA string) (*domain.GitHubCommitLink, error) {
-	filter := fmt.Sprintf("integration_id = '%s' && commit_sha = '%s'", integrationID, commitSHA)
+	escapedIntegrationID := escapeFilterValue(integrationID)
+	escapedCommitSHA := escapeFilterValue(commitSHA)
+	filter := fmt.Sprintf("integration_id = '%s' && commit_sha = '%s'", escapedIntegrationID, escapedCommitSHA)
 	record, err := r.app.FindFirstRecordByFilter("github_commit_links", filter)
 	if err != nil {
 		return nil, fmt.Errorf("GitHub commit link not found: %w", err)
@@ -589,7 +635,9 @@ func (r *PocketBaseGitHubPRMappingRepository) Create(_ context.Context, mapping 
 
 // GetByTaskID retrieves a GitHub PR mapping by task ID from PocketBase
 func (r *PocketBaseGitHubPRMappingRepository) GetByTaskID(_ context.Context, taskID string) (*domain.GitHubPRMapping, error) {
-	record, err := r.app.FindFirstRecordByFilter("github_pr_mappings", fmt.Sprintf("task_id = '%s'", taskID))
+	escapedTaskID := escapeFilterValue(taskID)
+	filter := fmt.Sprintf("task_id = '%s'", escapedTaskID)
+	record, err := r.app.FindFirstRecordByFilter("github_pr_mappings", filter)
 	if err != nil {
 		return nil, fmt.Errorf("GitHub PR mapping not found: %w", err)
 	}
@@ -599,7 +647,8 @@ func (r *PocketBaseGitHubPRMappingRepository) GetByTaskID(_ context.Context, tas
 
 // GetByPRNumber retrieves a GitHub PR mapping by PR number from PocketBase
 func (r *PocketBaseGitHubPRMappingRepository) GetByPRNumber(_ context.Context, integrationID string, prNumber int) (*domain.GitHubPRMapping, error) {
-	filter := fmt.Sprintf("integration_id = '%s' && pr_number = %d", integrationID, prNumber)
+	escapedIntegrationID := escapeFilterValue(integrationID)
+	filter := fmt.Sprintf("integration_id = '%s' && pr_number = %d", escapedIntegrationID, prNumber)
 	record, err := r.app.FindFirstRecordByFilter("github_pr_mappings", filter)
 	if err != nil {
 		return nil, fmt.Errorf("GitHub PR mapping not found: %w", err)
@@ -768,7 +817,7 @@ func (r *PocketBaseGitHubWebhookEventRepository) MarkError(_ context.Context, id
 
 // ListUnprocessed retrieves unprocessed GitHub webhook events from PocketBase
 func (r *PocketBaseGitHubWebhookEventRepository) ListUnprocessed(_ context.Context, limit int) ([]*domain.GitHubWebhookEvent, error) {
-	records, err := r.app.FindRecordsByFilter("github_webhook_events", "processed_at = ''", "-created", limit, 0)
+	records, err := r.app.FindRecordsByFilter("github_webhook_events", "processed_at IS NULL", "-created", limit, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find unprocessed webhook events: %w", err)
 	}
@@ -803,12 +852,38 @@ func (r *PocketBaseGitHubWebhookEventRepository) CleanupOld(_ context.Context, o
 }
 
 func (r *PocketBaseGitHubWebhookEventRepository) recordToWebhookEvent(record *core.Record) (*domain.GitHubWebhookEvent, error) {
+	// Get payload as raw JSON bytes
+	var payloadBytes []byte
+	if payload := record.Get("payload"); payload != nil {
+		switch p := payload.(type) {
+		case []byte:
+			payloadBytes = p
+		case string:
+			// Backward compatibility for string payloads
+			payloadBytes = []byte(p)
+		case map[string]interface{}:
+			// Handle JSON object
+			var err error
+			payloadBytes, err = json.Marshal(p)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal payload: %w", err)
+			}
+		default:
+			// Try to marshal any other type
+			var err error
+			payloadBytes, err = json.Marshal(p)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal payload of type %T: %w", p, err)
+			}
+		}
+	}
+
 	event := &domain.GitHubWebhookEvent{
 		ID:            record.Id,
 		IntegrationID: record.GetString("integration_id"),
 		EventType:     record.GetString("event_type"),
 		Action:        record.GetString("action"),
-		Payload:       record.GetString("payload"),
+		Payload:       payloadBytes,
 		CreatedAt:     record.GetDateTime("created").Time(),
 	}
 

@@ -9,12 +9,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/go-github/v66/github"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 const (
@@ -24,6 +25,7 @@ const (
 // GitHubWebhookService handles GitHub webhook events
 type GitHubWebhookService struct {
 	secret           string
+	allowUnsigned    bool // Allow unsigned webhooks (dev mode only)
 	integrationRepo  GitHubIntegrationRepository
 	webhookEventRepo GitHubWebhookEventRepository
 	githubService    *GitHubService
@@ -50,6 +52,7 @@ type WebhookEventHandler interface {
 // NewGitHubWebhookService creates a new webhook service
 func NewGitHubWebhookService(
 	secret string,
+	allowUnsigned bool,
 	integrationRepo GitHubIntegrationRepository,
 	webhookEventRepo GitHubWebhookEventRepository,
 	githubService *GitHubService,
@@ -57,6 +60,7 @@ func NewGitHubWebhookService(
 ) *GitHubWebhookService {
 	service := &GitHubWebhookService{
 		secret:           secret,
+		allowUnsigned:    allowUnsigned,
 		integrationRepo:  integrationRepo,
 		webhookEventRepo: webhookEventRepo,
 		githubService:    githubService,
@@ -145,16 +149,24 @@ func (s *GitHubWebhookService) HandleWebhook(w http.ResponseWriter, r *http.Requ
 		ID:            deliveryID,
 		IntegrationID: integration.ID,
 		EventType:     eventType,
-		Payload:       string(body),
+		Payload:       body, // Store as raw JSON bytes
 		CreatedAt:     time.Now(),
 	}
 
 	if err := s.webhookEventRepo.Create(ctx, webhookEvent); err != nil {
-		// Log error but don't fail the webhook
+		// Log the full error
 		fmt.Printf("Failed to store webhook event: %v\n", err)
+		
+		// Determine appropriate error response based on error type
+		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
+			http.Error(w, "Duplicate webhook delivery", http.StatusConflict)
+		} else {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
 	}
 
-	// Process event asynchronously
+	// Process event asynchronously only after successful persistence
 	go s.processWebhookEvent(context.Background(), integration, webhookEvent)
 
 	w.WriteHeader(http.StatusOK)
@@ -174,7 +186,7 @@ func (s *GitHubWebhookService) processWebhookEvent(ctx context.Context, integrat
 	}
 
 	// Parse payload based on event type
-	payload, err := s.parsePayload(event.EventType, []byte(event.Payload))
+	payload, err := s.parsePayload(event.EventType, event.Payload)
 	if err != nil {
 		if markErr := s.webhookEventRepo.MarkError(ctx, event.ID, fmt.Sprintf("Failed to parse payload: %v", err)); markErr != nil {
 			// TODO: Add proper logging for database error
@@ -205,7 +217,9 @@ func (s *GitHubWebhookService) processWebhookEvent(ctx context.Context, integrat
 // verifySignature verifies the webhook signature
 func (s *GitHubWebhookService) verifySignature(signature string, body []byte) bool {
 	if s.secret == "" {
-		return true // Skip verification if no secret configured
+		// Fail-closed by default: require secret configuration for security
+		// Only allow unsigned webhooks if explicitly enabled (dev mode)
+		return s.allowUnsigned
 	}
 
 	if !strings.HasPrefix(signature, "sha256=") {
@@ -299,12 +313,21 @@ func (h *PushEventHandler) Handle(ctx context.Context, integration *domain.GitHu
 }
 
 func (h *PushEventHandler) extractTaskIDFromReference(ref string) string {
-	// Implement task ID extraction logic based on your reference format
-	// This is a simplified implementation
+	// Normalize: lowercase and trim whitespace
 	ref = strings.ToLower(strings.TrimSpace(ref))
-	if strings.HasPrefix(ref, "task-") {
-		return strings.TrimPrefix(ref, "task-")
+	
+	// Remove surrounding quotes and punctuation
+	ref = strings.Trim(ref, "\"'`()[]{}.,;:")
+	
+	// Use regex to match optional prefix followed by alphanumeric ID
+	// Accepts prefixes: task-, t-, #, or no prefix
+	re := regexp.MustCompile(`^(?:task-|t-|#)?([0-9A-Za-z]+)`)
+	matches := re.FindStringSubmatch(ref)
+	
+	if len(matches) > 1 {
+		return matches[1] // Return the captured ID group
 	}
+	
 	return ""
 }
 
@@ -494,10 +517,19 @@ func (h *IssuesEventHandler) handleEditedIssue(ctx context.Context, _ *domain.Gi
 		return nil // Don't sync back to task
 	}
 
-	// Update task with issue changes
-	updateReq := domain.UpdateTaskRequest{
-		Title:       &[]string{issue.GetTitle()}[0],
-		Description: &[]string{issue.GetBody()}[0],
+	// Create local variables to avoid temporary addresses and empty overwrites
+	title := issue.GetTitle()
+	body := issue.GetBody()
+	
+	// Update task with issue changes, only setting non-empty values
+	updateReq := domain.UpdateTaskRequest{}
+	
+	if title != "" {
+		updateReq.Title = &title
+	}
+	
+	if body != "" {
+		updateReq.Description = &body
 	}
 
 	_, err := h.service.taskService.UpdateTask(ctx, mapping.TaskID, updateReq, "")

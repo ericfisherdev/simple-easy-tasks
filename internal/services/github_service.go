@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/go-github/v66/github"
 
-	"simple-easy-tasks/internal/domain"
+	"github.com/ericfisherdev/simple-easy-tasks/internal/domain"
 )
 
 const (
@@ -409,14 +410,37 @@ func (s *GitHubService) generateBranchName(task *domain.Task) string {
 	}
 
 	branchName := cleaned.String()
+	
+	// Collapse repeated hyphens to single hyphens
+	re := regexp.MustCompile("-+")
+	branchName = re.ReplaceAllString(branchName, "-")
+	
+	// Remove leading/trailing hyphens
+	branchName = strings.Trim(branchName, "-")
+
 	if len(branchName) > 50 {
 		branchName = branchName[:50]
+		// Ensure we don't end with a hyphen after truncation
+		branchName = strings.TrimSuffix(branchName, "-")
 	}
 
 	// Add task ID if available
 	if task.ID != "" {
-		branchName = fmt.Sprintf("feature/%s-%s", task.ID[:8], branchName)
+		// Safely take the first up-to-8 characters
+		idPrefix := task.ID
+		if len(idPrefix) > 8 {
+			idPrefix = idPrefix[:8]
+		}
+		// Ensure non-empty branch segment
+		if branchName == "" || branchName == "-" {
+			branchName = "task"
+		}
+		branchName = fmt.Sprintf("feature/%s-%s", idPrefix, branchName)
 	} else {
+		// Ensure non-empty branch name when no task ID
+		if branchName == "" || branchName == "-" {
+			branchName = "task"
+		}
 		branchName = fmt.Sprintf("feature/%s", branchName)
 	}
 
