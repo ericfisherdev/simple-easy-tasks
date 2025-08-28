@@ -62,6 +62,14 @@ type RateLimitConfig interface {
 	GetRedisDB() int
 }
 
+// GitHubConfig interface for GitHub integration configuration.
+type GitHubConfig interface {
+	GetGitHubClientID() string
+	GetGitHubClientSecret() string
+	GetGitHubRedirectURL() string
+	GetGitHubWebhookSecret() string
+}
+
 // AppConfig implements all configuration interfaces.
 type AppConfig struct {
 	serverPort                 string
@@ -72,6 +80,10 @@ type AppConfig struct {
 	logLevel                   string
 	redisAddr                  string
 	redisPassword              string
+	githubClientID             string
+	githubClientSecret         string
+	githubRedirectURL          string
+	githubWebhookSecret        string
 	readTimeout                time.Duration
 	writeTimeout               time.Duration
 	idleTimeout                time.Duration
@@ -99,6 +111,10 @@ func NewConfig() *AppConfig {
 		passwordResetSecret:        getPasswordResetSecret(environment),
 		environment:                environment,
 		logLevel:                   getEnvString("LOG_LEVEL", "info"),
+		githubClientID:             getEnvString("GITHUB_CLIENT_ID", ""),
+		githubClientSecret:         getEnvString("GITHUB_CLIENT_SECRET", ""),
+		githubRedirectURL:          getEnvString("GITHUB_REDIRECT_URL", "http://localhost:8090/api/v1/github/callback"),
+		githubWebhookSecret:        getEnvString("GITHUB_WEBHOOK_SECRET", ""),
 		readTimeout:                getEnvDuration("READ_TIMEOUT", "15s"),
 		writeTimeout:               getEnvDuration("WRITE_TIMEOUT", "15s"),
 		idleTimeout:                getEnvDuration("IDLE_TIMEOUT", "60s"),
@@ -219,6 +235,26 @@ func (c *AppConfig) GetRedisPassword() string {
 // GetRedisDB returns the Redis database number.
 func (c *AppConfig) GetRedisDB() int {
 	return c.redisDB
+}
+
+// GetGitHubClientID returns the GitHub OAuth client ID.
+func (c *AppConfig) GetGitHubClientID() string {
+	return c.githubClientID
+}
+
+// GetGitHubClientSecret returns the GitHub OAuth client secret.
+func (c *AppConfig) GetGitHubClientSecret() string {
+	return c.githubClientSecret
+}
+
+// GetGitHubRedirectURL returns the GitHub OAuth redirect URL.
+func (c *AppConfig) GetGitHubRedirectURL() string {
+	return c.githubRedirectURL
+}
+
+// GetGitHubWebhookSecret returns the GitHub webhook secret.
+func (c *AppConfig) GetGitHubWebhookSecret() string {
+	return c.githubWebhookSecret
 }
 
 // Validate checks if the configuration is valid.
